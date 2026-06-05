@@ -19,11 +19,18 @@ export function displayToIso(disp) {
   return `${y}-${mo}-${d}`
 }
 
-// True only for a real calendar date (rejects 31-02-2026 etc.)
+// True only for a real calendar date (rejects 31-02-2026 etc.).
+// Compares parts directly to avoid any timezone/UTC shift.
 export function isRealISO(iso) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(iso)) return false
-  const dt = new Date(iso + 'T00:00:00')
-  return !isNaN(dt.getTime()) && dt.toISOString().slice(0, 10) === iso
+  const [y, m, d] = iso.split('-').map(Number)
+  if (m < 1 || m > 12 || d < 1 || d > 31) return false
+  const dt = new Date(y, m - 1, d)
+  return dt.getFullYear() === y && dt.getMonth() === m - 1 && dt.getDate() === d
 }
 
-export const isSundayISO = (iso) => isRealISO(iso) && new Date(iso + 'T00:00:00').getDay() === 0
+export function isSundayISO(iso) {
+  if (!isRealISO(iso)) return false
+  const [y, m, d] = iso.split('-').map(Number)
+  return new Date(y, m - 1, d).getDay() === 0
+}
