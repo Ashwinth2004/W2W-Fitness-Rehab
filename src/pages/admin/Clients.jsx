@@ -4,7 +4,9 @@ import { Users, Plus, Search, X, Loader2, BadgeCheck } from 'lucide-react'
 import { watchClients, createClient, findClientByClientId } from '../../lib/firestore'
 import { fmtDate } from '../../lib/format'
 import { SERVICE_OPTIONS } from '../../lib/constants'
+import { isValidMobile, onlyDigits } from '../../lib/validate'
 import ContactActions from '../../components/ContactActions'
+import PhoneField from '../../components/PhoneField'
 
 export default function Clients() {
   const [clients, setClients] = useState([])
@@ -92,7 +94,8 @@ function NewClientForm({ onCreated }) {
   async function submit(e) {
     e.preventDefault()
     setError('')
-    if (!form.name || !form.phone) { setError('Name and phone are required.'); return }
+    if (!form.name.trim()) { setError('Name is required.'); return }
+    if (!isValidMobile(form.phone)) { setError('Enter a valid 10-digit mobile number.'); return }
     setBusy(true)
     try {
       const { id, clientId } = await createClient(form)
@@ -108,10 +111,10 @@ function NewClientForm({ onCreated }) {
       <p className="text-sm text-slate-500">A unique Client ID (e.g. <strong>W2W-0001</strong>) is generated automatically.</p>
       <div className="grid gap-4 sm:grid-cols-2">
         <div><label className="label">Full Name *</label><input className="input" value={form.name} onChange={set('name')} required /></div>
-        <div><label className="label">Phone *</label><input className="input" value={form.phone} onChange={set('phone')} inputMode="tel" required /></div>
+        <div><label className="label">Phone *</label><PhoneField value={form.phone} onChange={(v) => setForm((f) => ({ ...f, phone: v }))} required /></div>
         <div><label className="label">Email</label><input className="input" type="email" value={form.email} onChange={set('email')} /></div>
         <div className="grid grid-cols-2 gap-3">
-          <div><label className="label">Age</label><input className="input" value={form.age} onChange={set('age')} inputMode="numeric" /></div>
+          <div><label className="label">Age</label><input className="input" value={form.age} onChange={(e) => setForm((f) => ({ ...f, age: onlyDigits(e.target.value).slice(0, 3) }))} inputMode="numeric" /></div>
           <div>
             <label className="label">Gender</label>
             <select className="input" value={form.gender} onChange={set('gender')}>

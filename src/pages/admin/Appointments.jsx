@@ -5,7 +5,10 @@ import {
 } from '../../lib/firestore'
 import { fmt12h, fmtDate, todayISO } from '../../lib/format'
 import { SERVICE_OPTIONS } from '../../lib/constants'
+import { isValidMobile } from '../../lib/validate'
 import SlotPicker from '../../components/SlotPicker'
+import DateField from '../../components/DateField'
+import PhoneField from '../../components/PhoneField'
 import ContactActions from '../../components/ContactActions'
 import StatusBadge from '../../components/StatusBadge'
 
@@ -151,10 +154,10 @@ function AddAppointmentForm({ onDone }) {
   async function submit(e) {
     e.preventDefault()
     setError('')
-    if (!form.name || !form.phone || !form.date || !form.time) {
-      setError('Name, phone, date and time are required.')
-      return
-    }
+    if (!form.name.trim()) { setError('Client name is required.'); return }
+    if (!isValidMobile(form.phone)) { setError('Enter a valid 10-digit mobile number.'); return }
+    if (!form.date) { setError('Choose a valid date (DD-MM-YYYY).'); return }
+    if (!form.time) { setError('Pick a time slot.'); return }
     setBusy(true)
     try {
       await addAppointmentByAdmin(form)
@@ -169,7 +172,7 @@ function AddAppointmentForm({ onDone }) {
     <form onSubmit={submit} className="card animate-fade-in space-y-4 p-5">
       <div className="grid gap-4 sm:grid-cols-2">
         <div><label className="label">Client Name *</label><input className="input" value={form.name} onChange={set('name')} required /></div>
-        <div><label className="label">Phone *</label><input className="input" value={form.phone} onChange={set('phone')} inputMode="tel" required /></div>
+        <div><label className="label">Phone *</label><PhoneField value={form.phone} onChange={(v) => setForm((f) => ({ ...f, phone: v }))} required /></div>
       </div>
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
@@ -177,8 +180,8 @@ function AddAppointmentForm({ onDone }) {
           <select className="input" value={form.service} onChange={set('service')}>{SERVICE_OPTIONS.map((s) => <option key={s}>{s}</option>)}</select>
         </div>
         <div>
-          <label className="label">Date *</label>
-          <input className="input" type="date" min={todayISO()} value={form.date} onChange={(e) => setForm((f) => ({ ...f, date: e.target.value, time: '' }))} required />
+          <label className="label">Date * <span className="font-normal text-slate-400">(DD-MM-YYYY)</span></label>
+          <DateField value={form.date} onChange={(iso) => setForm((f) => ({ ...f, date: iso, time: '' }))} min={todayISO()} blockSunday />
         </div>
       </div>
       {form.date && (

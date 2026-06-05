@@ -1,9 +1,12 @@
 import { useState } from 'react'
 import { CalendarCheck, CheckCircle2, Loader2 } from 'lucide-react'
 import SlotPicker, { formatTime } from './SlotPicker'
+import DateField from './DateField'
+import PhoneField from './PhoneField'
 import { bookAppointment } from '../lib/firestore'
 import { notifyClinic } from '../lib/email'
 import { SERVICE_OPTIONS, BUSINESS } from '../lib/constants'
+import { isValidMobile } from '../lib/validate'
 
 const todayStr = () => new Date().toISOString().slice(0, 10)
 const maxStr = () => {
@@ -27,19 +30,13 @@ export default function BookingForm({ preset = {}, onDone }) {
 
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }))
 
-  const isSunday = form.date && new Date(form.date + 'T00:00').getDay() === 0
-
   async function handleSubmit(e) {
     e.preventDefault()
     setError('')
-    if (!form.name || !form.phone || !form.date || !form.time) {
-      setError('Please fill your name, phone, date and pick a time slot.')
-      return
-    }
-    if (isSunday) {
-      setError('We are closed on Sundays. Please pick another day.')
-      return
-    }
+    if (!form.name.trim()) { setError('Please enter your name.'); return }
+    if (!isValidMobile(form.phone)) { setError('Enter a valid 10-digit mobile number.'); return }
+    if (!form.date) { setError('Please choose a valid date (DD-MM-YYYY).'); return }
+    if (!form.time) { setError('Please pick a time slot.'); return }
     setStatus('saving')
     try {
       await bookAppointment({
@@ -103,7 +100,7 @@ export default function BookingForm({ preset = {}, onDone }) {
         </div>
         <div>
           <label className="label">Phone / Mobile *</label>
-          <input className="input" value={form.phone} onChange={set('phone')} placeholder="10-digit mobile" inputMode="tel" required />
+          <PhoneField value={form.phone} onChange={(v) => setForm((f) => ({ ...f, phone: v }))} required />
         </div>
       </div>
 
@@ -123,20 +120,17 @@ export default function BookingForm({ preset = {}, onDone }) {
       </div>
 
       <div>
-        <label className="label">Preferred Date *</label>
-        <input
-          className="input"
-          type="date"
+        <label className="label">Preferred Date * <span className="font-normal text-slate-400">(DD-MM-YYYY)</span></label>
+        <DateField
+          value={form.date}
+          onChange={(iso) => setForm((f) => ({ ...f, date: iso, time: '' }))}
           min={todayStr()}
           max={maxStr()}
-          value={form.date}
-          onChange={(e) => setForm((f) => ({ ...f, date: e.target.value, time: '' }))}
-          required
+          blockSunday
         />
-        {isSunday && <p className="mt-1 text-sm text-red-500">We are closed on Sundays.</p>}
       </div>
 
-      {form.date && !isSunday && (
+      {form.date && (
         <div>
           <label className="label">Pick a Time Slot *</label>
           <SlotPicker date={form.date} value={form.time} onChange={(t) => setForm((f) => ({ ...f, time: t }))} />

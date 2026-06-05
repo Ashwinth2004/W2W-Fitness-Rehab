@@ -28,14 +28,14 @@ export default function Home() {
   return (
     <>
       {/* HERO */}
-      <section className="relative overflow-hidden bg-gradient-to-br from-brand-50 via-white to-brand-50">
+      <section className="mesh-bg relative overflow-hidden bg-gradient-to-br from-brand-50 via-white to-brand-50">
         <div className="absolute -right-24 -top-24 h-96 w-96 rounded-full bg-brand-200/40 blur-3xl" />
         <div className="absolute -bottom-32 -left-24 h-96 w-96 rounded-full bg-brand-100/60 blur-3xl" />
         <div className="container-page relative grid items-center gap-10 py-16 md:grid-cols-2 md:py-24">
           <div className="animate-fade-in">
             <span className="badge bg-brand-100 text-brand-700">{BUSINESS.tagline} · Mylapore, Chennai</span>
             <h1 className="mt-4 text-4xl font-extrabold leading-tight text-slate-900 md:text-5xl lg:text-6xl">
-              Your Journey to <span className="text-brand-600">Strength</span> Starts Here!
+              Your Journey to <span className="gradient-text">Strength</span> Starts Here!
             </h1>
             <p className="mt-5 max-w-lg text-lg text-slate-600">
               Expert physiotherapy, rehabilitation, yoga and lifestyle fitness — personalised to help you move better,

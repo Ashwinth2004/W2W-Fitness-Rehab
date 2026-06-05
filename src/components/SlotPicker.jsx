@@ -17,11 +17,15 @@ export default function SlotPicker({ date, value, onChange }) {
   useEffect(() => {
     if (!date) return
     setLoading(true)
+    let settled = false
     const unsub = watchBookedTimes(date, (times) => {
+      settled = true
       setBooked(times)
       setLoading(false)
     })
-    return unsub
+    // Safety net: never show "Loading…" forever.
+    const t = setTimeout(() => { if (!settled) setLoading(false) }, 6000)
+    return () => { clearTimeout(t); unsub() }
   }, [date])
 
   if (!date) {

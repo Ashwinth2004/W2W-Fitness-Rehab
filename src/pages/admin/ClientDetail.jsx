@@ -13,7 +13,10 @@ import {
 } from '../../lib/firestore'
 import { fmtDate, todayISO } from '../../lib/format'
 import { SERVICE_OPTIONS } from '../../lib/constants'
+import { onlyDigits } from '../../lib/validate'
 import ContactActions from '../../components/ContactActions'
+import DateField from '../../components/DateField'
+import PhoneField from '../../components/PhoneField'
 import { generateClientReport } from '../../lib/pdf'
 
 export default function ClientDetail() {
@@ -138,7 +141,7 @@ function ProgressSection({ clientId, progress }) {
   async function add(e) {
     e.preventDefault()
     await addProgress(clientId, {
-      date: form.date,
+      date: form.date || todayISO(),
       pain: form.pain === '' ? null : Number(form.pain),
       rom: form.rom,
       weight: form.weight === '' ? null : Number(form.weight),
@@ -158,8 +161,8 @@ function ProgressSection({ clientId, progress }) {
 
       {open && (
         <form onSubmit={add} className="mb-5 grid gap-3 rounded-xl bg-slate-50 p-4 sm:grid-cols-5">
-          <div><label className="label text-xs">Date</label><input className="input" type="date" value={form.date} onChange={set('date')} max={todayISO()} /></div>
-          <div><label className="label text-xs">Pain (0-10)</label><input className="input" inputMode="numeric" value={form.pain} onChange={set('pain')} placeholder="0-10" /></div>
+          <div><label className="label text-xs">Date (DD-MM-YYYY)</label><DateField value={form.date} onChange={(iso) => setForm((f) => ({ ...f, date: iso }))} max={todayISO()} /></div>
+          <div><label className="label text-xs">Pain (0-10)</label><input className="input" inputMode="numeric" value={form.pain} onChange={(e) => setForm((f) => ({ ...f, pain: onlyDigits(e.target.value).slice(0, 2) }))} placeholder="0-10" /></div>
           <div className="sm:col-span-2"><label className="label text-xs">ROM / Notes</label><input className="input" value={form.rom} onChange={set('rom')} placeholder="e.g. Knee flexion 110°" /></div>
           <div><label className="label text-xs">Weight (kg)</label><input className="input" inputMode="decimal" value={form.weight} onChange={set('weight')} /></div>
           <div className="sm:col-span-5 flex justify-end"><button className="btn-primary px-4 py-2 text-sm"><Save size={16} /> Save</button></div>
@@ -214,7 +217,7 @@ function NotesSection({ clientId, notes }) {
   async function add(e) {
     e.preventDefault()
     if (!form.text.trim()) return
-    await addClientNote(clientId, { date: form.date, text: form.text.trim() })
+    await addClientNote(clientId, { date: form.date || todayISO(), text: form.text.trim() })
     setForm({ date: todayISO(), text: '' })
   }
 
@@ -222,7 +225,7 @@ function NotesSection({ clientId, notes }) {
     <div className="card p-5">
       <h2 className="mb-4 flex items-center gap-2 font-bold text-slate-900"><NotebookPen size={18} className="text-brand-600" /> Visit Notes & Report Entries</h2>
       <form onSubmit={add} className="mb-5 grid gap-3 rounded-xl bg-slate-50 p-4 sm:grid-cols-[160px,1fr,auto] sm:items-end">
-        <div><label className="label text-xs">Date</label><input className="input" type="date" value={form.date} onChange={set('date')} /></div>
+        <div><label className="label text-xs">Date (DD-MM-YYYY)</label><DateField value={form.date} onChange={(iso) => setForm((f) => ({ ...f, date: iso }))} max={todayISO()} /></div>
         <div><label className="label text-xs">Note / Report text</label><textarea className="input min-h-[44px]" value={form.text} onChange={set('text')} placeholder="Assessment, treatment given, observations, next plan…" /></div>
         <button className="btn-primary"><Plus size={16} /> Add</button>
       </form>
@@ -273,10 +276,10 @@ function EditClientModal({ client, onClose, onSaved }) {
         </div>
         <div className="grid gap-4 sm:grid-cols-2">
           <div><label className="label">Name</label><input className="input" value={form.name || ''} onChange={set('name')} /></div>
-          <div><label className="label">Phone</label><input className="input" value={form.phone || ''} onChange={set('phone')} /></div>
+          <div><label className="label">Phone</label><PhoneField value={form.phone || ''} onChange={(v) => setForm((f) => ({ ...f, phone: v }))} /></div>
           <div><label className="label">Email</label><input className="input" value={form.email || ''} onChange={set('email')} /></div>
           <div className="grid grid-cols-2 gap-3">
-            <div><label className="label">Age</label><input className="input" value={form.age || ''} onChange={set('age')} /></div>
+            <div><label className="label">Age</label><input className="input" value={form.age || ''} onChange={(e) => setForm((f) => ({ ...f, age: onlyDigits(e.target.value).slice(0, 3) }))} /></div>
             <div><label className="label">Gender</label><select className="input" value={form.gender || ''} onChange={set('gender')}><option value="">—</option><option>Male</option><option>Female</option><option>Other</option></select></div>
           </div>
           <div><label className="label">Address</label><input className="input" value={form.address || ''} onChange={set('address')} /></div>

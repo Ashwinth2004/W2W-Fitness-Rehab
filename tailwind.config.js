@@ -4,19 +4,27 @@ export default {
   theme: {
     extend: {
       colors: {
-        // W2W teal/cyan brand palette (sampled from the logo)
+        // W2W teal/cyan brand palette (sampled from the logo gradient)
         brand: {
-          50: '#eef9fb',
-          100: '#d2eff3',
-          200: '#a9dfe7',
-          300: '#73c7d4',
-          400: '#3bb6c9',
-          500: '#129cb1',
-          600: '#0e8ba1', // primary
-          700: '#0d6f83',
-          800: '#0f5b6c',
-          900: '#114c5b',
-          950: '#06303b',
+          50: '#ecfdff',
+          100: '#cef7fd',
+          200: '#a2edfa',
+          300: '#62ddf2',
+          400: '#22c4e3',
+          500: '#08a6c7',
+          600: '#0986a8', // primary
+          700: '#0d6c89',
+          800: '#135870',
+          900: '#14495e',
+          950: '#062f3f',
+        },
+        // Warm accent used sparingly for energy/highlights
+        accent: {
+          50: '#fff7ed',
+          100: '#ffedd5',
+          400: '#fb923c',
+          500: '#f97316',
+          600: '#ea580c',
         },
       },
       fontFamily: {

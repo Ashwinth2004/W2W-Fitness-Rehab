@@ -46,8 +46,14 @@ export async function getBookedTimes(date) {
 }
 
 export function watchBookedTimes(date, cb) {
-  return onSnapshot(doc(db, 'availability', date), (snap) =>
-    cb(snap.exists() ? snap.data().times || [] : [])
+  return onSnapshot(
+    doc(db, 'availability', date),
+    (snap) => cb(snap.exists() ? snap.data().times || [] : []),
+    (err) => {
+      // Don't hang the UI if the read is denied (e.g. rules not published yet).
+      console.warn('availability read failed:', err?.code || err)
+      cb([])
+    }
   )
 }
 

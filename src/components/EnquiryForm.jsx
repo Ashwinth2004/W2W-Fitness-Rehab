@@ -3,6 +3,8 @@ import { Send, CheckCircle2, Loader2 } from 'lucide-react'
 import { createEnquiry } from '../lib/firestore'
 import { notifyClinic } from '../lib/email'
 import { SERVICE_OPTIONS } from '../lib/constants'
+import { isValidMobile } from '../lib/validate'
+import PhoneField from './PhoneField'
 
 export default function EnquiryForm() {
   const [form, setForm] = useState({ name: '', phone: '', email: '', service: SERVICE_OPTIONS[0], message: '' })
@@ -13,10 +15,8 @@ export default function EnquiryForm() {
   async function handleSubmit(e) {
     e.preventDefault()
     setError('')
-    if (!form.name || !form.phone) {
-      setError('Please share at least your name and phone number.')
-      return
-    }
+    if (!form.name.trim()) { setError('Please enter your name.'); return }
+    if (!isValidMobile(form.phone)) { setError('Enter a valid 10-digit mobile number.'); return }
     setStatus('saving')
     try {
       await createEnquiry({
@@ -53,7 +53,7 @@ export default function EnquiryForm() {
         </div>
         <div>
           <label className="label">Phone *</label>
-          <input className="input" value={form.phone} onChange={set('phone')} placeholder="Mobile number" inputMode="tel" required />
+          <PhoneField value={form.phone} onChange={(v) => setForm((f) => ({ ...f, phone: v }))} required />
         </div>
       </div>
       <div className="grid gap-4 sm:grid-cols-2">
