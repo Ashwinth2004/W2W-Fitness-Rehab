@@ -32,16 +32,16 @@ export default function Home() {
         <div className="absolute -right-24 -top-24 h-96 w-96 rounded-full bg-brand-200/40 blur-3xl" />
         <div className="absolute -bottom-32 -left-24 h-96 w-96 rounded-full bg-brand-100/60 blur-3xl" />
         <div className="container-page relative grid items-center gap-10 py-16 md:grid-cols-2 md:py-24">
-          <div className="animate-fade-in">
+          <div className="animate-fade-in text-center md:text-left">
             <span className="badge bg-brand-100 text-brand-700">{BUSINESS.tagline} · Mylapore, Chennai</span>
             <h1 className="mt-4 text-4xl font-extrabold leading-tight text-slate-900 md:text-5xl lg:text-6xl">
               Your Journey to <span className="gradient-text">Strength</span> Starts Here!
             </h1>
-            <p className="mt-5 max-w-lg text-lg text-slate-600">
+            <p className="mx-auto mt-5 max-w-lg text-lg text-slate-600 md:mx-0">
               Expert physiotherapy, rehabilitation, yoga and lifestyle fitness — personalised to help you move better,
               heal faster and live pain-free.
             </p>
-            <div className="mt-8 flex flex-wrap gap-3">
+            <div className="mt-8 flex flex-wrap justify-center gap-3 md:justify-start">
               <button onClick={() => openBooking()} className="btn-primary">
                 <CalendarCheck size={18} /> Book Appointment
               </button>
@@ -49,7 +49,7 @@ export default function Home() {
                 Explore Services <ArrowRight size={18} />
               </Link>
             </div>
-            <p className="mt-6 flex items-center gap-2 text-sm text-slate-500">
+            <p className="mt-6 flex items-center justify-center gap-2 text-sm text-slate-500 md:justify-start">
               <ShieldCheck size={18} className="text-brand-500" /> Trusted by athletes, post-surgery & elderly clients alike.
             </p>
           </div>
@@ -90,12 +90,24 @@ export default function Home() {
           </div>
           <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
             {SERVICES.map((s) => (
-              <div key={s.id} className="card group p-6 transition hover:-translate-y-1 hover:shadow-soft">
-                <div className="grid h-14 w-14 place-items-center rounded-2xl bg-brand-50 text-brand-600 transition group-hover:bg-brand-600 group-hover:text-white">
-                  <ServiceIcon name={s.icon} size={26} />
+              <div key={s.id} className="card group overflow-hidden transition hover:-translate-y-1 hover:shadow-soft">
+                <div className="h-44 overflow-hidden">
+                  <img
+                    src={s.image}
+                    alt={s.title}
+                    loading="lazy"
+                    className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
+                  />
                 </div>
-                <h3 className="mt-4 text-lg font-bold">{s.title}</h3>
-                <p className="mt-2 text-sm text-slate-600">{s.short}</p>
+                <div className="p-6">
+                  <div className="mb-3 flex items-center gap-3">
+                    <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-brand-50 text-brand-600 transition group-hover:bg-brand-600 group-hover:text-white">
+                      <ServiceIcon name={s.icon} size={22} />
+                    </div>
+                    <h3 className="text-lg font-bold">{s.title}</h3>
+                  </div>
+                  <p className="text-sm text-slate-600">{s.short}</p>
+                </div>
               </div>
             ))}
           </div>
@@ -108,21 +120,21 @@ export default function Home() {
       {/* WHY US */}
       <section className="bg-brand-950 py-16 text-white md:py-24">
         <div className="container-page grid items-center gap-12 md:grid-cols-2">
-          <div>
+          <div className="text-center md:text-left">
             <span className="mb-2 inline-block text-sm font-semibold uppercase tracking-wider text-brand-400">Why W2W</span>
-            <h2 className="text-3xl font-bold md:text-4xl">Experience the W2W Difference</h2>
+            <h2 className="text-3xl font-bold text-white md:text-4xl">Experience the W2W Difference</h2>
             <p className="mt-4 text-brand-100">
               Led by internationally experienced ACE &amp; ACSM-certified professionals with expertise in Hatha Yoga,
               we bring a decade of wellness and rehabilitation expertise to help you move and heal better.
             </p>
             <ul className="mt-6 space-y-3">
               {WHY.map((w) => (
-                <li key={w} className="flex items-start gap-3 text-brand-50">
+                <li key={w} className="flex items-start justify-center gap-3 text-left text-brand-50 md:justify-start">
                   <CheckCircle2 className="mt-0.5 shrink-0 text-brand-400" size={20} /> {w}
                 </li>
               ))}
             </ul>
-            <button onClick={() => openBooking()} className="btn-primary mt-8 bg-white !text-brand-700 hover:bg-brand-50">
+            <button onClick={() => openBooking()} className="btn-white mt-8">
               <CalendarCheck size={18} /> Start Your Journey
             </button>
           </div>
@@ -154,9 +166,18 @@ export default function Home() {
             {FOUNDERS.map((f) => (
               <div key={f.name} className="card p-6 sm:p-8">
                 <div className="flex items-center gap-4">
-                  <div className="grid h-16 w-16 shrink-0 place-items-center rounded-full bg-brand-100 text-2xl font-bold text-brand-700">
-                    {f.name[0]}
-                  </div>
+                  {f.image ? (
+                    <img
+                      src={f.image}
+                      alt={f.name}
+                      loading="lazy"
+                      className="h-16 w-16 shrink-0 rounded-full object-cover ring-2 ring-brand-100"
+                    />
+                  ) : (
+                    <div className="grid h-16 w-16 shrink-0 place-items-center rounded-full bg-brand-100 text-2xl font-bold text-brand-700">
+                      {f.name[0]}
+                    </div>
+                  )}
                   <div>
                     <h3 className="text-xl font-bold">{f.name}</h3>
                     <p className="text-sm font-medium text-brand-600">{f.role}</p>
@@ -178,12 +199,12 @@ export default function Home() {
       <section className="py-16 md:py-24">
         <div className="container-page">
           <div className="overflow-hidden rounded-3xl bg-gradient-to-br from-brand-600 to-brand-800 px-6 py-12 text-center text-white md:px-12 md:py-16">
-            <h2 className="text-3xl font-bold md:text-4xl">Ready to feel your best?</h2>
+            <h2 className="text-3xl font-bold text-white md:text-4xl">Ready to feel your best?</h2>
             <p className="mx-auto mt-3 max-w-xl text-brand-100">
               Book an appointment in under a minute, or follow our journey on Instagram for tips and transformations.
             </p>
             <div className="mt-8 flex flex-wrap justify-center gap-3">
-              <button onClick={() => openBooking()} className="btn-primary bg-white !text-brand-700 hover:bg-brand-50">
+              <button onClick={() => openBooking()} className="btn-white">
                 <CalendarCheck size={18} /> Book Now
               </button>
               <a href={BUSINESS.instagram} target="_blank" rel="noreferrer" className="btn-outline border-white !text-white hover:bg-white/10">

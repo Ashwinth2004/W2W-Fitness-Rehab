@@ -37,6 +37,7 @@ export const SERVICES = [
       'Manual therapy & dry needling',
     ],
     icon: 'Activity',
+    image: '/images/service-physiotherapy.jpg',
   },
   {
     id: 'yoga',
@@ -49,6 +50,7 @@ export const SERVICES = [
       'Breathwork & mindfulness',
     ],
     icon: 'Flower2',
+    image: '/images/service-yoga.jpg',
   },
   {
     id: 'lifestyle-fitness',
@@ -61,6 +63,7 @@ export const SERVICES = [
       'Functional fitness coaching',
     ],
     icon: 'Dumbbell',
+    image: '/images/service-fitness.jpg',
   },
   {
     id: 'w2w-academy',
@@ -73,6 +76,7 @@ export const SERVICES = [
       '100+ students trained in 6 months',
     ],
     icon: 'GraduationCap',
+    image: '/images/clinic-1.jpg',
   },
 ]
 
@@ -82,20 +86,27 @@ export const FOUNDERS = [
     role: 'Head Physiotherapist & Founder',
     instagram: 'https://www.instagram.com/98sakthisaravanan',
     bio: 'Head physiotherapist and Way to Wellness founder with six years of experience. BPT, M.Sc. in Exercise Physiology & Nutrition, Diploma in Manual Therapy, certified in evidence-based orthopaedic manual therapy and certified dry needling practitioner. Worked with the Tamil Nadu senior women’s football squad for two years.',
+    image: '/images/founder-sakthi.jpg',
   },
   {
     name: 'Akash Pariyar',
     role: 'Fitness Director',
     instagram: 'https://www.instagram.com/akash_8_pariyar',
     bio: 'An internationally certified fitness professional with close to a decade of experience in health and wellness. Holds credentials from the American Council on Exercise (ACE) and the American College of Sports Medicine (ACSM), with formal training in Hatha Yoga, bringing a comprehensive and integrative approach to fitness.',
+    image: '/images/founder-akash.jpg',
   },
 ]
 
-// Operating slots (instant auto-confirm booking). One-hour slots, Mon–Sat.
-export const SLOT_TIMES = [
-  '06:00', '07:00', '08:00', '09:00', '10:00', '11:00',
-  '12:00', '16:00', '17:00', '18:00', '19:00', '20:00',
-]
+// Operating window — kept in sync with the opening hours shown on the Contact
+// page (BUSINESS.hours: Monday–Saturday, 6:00 AM – 9:00 PM). One-hour sessions;
+// the last one starts at 8:00 PM and ends at 9:00 PM. Sundays are closed (the
+// date picker blocks them). Slots are generated so they always match the hours.
+const OPEN_HOUR = 6   // first session starts 6:00 AM
+const CLOSE_HOUR = 21 // clinic closes 9:00 PM
+export const SLOT_TIMES = Array.from(
+  { length: CLOSE_HOUR - OPEN_HOUR },
+  (_, i) => `${String(OPEN_HOUR + i).padStart(2, '0')}:00`
+)
 
 export const SERVICE_OPTIONS = SERVICES.map((s) => s.title)
 

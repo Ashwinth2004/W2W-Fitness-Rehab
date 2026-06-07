@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { CalendarCheck, CheckCircle2, Loader2 } from 'lucide-react'
+import { CalendarCheck, CheckCircle2, Loader2, Clock } from 'lucide-react'
 import SlotPicker, { formatTime } from './SlotPicker'
 import DateField from './DateField'
 import PhoneField from './PhoneField'
@@ -128,6 +128,10 @@ export default function BookingForm({ preset = {}, onDone }) {
           max={maxStr()}
           blockSunday
         />
+        <p className="mt-2 flex items-center gap-1.5 text-xs text-slate-500">
+          <Clock size={13} className="shrink-0 text-brand-500" />
+          Open {BUSINESS.hours[0].day} · {BUSINESS.hours[0].time}. {BUSINESS.hours[1].day}s closed.
+        </p>
       </div>
 
       {form.date && (

@@ -23,8 +23,8 @@ export default function About() {
             { icon: Eye, t: 'Our Vision', d: 'To be Chennai’s most trusted destination for physiotherapy, rehabilitation and holistic fitness.' },
             { icon: Heart, t: 'Our Values', d: 'Empathy, expertise and results — every session is personalised, effective and genuinely caring.' },
           ].map((c) => (
-            <div key={c.t} className="card p-7">
-              <div className="grid h-14 w-14 place-items-center rounded-2xl bg-brand-50 text-brand-600">
+            <div key={c.t} className="card p-7 text-center md:text-left">
+              <div className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-brand-50 text-brand-600 md:mx-0">
                 <c.icon size={26} />
               </div>
               <h3 className="mt-4 text-xl font-bold">{c.t}</h3>
@@ -45,9 +45,18 @@ export default function About() {
             {FOUNDERS.map((f) => (
               <div key={f.name} className="card p-7">
                 <div className="flex items-center gap-4">
-                  <div className="grid h-16 w-16 shrink-0 place-items-center rounded-full bg-brand-100 text-2xl font-bold text-brand-700">
-                    {f.name[0]}
-                  </div>
+                  {f.image ? (
+                    <img
+                      src={f.image}
+                      alt={f.name}
+                      loading="lazy"
+                      className="h-16 w-16 shrink-0 rounded-full object-cover ring-2 ring-brand-100"
+                    />
+                  ) : (
+                    <div className="grid h-16 w-16 shrink-0 place-items-center rounded-full bg-brand-100 text-2xl font-bold text-brand-700">
+                      {f.name[0]}
+                    </div>
+                  )}
                   <div>
                     <h3 className="text-xl font-bold">{f.name}</h3>
                     <p className="text-sm font-medium text-brand-600">{f.role}</p>
@@ -66,22 +75,30 @@ export default function About() {
       {/* Academy */}
       <section className="py-14 md:py-20">
         <div className="container-page">
-          <div className="overflow-hidden rounded-3xl bg-brand-950 px-6 py-12 text-white md:px-12 md:py-16">
-            <div className="grid items-center gap-8 md:grid-cols-[auto,1fr]">
-              <div className="grid h-20 w-20 place-items-center rounded-2xl bg-white/10">
-                <GraduationCap size={40} className="text-brand-300" />
-              </div>
-              <div>
-                <h2 className="text-3xl font-bold">W2W Academy</h2>
-                <p className="mt-3 max-w-2xl text-brand-100">
+          <div className="overflow-hidden rounded-3xl bg-brand-950 text-white">
+            <div className="grid items-center md:grid-cols-2">
+              <div className="p-8 text-center md:p-12 md:text-left">
+                <div className="mb-4 inline-grid h-14 w-14 place-items-center rounded-2xl bg-white/10">
+                  <GraduationCap size={30} className="text-brand-300" />
+                </div>
+                <h2 className="text-3xl font-bold text-white">W2W Academy</h2>
+                <p className="mt-3 text-brand-100">
                   Shaping future physiotherapists. We empower aspiring professionals through hands-on workshops covering
                   anatomy, biomechanics, exercise prescription, case discussions and treatment approaches. In just six
                   months, we’ve trained <strong className="text-white">100+ students</strong> with the skills and
                   confidence to excel.
                 </p>
-                <button onClick={() => openBooking({ service: 'W2W Academy' })} className="btn-primary mt-6 bg-white !text-brand-700 hover:bg-brand-50">
+                <button onClick={() => openBooking({ service: 'W2W Academy' })} className="btn-white mt-6">
                   Enquire about workshops
                 </button>
+              </div>
+              <div className="h-64 md:h-full md:min-h-[22rem]">
+                <img
+                  src="/images/academy.jpg"
+                  alt="W2W Academy — students receiving certificates after a hands-on workshop"
+                  loading="lazy"
+                  className="h-full w-full object-cover"
+                />
               </div>
             </div>
           </div>
