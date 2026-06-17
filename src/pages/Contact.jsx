@@ -1,5 +1,6 @@
-import { MapPin, Phone, Mail, Clock, Instagram, MessageCircle } from 'lucide-react'
+import { MapPin, Phone, Mail, Clock } from 'lucide-react'
 import EnquiryForm from '../components/EnquiryForm'
+import { WhatsAppIcon, InstagramIcon } from '../components/BrandIcons'
 import { BUSINESS, whatsappLink, telLink } from '../lib/constants'
 
 export default function Contact() {
@@ -27,8 +28,8 @@ export default function Contact() {
                 <li><a href={`mailto:${BUSINESS.email}`} className="flex items-center gap-3 hover:text-brand-700"><Mail className="text-brand-600" /> {BUSINESS.email}</a></li>
               </ul>
               <div className="mt-6 flex flex-wrap gap-3">
-                <a href={whatsappLink()} target="_blank" rel="noreferrer" className="btn-primary bg-green-500 hover:bg-green-600"><MessageCircle size={18} /> WhatsApp</a>
-                <a href={BUSINESS.instagram} target="_blank" rel="noreferrer" className="btn-outline"><Instagram size={18} /> Instagram</a>
+                <a href={whatsappLink()} target="_blank" rel="noreferrer" className="btn-primary !bg-[#25D366] hover:!bg-[#1ebe5a]"><WhatsAppIcon size={18} /> WhatsApp</a>
+                <a href={BUSINESS.instagram} target="_blank" rel="noreferrer" className="btn-outline"><InstagramIcon size={18} /> Instagram</a>
               </div>
             </div>
 

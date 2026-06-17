@@ -7,6 +7,7 @@ import BookingModal from './components/BookingModal'
 import ScrollToTop from './components/ScrollToTop'
 import ProtectedRoute from './components/ProtectedRoute'
 import ConfigGuard from './components/ConfigGuard'
+import AnnouncementBar from './components/AnnouncementBar'
 
 // Public pages
 import Home from './pages/Home'
@@ -16,6 +17,9 @@ import Contact from './pages/Contact'
 import Booking from './pages/Booking'
 import Blog from './pages/Blog'
 import BlogPost from './pages/BlogPost'
+import Gallery from './pages/Gallery'
+import Testimonials from './pages/Testimonials'
+import Workshop from './pages/Workshop'
 import NotFound from './pages/NotFound'
 
 // Admin (lazy — keeps the public bundle small)
@@ -28,10 +32,12 @@ const Clients = lazy(() => import('./pages/admin/Clients'))
 const ClientDetail = lazy(() => import('./pages/admin/ClientDetail'))
 const Reports = lazy(() => import('./pages/admin/Reports'))
 const Content = lazy(() => import('./pages/admin/Content'))
+const Workshops = lazy(() => import('./pages/admin/Workshops'))
 
 function PublicLayout({ children }) {
   return (
     <div className="flex min-h-screen flex-col">
+      <AnnouncementBar />
       <Navbar />
       <main className="flex-1">{children}</main>
       <Footer />
@@ -68,6 +74,7 @@ export default function App() {
               <Route path="clients/:id" element={<ClientDetail />} />
               <Route path="reports" element={<Reports />} />
               <Route path="content" element={<Content />} />
+              <Route path="workshops" element={<Workshops />} />
             </Route>
           </Routes>
         ) : (
@@ -80,6 +87,9 @@ export default function App() {
               <Route path="/book" element={<Booking />} />
               <Route path="/blog" element={<Blog />} />
               <Route path="/blog/:slug" element={<BlogPost />} />
+              <Route path="/gallery" element={<Gallery />} />
+              <Route path="/testimonials" element={<Testimonials />} />
+              <Route path="/workshop" element={<Workshop />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </PublicLayout>

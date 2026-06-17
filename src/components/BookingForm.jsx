@@ -5,8 +5,12 @@ import DateField from './DateField'
 import PhoneField from './PhoneField'
 import { bookAppointment } from '../lib/firestore'
 import { notifyClinic } from '../lib/email'
-import { SERVICE_OPTIONS, BUSINESS } from '../lib/constants'
+import { BUSINESS } from '../lib/constants'
 import { isValidMobile } from '../lib/validate'
+
+// Online booking is for Physiotherapy only. Other services are handled as
+// enquiries on the Contact page.
+const BOOKING_SERVICE = 'Physiotherapy'
 
 const todayStr = () => new Date().toISOString().slice(0, 10)
 const maxStr = () => {
@@ -20,7 +24,7 @@ export default function BookingForm({ preset = {}, onDone }) {
     name: '',
     phone: '',
     email: '',
-    service: preset.service || SERVICE_OPTIONS[0],
+    service: BOOKING_SERVICE, // online booking = physiotherapy only
     date: '',
     time: '',
     notes: '',
@@ -110,12 +114,11 @@ export default function BookingForm({ preset = {}, onDone }) {
           <input className="input" type="email" value={form.email} onChange={set('email')} placeholder="you@email.com" />
         </div>
         <div>
-          <label className="label">Service Required *</label>
-          <select className="input" value={form.service} onChange={set('service')}>
-            {SERVICE_OPTIONS.map((s) => (
-              <option key={s}>{s}</option>
-            ))}
-          </select>
+          <label className="label">Service</label>
+          <input className="input cursor-not-allowed bg-slate-50 text-slate-600" value={BOOKING_SERVICE} readOnly />
+          <p className="mt-1 text-xs text-slate-400">
+            For Yoga, Lifestyle Fitness or Academy, please <a href="/contact" className="text-brand-600 hover:underline">send an enquiry</a>.
+          </p>
         </div>
       </div>
 

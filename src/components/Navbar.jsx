@@ -7,6 +7,9 @@ const links = [
   { to: '/', label: 'Home', end: true },
   { to: '/services', label: 'Services' },
   { to: '/about', label: 'About' },
+  { to: '/gallery', label: 'Gallery' },
+  { to: '/testimonials', label: 'Testimonials' },
+  { to: '/workshop', label: 'Workshop' },
   { to: '/blog', label: 'Blog' },
   { to: '/contact', label: 'Contact' },
 ]
@@ -39,15 +42,15 @@ export default function Navbar() {
         </Link>
 
         {/* Desktop links */}
-        <div className="hidden items-center gap-1 md:flex">
+        <div className="hidden items-center gap-0.5 lg:flex">
           {links.map((l) => (
             <NavLink
               key={l.to}
               to={l.to}
               end={l.end}
               className={({ isActive }) =>
-                `rounded-full px-4 py-2 text-sm font-medium transition ${
-                  isActive ? 'text-brand-700' : 'text-slate-600 hover:text-brand-600'
+                `rounded-full px-3 py-2 text-sm font-bold transition ${
+                  isActive ? 'text-brand-700' : 'text-slate-700 hover:text-brand-600'
                 }`
               }
             >
@@ -61,7 +64,7 @@ export default function Navbar() {
 
         {/* Mobile toggle */}
         <button
-          className="rounded-lg p-2 text-slate-700 md:hidden"
+          className="rounded-lg p-2 text-slate-700 lg:hidden"
           onClick={() => setOpen((v) => !v)}
           aria-label="Toggle menu"
         >
@@ -71,7 +74,7 @@ export default function Navbar() {
 
       {/* Mobile menu */}
       {open && (
-        <div className="border-t border-slate-100 bg-white md:hidden">
+        <div className="border-t border-slate-100 bg-white lg:hidden">
           <div className="container-page flex flex-col gap-1 py-3">
             {links.map((l) => (
               <NavLink
@@ -80,7 +83,7 @@ export default function Navbar() {
                 end={l.end}
                 onClick={() => setOpen(false)}
                 className={({ isActive }) =>
-                  `rounded-xl px-4 py-3 text-base font-medium transition ${
+                  `rounded-xl px-4 py-3 text-base font-bold transition ${
                     isActive ? 'bg-brand-50 text-brand-700' : 'text-slate-700 hover:bg-slate-50'
                   }`
                 }

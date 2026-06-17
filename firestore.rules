@@ -51,5 +51,30 @@ service cloud.firestore {
       allow read: if true;
       allow write: if isAdmin();
     }
+
+    // Video testimonials (Instagram reels): public read, admin manages.
+    match /reels/{id} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Workshops: public can read (to show open registrations), admin manages.
+    match /workshops/{id} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Public seat counter for workshops (no PII) — read + write open, like
+    // availability, so a public registration can reserve a seat atomically.
+    match /workshopStats/{id} {
+      allow read: if true;
+      allow write: if true;
+    }
+
+    // Workshop registrations contain PII — public can only create; admin reads.
+    match /workshopRegistrations/{id} {
+      allow create: if true;
+      allow read, update, delete: if isAdmin();
+    }
   }
 }

@@ -264,3 +264,118 @@ export async function updatePost(id, data) {
 export async function deletePost(id) {
   return deleteDoc(doc(db, 'posts', id))
 }
+
+// ---------- Video testimonials (Instagram reels) ---------------------------
+export function watchReels(cb) {
+  const q = query(collection(db, 'reels'), orderBy('createdAt', 'desc'))
+  return onSnapshot(q, (snap) => cb(snap.docs.map((d) => ({ id: d.id, ...d.data() }))))
+}
+
+export async function getReels() {
+  const snap = await getDocs(query(collection(db, 'reels'), orderBy('createdAt', 'desc')))
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+}
+
+export async function createReel(data) {
+  return addDoc(collection(db, 'reels'), { ...data, createdAt: serverTimestamp() })
+}
+
+export async function deleteReel(id) {
+  return deleteDoc(doc(db, 'reels', id))
+}
+
+// ---------- Workshops -------------------------------------------------------
+// A workshop doc holds public info (title, fee, slots, date, venue, status…).
+// status: 'draft' (hidden) | 'open' (registrations open) | 'closed'.
+export function watchWorkshops(cb) {
+  const q = query(collection(db, 'workshops'), orderBy('createdAt', 'desc'))
+  return onSnapshot(q, (snap) => cb(snap.docs.map((d) => ({ id: d.id, ...d.data() }))))
+}
+
+// Public: the workshop currently open for registration (latest one).
+export async function getOpenWorkshop() {
+  const snap = await getDocs(
+    query(collection(db, 'workshops'), where('status', '==', 'open'))
+  )
+  const list = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+  list.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0))
+  return list[0] || null
+}
+
+// Public live status (does an open workshop exist?) for the announcement bar.
+export function watchOpenWorkshop(cb) {
+  const q = query(collection(db, 'workshops'), where('status', '==', 'open'))
+  return onSnapshot(
+    q,
+    (snap) => {
+      const list = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+      list.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0))
+      cb(list[0] || null)
+    },
+    (err) => {
+      console.warn('open workshop read failed:', err?.code || err)
+      cb(null)
+    }
+  )
+}
+
+export async function createWorkshop(data) {
+  return addDoc(collection(db, 'workshops'), {
+    ...data,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  })
+}
+
+export async function updateWorkshop(id, data) {
+  return updateDoc(doc(db, 'workshops', id), { ...data, updatedAt: serverTimestamp() })
+}
+
+export async function deleteWorkshop(id) {
+  await deleteDoc(doc(db, 'workshops', id))
+  // best-effort: clear its public seat counter too
+  try { await deleteDoc(doc(db, 'workshopStats', id)) } catch (_) {}
+}
+
+// Public seat counter (no PII) so the site can show remaining slots.
+export function watchWorkshopSeats(workshopId, cb) {
+  return onSnapshot(
+    doc(db, 'workshopStats', workshopId),
+    (snap) => cb(snap.exists() ? snap.data().count || 0 : 0),
+    () => cb(0)
+  )
+}
+
+// ---------- Workshop registrations -----------------------------------------
+// Public create (reserves a seat atomically). Reads are admin-only (PII).
+export async function registerForWorkshop(workshop, data) {
+  const statsRef = doc(db, 'workshopStats', workshop.id)
+  const regRef = doc(collection(db, 'workshopRegistrations'))
+  await runTransaction(db, async (tx) => {
+    const statsSnap = await tx.get(statsRef)
+    const count = statsSnap.exists() ? statsSnap.data().count || 0 : 0
+    if (workshop.slots && count >= Number(workshop.slots)) throw new Error('WORKSHOP_FULL')
+    tx.set(statsRef, { count: count + 1, workshopId: workshop.id }, { merge: true })
+    tx.set(regRef, {
+      ...data,
+      workshopId: workshop.id,
+      workshopTitle: workshop.title,
+      status: 'pending', // pending → confirmed once payment screenshot is verified
+      createdAt: serverTimestamp(),
+    })
+  })
+  return regRef.id
+}
+
+export function watchWorkshopRegistrations(cb) {
+  const q = query(collection(db, 'workshopRegistrations'), orderBy('createdAt', 'desc'))
+  return onSnapshot(q, (snap) => cb(snap.docs.map((d) => ({ id: d.id, ...d.data() }))))
+}
+
+export async function setRegistrationStatus(id, status) {
+  return updateDoc(doc(db, 'workshopRegistrations', id), { status })
+}
+
+export async function deleteRegistration(id) {
+  return deleteDoc(doc(db, 'workshopRegistrations', id))
+}

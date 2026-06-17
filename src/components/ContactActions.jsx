@@ -1,4 +1,4 @@
-import { Phone, MessageCircle } from 'lucide-react'
+import { WhatsAppIcon, PhoneIcon } from './BrandIcons'
 
 // Click-to-call + WhatsApp icons next to a client's phone number.
 export default function ContactActions({ phone, size = 'md', showNumber = false }) {
@@ -16,16 +16,16 @@ export default function ContactActions({ phone, size = 'md', showNumber = false 
         title={`Call ${phone}`}
         className={`grid ${cls} place-items-center rounded-full bg-brand-50 text-brand-700 transition hover:bg-brand-600 hover:text-white`}
       >
-        <Phone size={icon} />
+        <PhoneIcon size={icon} />
       </a>
       <a
         href={`https://wa.me/${wa}`}
         target="_blank"
         rel="noreferrer"
         title={`WhatsApp ${phone}`}
-        className={`grid ${cls} place-items-center rounded-full bg-green-50 text-green-600 transition hover:bg-green-500 hover:text-white`}
+        className={`grid ${cls} place-items-center rounded-full bg-green-50 text-green-600 transition hover:bg-[#25D366] hover:text-white`}
       >
-        <MessageCircle size={icon} />
+        <WhatsAppIcon size={icon} />
       </a>
     </div>
   )

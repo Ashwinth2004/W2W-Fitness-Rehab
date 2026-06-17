@@ -8,9 +8,10 @@ export default function Booking() {
       <section className="bg-gradient-to-br from-brand-50 to-white py-14 md:py-20">
         <div className="container-page text-center">
           <span className="section-eyebrow">Appointments</span>
-          <h1 className="text-4xl font-extrabold md:text-5xl">Book Your Appointment</h1>
+          <h1 className="text-4xl font-extrabold md:text-5xl">Book a Physiotherapy Appointment</h1>
           <p className="mx-auto mt-4 max-w-2xl text-slate-600">
-            Choose your service, date and time — your slot is confirmed instantly. You’ll get a reminder before your visit.
+            Pick a date and time — your physiotherapy slot is confirmed instantly. You’ll get a reminder before your
+            visit. Looking for Yoga, Lifestyle Fitness or the Academy? <a href="/contact" className="font-medium text-brand-600 hover:underline">Send an enquiry</a>.
           </p>
         </div>
       </section>

@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
-import { MapPin, Phone, Mail, Clock, Instagram, MessageCircle } from 'lucide-react'
+import { MapPin, Phone, Mail, Clock } from 'lucide-react'
 import { BUSINESS, whatsappLink, telLink } from '../lib/constants'
+import { WhatsAppIcon, InstagramIcon } from './BrandIcons'
 
 export default function Footer() {
   return (
@@ -23,6 +24,9 @@ export default function Footer() {
             <li><Link to="/" className="hover:text-white">Home</Link></li>
             <li><Link to="/services" className="hover:text-white">Services</Link></li>
             <li><Link to="/about" className="hover:text-white">About Us</Link></li>
+            <li><Link to="/gallery" className="hover:text-white">Gallery</Link></li>
+            <li><Link to="/testimonials" className="hover:text-white">Testimonials</Link></li>
+            <li><Link to="/workshop" className="hover:text-white">W2W Workshop</Link></li>
             <li><Link to="/blog" className="hover:text-white">Health Tips</Link></li>
             <li><Link to="/book" className="hover:text-white">Book Appointment</Link></li>
             <li><Link to="/contact" className="hover:text-white">Contact</Link></li>
@@ -37,8 +41,8 @@ export default function Footer() {
             <li><a href={`mailto:${BUSINESS.email}`} className="flex items-center gap-2 hover:text-white"><Mail size={18} className="text-brand-400" />{BUSINESS.email}</a></li>
           </ul>
           <div className="mt-4 flex gap-3">
-            <a href={whatsappLink()} target="_blank" rel="noreferrer" className="grid h-10 w-10 place-items-center rounded-full bg-brand-800 hover:bg-brand-700" aria-label="WhatsApp"><MessageCircle size={20} /></a>
-            <a href={BUSINESS.instagram} target="_blank" rel="noreferrer" className="grid h-10 w-10 place-items-center rounded-full bg-brand-800 hover:bg-brand-700" aria-label="Instagram"><Instagram size={20} /></a>
+            <a href={whatsappLink()} target="_blank" rel="noreferrer" className="grid h-10 w-10 place-items-center rounded-full bg-[#25D366] text-white transition hover:opacity-90" aria-label="WhatsApp"><WhatsAppIcon size={20} /></a>
+            <a href={BUSINESS.instagram} target="_blank" rel="noreferrer" className="grid h-10 w-10 place-items-center rounded-full bg-gradient-to-tr from-[#feda75] via-[#d62976] to-[#4f5bd5] text-white transition hover:opacity-90" aria-label="Instagram"><InstagramIcon size={20} /></a>
           </div>
         </div>
 

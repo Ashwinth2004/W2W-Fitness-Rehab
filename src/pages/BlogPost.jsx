@@ -47,6 +47,9 @@ export default function BlogPost() {
           <CalendarDays size={14} /> {fmtDate(post.createdAt)}
         </p>
       )}
+      {post.coverImage && (
+        <img src={post.coverImage} alt={post.title} className="mt-6 max-h-[420px] w-full rounded-2xl object-cover" />
+      )}
       <div className="prose mt-8 max-w-none whitespace-pre-line text-lg leading-relaxed text-slate-700">
         {post.body}
       </div>

@@ -6,9 +6,9 @@ import { fmtDate } from '../lib/format'
 
 // Seed articles shown until the admin publishes real posts.
 const SEED = [
-  { slug: 'prevent-running-injuries', title: '5 Ways to Prevent Common Running Injuries', excerpt: 'Simple warm-up, strength and recovery habits that keep runners on the road and out of the clinic.', createdAtText: 'Health Tips' },
-  { slug: 'desk-posture-back-pain', title: 'Beat Desk-Job Back Pain', excerpt: 'Posture corrections and 4 daily mobility drills to relieve lower-back tightness from long hours at a desk.', createdAtText: 'Physiotherapy' },
-  { slug: 'why-strength-training-after-40', title: 'Why Strength Training Matters After 40', excerpt: 'How resistance training protects bone density, mobility and metabolism as you age.', createdAtText: 'Fitness' },
+  { slug: 'prevent-running-injuries', title: '5 Ways to Prevent Common Running Injuries', excerpt: 'Simple warm-up, strength and recovery habits that keep runners on the road and out of the clinic.', createdAtText: 'Health Tips', coverImage: '/blog/running.jpg' },
+  { slug: 'desk-posture-back-pain', title: 'Beat Desk-Job Back Pain', excerpt: 'Posture corrections and 4 daily mobility drills to relieve lower-back tightness from long hours at a desk.', createdAtText: 'Physiotherapy', coverImage: '/blog/posture.jpg' },
+  { slug: 'why-strength-training-after-40', title: 'Why Strength Training Matters After 40', excerpt: 'How resistance training protects bone density, mobility and metabolism as you age.', createdAtText: 'Fitness', coverImage: '/blog/strength.jpg' },
 ]
 
 export default function Blog() {
@@ -39,9 +39,20 @@ export default function Blog() {
           ) : (
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
               {posts.map((p) => (
-                <article key={p.slug} className="card flex flex-col overflow-hidden transition hover:-translate-y-1 hover:shadow-soft">
-                  <div className="grid h-40 place-items-center bg-gradient-to-br from-brand-400 to-brand-700 text-2xl font-bold text-white">
-                    W2W
+                <article key={p.slug} className="card group flex flex-col overflow-hidden transition hover:-translate-y-1 hover:shadow-soft">
+                  <div className="h-44 overflow-hidden">
+                    {p.coverImage ? (
+                      <img
+                        src={p.coverImage}
+                        alt={p.title}
+                        loading="lazy"
+                        className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
+                      />
+                    ) : (
+                      <div className="grid h-full place-items-center bg-gradient-to-br from-brand-400 to-brand-700 text-2xl font-bold text-white">
+                        W2W
+                      </div>
+                    )}
                   </div>
                   <div className="flex flex-1 flex-col p-6">
                     <p className="flex items-center gap-1.5 text-xs font-medium text-brand-600">

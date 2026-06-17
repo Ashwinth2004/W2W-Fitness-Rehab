@@ -55,9 +55,17 @@ export default function Home() {
           </div>
 
           <div className="relative animate-fade-in">
-            <div className="mx-auto grid max-w-md place-items-center">
-              <div className="absolute inset-0 m-auto h-72 w-72 rounded-full bg-brand-100/70 blur-2xl" />
-              <img src="/logo.jpg" alt="W2W Fitness & Rehab" className="relative h-72 w-72 animate-float rounded-full bg-white object-contain shadow-soft md:h-80 md:w-80" />
+            <div className="relative mx-auto h-72 w-72 md:h-80 md:w-80">
+              {/* soft glow */}
+              <div className="absolute inset-0 rounded-full bg-brand-200/50 blur-2xl" />
+              {/* the moving circle — logo perfectly centred inside */}
+              <div className="absolute inset-0 flex animate-float items-center justify-center rounded-full bg-white p-8 shadow-soft md:p-10">
+                <img
+                  src="/logo.jpg"
+                  alt="W2W Fitness & Rehab"
+                  className="h-full w-full rounded-full object-contain"
+                />
+              </div>
             </div>
           </div>
         </div>
@@ -90,12 +98,21 @@ export default function Home() {
           </div>
           <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
             {SERVICES.map((s) => (
-              <div key={s.id} className="card group p-6 transition hover:-translate-y-1 hover:shadow-soft">
-                <div className="grid h-14 w-14 place-items-center rounded-2xl bg-brand-50 text-brand-600 transition group-hover:bg-brand-600 group-hover:text-white">
-                  <ServiceIcon name={s.icon} size={26} />
+              <div key={s.id} className="card group overflow-hidden transition hover:-translate-y-1 hover:shadow-soft">
+                <div className="relative h-44 overflow-hidden">
+                  <img
+                    src={s.photo}
+                    alt={s.title}
+                    loading="lazy"
+                    className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-slate-900/55 to-transparent" />
+                  <div className="absolute left-3 top-3 grid h-11 w-11 place-items-center rounded-xl bg-white/90 text-brand-600 shadow">
+                    <ServiceIcon name={s.icon} size={22} />
+                  </div>
+                  <h3 className="absolute bottom-3 left-3 right-3 text-lg font-bold text-white">{s.title}</h3>
                 </div>
-                <h3 className="mt-4 text-lg font-bold">{s.title}</h3>
-                <p className="mt-2 text-sm text-slate-600">{s.short}</p>
+                <p className="p-5 text-sm text-slate-600">{s.short}</p>
               </div>
             ))}
           </div>
@@ -152,20 +169,21 @@ export default function Home() {
           </div>
           <div className="mt-12 grid gap-6 md:grid-cols-2">
             {FOUNDERS.map((f) => (
-              <div key={f.name} className="card p-6 sm:p-8">
-                <div className="flex items-center gap-4">
-                  <div className="grid h-16 w-16 shrink-0 place-items-center rounded-full bg-brand-100 text-2xl font-bold text-brand-700">
-                    {f.name[0]}
-                  </div>
-                  <div>
-                    <h3 className="text-xl font-bold">{f.name}</h3>
-                    <p className="text-sm font-medium text-brand-600">{f.role}</p>
-                  </div>
+              <div key={f.name} className="card grid overflow-hidden sm:grid-cols-[12rem,1fr]">
+                <img
+                  src={f.photo}
+                  alt={f.name}
+                  loading="lazy"
+                  className="h-72 w-full object-cover object-top sm:h-full"
+                />
+                <div className="p-6">
+                  <h3 className="text-xl font-bold">{f.name}</h3>
+                  <p className="text-sm font-semibold text-brand-600">{f.role}</p>
+                  <p className="mt-3 text-sm leading-relaxed text-slate-600">{f.bio}</p>
+                  <a href={f.instagram} target="_blank" rel="noreferrer" className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-brand-600 hover:underline">
+                    <Instagram size={16} /> Follow
+                  </a>
                 </div>
-                <p className="mt-4 text-sm leading-relaxed text-slate-600">{f.bio}</p>
-                <a href={f.instagram} target="_blank" rel="noreferrer" className="mt-4 inline-flex items-center gap-2 text-sm font-medium text-brand-600 hover:underline">
-                  <Instagram size={16} /> Follow
-                </a>
               </div>
             ))}
           </div>

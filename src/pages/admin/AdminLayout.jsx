@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { NavLink, Outlet, useNavigate, Link } from 'react-router-dom'
 import {
   LayoutDashboard, Inbox, CalendarDays, Users, FileText, Newspaper,
-  LogOut, Menu, X, ExternalLink,
+  GraduationCap, LogOut, Menu, X, ExternalLink,
 } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 
@@ -11,6 +11,7 @@ const nav = [
   { to: '/admin/queries', label: 'Enquiries', icon: Inbox },
   { to: '/admin/appointments', label: 'Appointments', icon: CalendarDays },
   { to: '/admin/clients', label: 'Clients', icon: Users },
+  { to: '/admin/workshops', label: 'W2W Workshop', icon: GraduationCap },
   { to: '/admin/reports', label: 'Reports', icon: FileText },
   { to: '/admin/content', label: 'Content', icon: Newspaper },
 ]

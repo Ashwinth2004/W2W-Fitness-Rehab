@@ -9,3 +9,10 @@ dist-ssr
 .DS_Store
 *.log
 npm-debug.log*
+
+# Local editor / preview config
+.claude/
+
+# Raw source photo folders (optimised copies are committed under public/)
+GALLERY PHOTOS/
+WEBSITE ADDON PHOTOS/

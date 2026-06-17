@@ -38,11 +38,15 @@ export default {
         'fade-in': { '0%': { opacity: 0, transform: 'translateY(8px)' }, '100%': { opacity: 1, transform: 'translateY(0)' } },
         'pop-in': { '0%': { opacity: 0, transform: 'scale(0.96)' }, '100%': { opacity: 1, transform: 'scale(1)' } },
         float: { '0%,100%': { transform: 'translateY(0)' }, '50%': { transform: 'translateY(-6px)' } },
+        // Right-to-left ticker. Track holds two copies of the content, so a
+        // -50% shift loops seamlessly.
+        marquee: { '0%': { transform: 'translateX(0)' }, '100%': { transform: 'translateX(-50%)' } },
       },
       animation: {
         'fade-in': 'fade-in 0.5s ease-out both',
         'pop-in': 'pop-in 0.25s ease-out both',
         float: 'float 3s ease-in-out infinite',
+        marquee: 'marquee 22s linear infinite',
       },
     },
   },
