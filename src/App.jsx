@@ -14,7 +14,6 @@ import Home from './pages/Home'
 import Services from './pages/Services'
 import About from './pages/About'
 import Contact from './pages/Contact'
-import Booking from './pages/Booking'
 import Blog from './pages/Blog'
 import BlogPost from './pages/BlogPost'
 import Gallery from './pages/Gallery'
@@ -84,7 +83,6 @@ export default function App() {
               <Route path="/services" element={<Services />} />
               <Route path="/about" element={<About />} />
               <Route path="/contact" element={<Contact />} />
-              <Route path="/book" element={<Booking />} />
               <Route path="/blog" element={<Blog />} />
               <Route path="/blog/:slug" element={<BlogPost />} />
               <Route path="/gallery" element={<Gallery />} />

@@ -25,13 +25,13 @@ export default function Services() {
           {SERVICES.map((s, i) => (
             <div
               key={s.id}
-              className={`card grid items-stretch gap-0 overflow-hidden md:grid-cols-2 ${i % 2 ? 'md:[&>img]:order-2' : ''}`}
+              className={`card grid items-center gap-0 overflow-hidden md:grid-cols-2 ${i % 2 ? 'md:[&>img]:order-2' : ''}`}
             >
               <img
                 src={s.photo}
                 alt={s.title}
                 loading="lazy"
-                className="h-60 w-full object-cover md:h-full"
+                className="aspect-[4/3] w-full object-cover"
               />
               <div className="p-6 md:p-10">
                 <div className="grid h-14 w-14 place-items-center rounded-2xl bg-brand-50 text-brand-600">
@@ -63,11 +63,11 @@ export default function Services() {
 
       <section className="bg-brand-950 py-14 text-center text-white md:py-20">
         <div className="container-page">
-          <h2 className="text-3xl font-bold md:text-4xl">Not sure which program fits you?</h2>
+          <h2 className="text-3xl font-bold text-white md:text-4xl">Not sure which program fits you?</h2>
           <p className="mx-auto mt-3 max-w-xl text-brand-100">
             Tell us your goal or concern and our team will recommend the right path to recovery and strength.
           </p>
-          <Link to="/contact" className="btn-primary mt-8 bg-white !text-brand-700 hover:bg-brand-50">
+          <Link to="/contact" className="btn-outline mt-8 border-white !text-white hover:bg-white/10">
             Get a Personalised Plan <ArrowRight size={18} />
           </Link>
         </div>

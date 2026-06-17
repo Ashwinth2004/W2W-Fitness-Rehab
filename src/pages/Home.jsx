@@ -127,7 +127,7 @@ export default function Home() {
         <div className="container-page grid items-center gap-12 md:grid-cols-2">
           <div>
             <span className="mb-2 inline-block text-sm font-semibold uppercase tracking-wider text-brand-400">Why W2W</span>
-            <h2 className="text-3xl font-bold md:text-4xl">Experience the W2W Difference</h2>
+            <h2 className="text-3xl font-bold text-white md:text-4xl">Experience the W2W Difference</h2>
             <p className="mt-4 text-brand-100">
               Led by internationally experienced ACE &amp; ACSM-certified professionals with expertise in Hatha Yoga,
               we bring a decade of wellness and rehabilitation expertise to help you move and heal better.
@@ -196,7 +196,7 @@ export default function Home() {
       <section className="py-16 md:py-24">
         <div className="container-page">
           <div className="overflow-hidden rounded-3xl bg-gradient-to-br from-brand-600 to-brand-800 px-6 py-12 text-center text-white md:px-12 md:py-16">
-            <h2 className="text-3xl font-bold md:text-4xl">Ready to feel your best?</h2>
+            <h2 className="text-3xl font-bold text-white md:text-4xl">Ready to feel your best?</h2>
             <p className="mx-auto mt-3 max-w-xl text-brand-100">
               Book an appointment in under a minute, or follow our journey on Instagram for tips and transformations.
             </p>

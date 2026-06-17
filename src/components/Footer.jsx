@@ -5,10 +5,10 @@ import { WhatsAppIcon, InstagramIcon } from './BrandIcons'
 
 export default function Footer() {
   return (
-    <footer className="mt-16 bg-brand-950 text-brand-100">
-      <div className="container-page grid gap-10 py-12 md:grid-cols-2 lg:grid-cols-4">
+    <footer className="bg-brand-950 text-brand-100">
+      <div className="container-page grid gap-10 py-12 text-center md:grid-cols-2 md:text-left lg:grid-cols-4">
         <div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center justify-center gap-3 md:justify-start">
             <img src="/logo.jpg" alt="W2W" className="h-14 w-14 rounded-full bg-white object-contain" />
             <div>
               <p className="font-display text-xl font-bold text-white">W2W Fitness &amp; Rehab</p>
@@ -22,7 +22,6 @@ export default function Footer() {
           <h4 className="mb-3 font-semibold text-white">Quick Links</h4>
           <ul className="space-y-2 text-sm">
             <li><Link to="/" className="hover:text-white">Home</Link></li>
-            <li><Link to="/services" className="hover:text-white">Services</Link></li>
             <li><Link to="/about" className="hover:text-white">About Us</Link></li>
             <li><Link to="/gallery" className="hover:text-white">Gallery</Link></li>
             <li><Link to="/testimonials" className="hover:text-white">Testimonials</Link></li>
@@ -36,9 +35,9 @@ export default function Footer() {
         <div>
           <h4 className="mb-3 font-semibold text-white">Get in Touch</h4>
           <ul className="space-y-3 text-sm">
-            <li className="flex gap-2"><MapPin size={18} className="mt-0.5 shrink-0 text-brand-400" />{BUSINESS.address}</li>
-            <li><a href={telLink()} className="flex items-center gap-2 hover:text-white"><Phone size={18} className="text-brand-400" />{BUSINESS.phoneDisplay}</a></li>
-            <li><a href={`mailto:${BUSINESS.email}`} className="flex items-center gap-2 hover:text-white"><Mail size={18} className="text-brand-400" />{BUSINESS.email}</a></li>
+            <li className="flex justify-center gap-2 md:justify-start"><MapPin size={18} className="mt-0.5 shrink-0 text-brand-400" />{BUSINESS.address}</li>
+            <li><a href={telLink()} className="flex items-center justify-center gap-2 hover:text-white md:justify-start"><Phone size={18} className="text-brand-400" />{BUSINESS.phoneDisplay}</a></li>
+            <li><a href={`mailto:${BUSINESS.email}`} className="flex items-center justify-center gap-2 hover:text-white md:justify-start"><Mail size={18} className="text-brand-400" />{BUSINESS.email}</a></li>
           </ul>
           <div className="mt-4 flex gap-3">
             <a href={whatsappLink()} target="_blank" rel="noreferrer" className="grid h-10 w-10 place-items-center rounded-full bg-[#25D366] text-white transition hover:opacity-90" aria-label="WhatsApp"><WhatsAppIcon size={20} /></a>
@@ -50,7 +49,7 @@ export default function Footer() {
           <h4 className="mb-3 font-semibold text-white">Opening Hours</h4>
           <ul className="space-y-2 text-sm">
             {BUSINESS.hours.map((h) => (
-              <li key={h.day} className="flex items-start gap-2">
+              <li key={h.day} className="flex items-start justify-center gap-2 text-left md:justify-start">
                 <Clock size={18} className="mt-0.5 shrink-0 text-brand-400" />
                 <span><span className="block font-medium text-white">{h.day}</span>{h.time}</span>
               </li>

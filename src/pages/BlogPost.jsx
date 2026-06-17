@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom'
 import { ArrowLeft, CalendarDays } from 'lucide-react'
 import { getPostBySlug } from '../lib/firestore'
 import { fmtDate } from '../lib/format'
+import { useBooking } from '../context/BookingContext'
 
 const SEED_BODY = {
   'prevent-running-injuries':
@@ -15,6 +16,7 @@ const SEED_BODY = {
 
 export default function BlogPost() {
   const { slug } = useParams()
+  const { openBooking } = useBooking()
   const [post, setPost] = useState(undefined)
 
   useEffect(() => {
@@ -55,7 +57,7 @@ export default function BlogPost() {
       </div>
       <div className="mt-12 rounded-2xl bg-brand-50 p-6 text-center">
         <p className="font-semibold text-slate-900">Have a concern we can help with?</p>
-        <Link to="/book" className="btn-primary mt-4">Book an appointment</Link>
+        <button onClick={() => openBooking()} className="btn-primary mt-4">Book an appointment</button>
       </div>
     </article>
   )

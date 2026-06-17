@@ -23,7 +23,7 @@ export default function Booking() {
               <h2 className="text-lg font-bold">Why book online?</h2>
               <ul className="mt-4 space-y-3 text-sm text-slate-600">
                 <li className="flex gap-3"><CalendarCheck className="shrink-0 text-brand-600" size={20} /> Instant confirmation — no waiting for a call back.</li>
-                <li className="flex gap-3"><Clock className="shrink-0 text-brand-600" size={20} /> See real-time availability, Mon–Sat 6 AM–9 PM.</li>
+                <li className="flex gap-3"><Clock className="shrink-0 text-brand-600" size={20} /> See real-time availability — Mon–Sat, 9 AM–12 PM &amp; 4–8 PM. Book before arrival.</li>
                 <li className="flex gap-3"><ShieldCheck className="shrink-0 text-brand-600" size={20} /> Your details stay private and are used only for this booking.</li>
                 <li className="flex gap-3"><MapPin className="shrink-0 text-brand-600" size={20} /> {BUSINESS.address}</li>
               </ul>

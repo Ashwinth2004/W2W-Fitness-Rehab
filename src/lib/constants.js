@@ -22,7 +22,7 @@ export const BUSINESS = {
   rating: 4.9,
   reviewCount: 60,
   hours: [
-    { day: 'Monday – Saturday', time: '6:00 AM – 9:00 PM' },
+    { day: 'Monday – Saturday', time: '9:00 AM – 12:00 PM & 4:00 PM – 8:00 PM' },
     { day: 'Sunday', time: 'Closed' },
   ],
 }
@@ -134,10 +134,14 @@ export const INSTAGRAM_PROFILE = 'https://www.instagram.com/w2wphysiotherapy/'
 export const INSTAGRAM_HANDLE = '@w2wphysiotherapy'
 export const INSTAGRAM_FEED_EMBED = '' // e.g. 'https://lightwidget.com/widgets/xxxxx.html'
 
-// Operating slots (instant auto-confirm booking). One-hour slots, Mon–Sat.
+// Appointment slots, kept in sync with the opening hours (BUSINESS.hours):
+// Mon–Sat, morning 9:00 AM–12:00 PM and evening 4:00 PM–8:00 PM. One-hour
+// sessions; the last morning slot is 11→12 and the last evening slot 7→8 PM.
+// Sundays are closed (the date picker blocks them). Appointments must be
+// booked before arrival.
 export const SLOT_TIMES = [
-  '06:00', '07:00', '08:00', '09:00', '10:00', '11:00',
-  '12:00', '16:00', '17:00', '18:00', '19:00', '20:00',
+  '09:00', '10:00', '11:00', // morning 9 AM – 12 PM
+  '16:00', '17:00', '18:00', '19:00', // evening 4 PM – 8 PM
 ]
 
 export const SERVICE_OPTIONS = SERVICES.map((s) => s.title)

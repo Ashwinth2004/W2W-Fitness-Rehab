@@ -41,7 +41,7 @@ export default function Workshop() {
         <div className="absolute -right-24 -top-24 h-96 w-96 rounded-full bg-brand-700/40 blur-3xl" />
         <div className="container-page relative py-14 text-center md:py-20">
           <span className="badge bg-white/10 text-brand-100">W2W Academy · Workshops</span>
-          <h1 className="mt-4 text-4xl font-extrabold md:text-5xl">W2W One-Day Workshop</h1>
+          <h1 className="mt-4 text-4xl font-extrabold text-white md:text-5xl">W2W One-Day Workshop</h1>
           <p className="mx-auto mt-4 max-w-2xl text-brand-100">
             Hands-on, practical workshops for physiotherapy students and professionals — led by experienced clinicians.
           </p>

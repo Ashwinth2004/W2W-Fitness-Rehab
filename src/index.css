@@ -27,6 +27,10 @@
   .btn-accent {
     @apply btn bg-gradient-to-r from-accent-500 to-accent-400 text-white shadow-soft hover:from-accent-600 hover:to-accent-500 active:scale-[0.98];
   }
+  /* Solid white button for use on dark/brand backgrounds (inverted CTA). */
+  .btn-white {
+    @apply btn bg-white text-brand-700 shadow-soft hover:bg-brand-50 active:scale-[0.98];
+  }
   .btn-outline {
     @apply btn border-2 border-brand-600 text-brand-700 hover:bg-brand-50;
   }
@@ -61,6 +65,28 @@
 /* Hide scrollbars on horizontal scrollers but keep functionality */
 .no-scrollbar::-webkit-scrollbar { display: none; }
 .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* Continuous, self-running testimonial marquee. The track holds the cards
+   twice in a row, so translating by -50% loops seamlessly. */
+@keyframes marquee {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+.marquee-track {
+  display: flex;
+  width: max-content;
+  animation: marquee var(--marquee-duration, 40s) linear infinite;
+}
+.marquee-viewport:hover .marquee-track { animation-play-state: paused; }
+/* Soft fade on both edges so cards melt in/out instead of hard-cutting. */
+.marquee-mask {
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 8%, #000 92%, transparent);
+          mask-image: linear-gradient(to right, transparent, #000 8%, #000 92%, transparent);
+}
+@media (prefers-reduced-motion: reduce) {
+  .marquee-track { animation: none; }
+  .marquee-mask { -webkit-mask-image: none; mask-image: none; }
+}
 
 /* Print: only show the printable report area */
 @media print {
