@@ -5,8 +5,8 @@ import { useBooking } from '../context/BookingContext'
 
 const links = [
   { to: '/', label: 'Home', end: true },
-  { to: '/services', label: 'Services' },
   { to: '/about', label: 'About' },
+  { to: '/services', label: 'Services' },
   { to: '/gallery', label: 'Gallery' },
   { to: '/testimonials', label: 'Testimonials' },
   { to: '/workshop', label: 'Workshop' },

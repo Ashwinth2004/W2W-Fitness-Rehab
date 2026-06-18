@@ -116,6 +116,38 @@ export async function cancelAppointment(appt) {
   await freeSlot(appt.date, appt.time)
 }
 
+// Admin free-text remarks/notes on an appointment.
+export async function setAppointmentRemarks(id, remarks) {
+  return updateDoc(doc(db, 'appointments', id), { remarks })
+}
+
+/**
+ * Move an appointment to a new date/time. Frees the old slot and reserves the
+ * new one. Admin override: the new slot is allowed even if already booked
+ * (two clients can share a slot when the admin chooses to).
+ */
+export async function rescheduleAppointment(appt, newDate, newTime) {
+  const oldRef = doc(db, 'availability', appt.date)
+  const newRef = doc(db, 'availability', newDate)
+  const apptRef = doc(db, 'appointments', appt.id)
+  const sameDate = appt.date === newDate
+  await runTransaction(db, async (tx) => {
+    const oldSnap = await tx.get(oldRef)
+    const newSnap = sameDate ? oldSnap : await tx.get(newRef)
+    const oldTimes = (oldSnap.exists() ? oldSnap.data().times || [] : []).filter((t) => t !== appt.time)
+    if (sameDate) {
+      const times = oldTimes.includes(newTime) ? oldTimes : [...oldTimes, newTime]
+      tx.set(oldRef, { times }, { merge: true })
+    } else {
+      tx.set(oldRef, { times: oldTimes }, { merge: true })
+      const base = newSnap.exists() ? newSnap.data().times || [] : []
+      const times = base.includes(newTime) ? base : [...base, newTime]
+      tx.set(newRef, { times }, { merge: true })
+    }
+    tx.update(apptRef, { date: newDate, time: newTime, status: 'confirmed' })
+  })
+}
+
 // ---------- Clients (CRM) ---------------------------------------------------
 async function nextClientId() {
   const ref = doc(db, 'counters', 'clients')

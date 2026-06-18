@@ -1,10 +1,11 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { NavLink, Outlet, useNavigate, Link } from 'react-router-dom'
 import {
   LayoutDashboard, Inbox, CalendarDays, Users, FileText, Newspaper,
   GraduationCap, LogOut, Menu, X, ExternalLink,
 } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
+import { watchEnquiries } from '../../lib/firestore'
 
 const nav = [
   { to: '/admin', label: 'Dashboard', icon: LayoutDashboard, end: true },
@@ -13,13 +14,17 @@ const nav = [
   { to: '/admin/clients', label: 'Clients', icon: Users },
   { to: '/admin/workshops', label: 'W2W Workshop', icon: GraduationCap },
   { to: '/admin/reports', label: 'Reports', icon: FileText },
-  { to: '/admin/content', label: 'Content', icon: Newspaper },
+  { to: '/admin/content', label: 'Blogs', icon: Newspaper },
 ]
 
 export default function AdminLayout() {
   const { logout, user } = useAuth()
   const navigate = useNavigate()
   const [open, setOpen] = useState(false)
+  const [newEnq, setNewEnq] = useState(0)
+
+  // Live count of unread enquiries → red "NEW" badge on the Enquiries item.
+  useEffect(() => watchEnquiries((list) => setNewEnq(list.filter((e) => e.status === 'new').length)), [])
 
   async function handleLogout() {
     await logout()
@@ -48,7 +53,13 @@ export default function AdminLayout() {
               }`
             }
           >
-            <n.icon size={19} /> {n.label}
+            <n.icon size={19} />
+            <span className="flex-1">{n.label}</span>
+            {n.to === '/admin/queries' && newEnq > 0 && (
+              <span className="grid h-5 min-w-[2.25rem] place-items-center rounded-full bg-red-500 px-1.5 text-[10px] font-bold uppercase tracking-wide text-white">
+                {newEnq} New
+              </span>
+            )}
           </NavLink>
         ))}
       </nav>

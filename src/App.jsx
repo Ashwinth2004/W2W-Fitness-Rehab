@@ -8,6 +8,7 @@ import ScrollToTop from './components/ScrollToTop'
 import ProtectedRoute from './components/ProtectedRoute'
 import ConfigGuard from './components/ConfigGuard'
 import AnnouncementBar from './components/AnnouncementBar'
+import WorkshopPopup from './components/WorkshopPopup'
 
 // Public pages
 import Home from './pages/Home'
@@ -42,6 +43,7 @@ function PublicLayout({ children }) {
       <Footer />
       <FloatingButtons />
       <BookingModal />
+      <WorkshopPopup />
     </div>
   )
 }

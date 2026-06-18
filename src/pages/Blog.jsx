@@ -6,9 +6,9 @@ import { fmtDate } from '../lib/format'
 
 // Seed articles shown until the admin publishes real posts.
 const SEED = [
-  { slug: 'prevent-running-injuries', title: '5 Ways to Prevent Common Running Injuries', excerpt: 'Simple warm-up, strength and recovery habits that keep runners on the road and out of the clinic.', createdAtText: 'Health Tips', coverImage: '/blog/running.jpg' },
-  { slug: 'desk-posture-back-pain', title: 'Beat Desk-Job Back Pain', excerpt: 'Posture corrections and 4 daily mobility drills to relieve lower-back tightness from long hours at a desk.', createdAtText: 'Physiotherapy', coverImage: '/blog/posture.jpg' },
-  { slug: 'why-strength-training-after-40', title: 'Why Strength Training Matters After 40', excerpt: 'How resistance training protects bone density, mobility and metabolism as you age.', createdAtText: 'Fitness', coverImage: '/blog/strength.jpg' },
+  { slug: 'prevent-running-injuries', title: '5 Ways to Prevent Common Running Injuries', excerpt: 'Simple warm-up, strength and recovery habits that keep runners on the road and out of the clinic.', createdAtText: 'Health Tips', coverImage: '/blog/prevent-running-injuries.webp' },
+  { slug: 'desk-posture-back-pain', title: 'Beat Desk-Job Back Pain', excerpt: 'Posture corrections and 4 daily mobility drills to relieve lower-back tightness from long hours at a desk.', createdAtText: 'Physiotherapy', coverImage: '/blog/desk-posture-back-pain.webp' },
+  { slug: 'why-strength-training-after-40', title: 'Why Strength Training Matters After 40', excerpt: 'How resistance training protects bone density, mobility and metabolism as you age.', createdAtText: 'Fitness', coverImage: '/blog/strength-training-after-40.webp' },
 ]
 
 export default function Blog() {

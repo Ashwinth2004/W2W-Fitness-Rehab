@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Play, X, ExternalLink } from 'lucide-react'
 import { InstagramIcon } from '../components/BrandIcons'
 import { getReels } from '../lib/firestore'
-import { INSTAGRAM_PROFILE, INSTAGRAM_HANDLE } from '../lib/constants'
+import { INSTAGRAM_PROFILE, INSTAGRAM_HANDLE, REELS } from '../lib/constants'
 
 // Loads Instagram's embed script once, then (re)processes blockquotes so the
 // reel renders and plays inline.
@@ -28,8 +28,8 @@ export default function Testimonials() {
 
   useEffect(() => {
     getReels()
-      .then((list) => setReels(list))
-      .catch(() => setReels([]))
+      .then((list) => setReels(list.length ? list : REELS))
+      .catch(() => setReels(REELS))
       .finally(() => setLoading(false))
   }, [])
 

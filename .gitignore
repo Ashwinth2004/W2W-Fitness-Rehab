@@ -1,18 +1,29 @@
-node_modules
-dist
-dist-ssr
-*.local
+node_modules/
+dist/
+dist-ssr/
+.vercel/
+
 .env
 .env.*
 !.env.example
-.vercel
-.DS_Store
+
 *.log
 npm-debug.log*
 
-# Local editor / preview config
-.claude/
+.DS_Store
+Thumbs.db
 
-# Raw source photo folders (optimised copies are committed under public/)
+.claude/
+.playwright-mcp/
+
 GALLERY PHOTOS/
 WEBSITE ADDON PHOTOS/
+
+.firebase/
+
+coverage/
+.cache/
+.eslintcache
+ppt-assets/
+*.pptx
+*.pdf

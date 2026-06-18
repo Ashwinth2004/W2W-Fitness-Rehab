@@ -32,3 +32,15 @@ export function fmt12h(t) {
 }
 
 export const todayISO = () => format(new Date(), 'yyyy-MM-dd')
+
+// Normalise any date-like value to 'yyyy-MM-dd' (for filtering).
+export const isoOf = (value) => { const d = toDate(value); return d ? format(d, 'yyyy-MM-dd') : '' }
+
+// Tests an item's date against a { day:'yyyy-MM-dd', month:'yyyy-MM' } filter.
+export function matchesDateFilter(value, filter) {
+  if (!filter || (!filter.day && !filter.month)) return true
+  const iso = isoOf(value)
+  if (!iso) return false
+  if (filter.day) return iso === filter.day
+  return iso.slice(0, 7) === filter.month
+}

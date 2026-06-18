@@ -100,8 +100,19 @@ export default function ClientDetail() {
       {/* Complaint + history */}
       <div className="grid gap-6 lg:grid-cols-2">
         <InfoBlock title="Chief Complaint / Goal" text={client.complaint} empty="No complaint recorded." />
-        <InfoBlock title="Medical History / Previous Reports" text={client.history} empty="No history recorded." />
+        <InfoBlock
+          title="Medical History / Previous Reports"
+          text={[
+            client.pastHistory ? `Past medical history:\n${client.pastHistory}` : '',
+            client.presentHistory ? `Present medical history:\n${client.presentHistory}` : '',
+            client.mechanism ? `Mechanism of injury:\n${client.mechanism}` : '',
+          ].filter(Boolean).join('\n\n') || client.history}
+          empty="No history recorded."
+        />
       </div>
+
+      {/* Physiotherapy assessment (from the intake form) */}
+      <AssessmentSection client={client} />
 
       {/* Progress */}
       <ProgressSection clientId={id} progress={progress} />
@@ -119,6 +130,48 @@ function Fact({ icon: Icon, label, value }) {
     <div className="flex items-center gap-3">
       <div className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-brand-50 text-brand-600"><Icon size={18} /></div>
       <div className="min-w-0"><p className="text-xs text-slate-400">{label}</p><p className="truncate font-medium text-slate-800">{value}</p></div>
+    </div>
+  )
+}
+
+// ---- Physiotherapy assessment (read-only view of intake fields) -----------
+const ASSESS_GROUPS = [
+  ['Activity levels', [['walking', 'Walking / steps'], ['exercise', 'Exercise'], ['deskWork', 'Desk work'], ['sleep', 'Sleep'], ['hydration', 'Hydration']]],
+  ['Pain assessment', [['painArea', 'Area'], ['painDuration', 'Duration'], ['painType', 'Type'], ['painADL', 'Impact on ADL'], ['painAggravating', 'Aggravating'], ['painRelieving', 'Relieving'], ['vas', 'VAS (0–10)']]],
+  ['Objective', [['built', 'Built'], ['deformities', 'Deformities / Edema'], ['gait', 'Gait'], ['objectiveNotes', 'Notes']]],
+  ['On palpation', [['tenderness', 'Tenderness'], ['swelling', 'Swelling / Spasm'], ['crepitus', 'Crepitus']]],
+  ['On examination', [['rom', 'ROM'], ['endFeel', 'End feel'], ['grip', 'Grip'], ['muscleTone', 'Muscle tone'], ['girth', 'Girth'], ['limbLength', 'Limb length'], ['reflexes', 'Reflexes'], ['specialTests', 'Special tests']]],
+  ['Assessment & plan', [['opinion', 'Opinion'], ['treatmentOptions', 'Treatment options'], ['expectedRecovery', 'Expected recovery'], ['treatmentPlan', 'Treatment plan'], ['followUp', 'Follow up']]],
+]
+
+function AssessmentSection({ client }) {
+  const groups = ASSESS_GROUPS
+    .map(([title, pairs]) => [title, pairs.filter(([k]) => client[k])])
+    .filter(([, pairs]) => pairs.length > 0)
+
+  if (groups.length === 0) return null
+
+  return (
+    <div className="card p-5">
+      <div className="mb-4 flex items-center justify-between">
+        <h2 className="flex items-center gap-2 font-bold text-slate-900"><NotebookPen size={18} className="text-brand-600" /> Physiotherapy Assessment</h2>
+        {client.assessmentDate && <span className="text-xs text-slate-400">Assessed {fmtDate(client.assessmentDate)}</span>}
+      </div>
+      <div className="grid gap-x-8 gap-y-5 md:grid-cols-2">
+        {groups.map(([title, pairs]) => (
+          <div key={title}>
+            <p className="mb-2 text-xs font-bold uppercase tracking-wide text-brand-600">{title}</p>
+            <dl className="space-y-1.5">
+              {pairs.map(([k, label]) => (
+                <div key={k} className="flex gap-2 text-sm">
+                  <dt className="shrink-0 text-slate-400">{label}:</dt>
+                  <dd className="whitespace-pre-line text-slate-700">{String(client[k])}</dd>
+                </div>
+              ))}
+            </dl>
+          </div>
+        ))}
+      </div>
     </div>
   )
 }

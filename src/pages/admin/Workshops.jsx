@@ -8,7 +8,8 @@ import {
   watchWorkshopRegistrations, setRegistrationStatus, deleteRegistration,
 } from '../../lib/firestore'
 import ContactActions from '../../components/ContactActions'
-import { fmtDate } from '../../lib/format'
+import AdminFilter from '../../components/AdminFilter'
+import { fmtDate, matchesDateFilter } from '../../lib/format'
 
 const EMPTY = {
   title: '', description: '', date: '', time: '', venue: '',
@@ -210,6 +211,7 @@ function Registrations() {
   const [regs, setRegs] = useState([])
   const [workshops, setWorkshops] = useState([])
   const [filter, setFilter] = useState('all')
+  const [dateFilter, setDateFilter] = useState({ day: '', month: '' })
 
   useEffect(() => {
     const u1 = watchWorkshopRegistrations(setRegs)
@@ -218,8 +220,8 @@ function Registrations() {
   }, [])
 
   const filtered = useMemo(
-    () => (filter === 'all' ? regs : regs.filter((r) => r.workshopId === filter)),
-    [regs, filter]
+    () => regs.filter((r) => (filter === 'all' || r.workshopId === filter) && matchesDateFilter(r.createdAt, dateFilter)),
+    [regs, filter, dateFilter]
   )
 
   const counts = useMemo(() => {
@@ -239,6 +241,8 @@ function Registrations() {
           ))}
         </select>
       </div>
+
+      <div className="card p-4"><AdminFilter filter={dateFilter} setFilter={setDateFilter} /></div>
 
       {filtered.length === 0 ? (
         <p className="card py-10 text-center text-sm text-slate-400">No registrations yet.</p>

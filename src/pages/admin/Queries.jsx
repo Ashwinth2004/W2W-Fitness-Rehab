@@ -1,19 +1,22 @@
 import { useEffect, useState } from 'react'
 import { Inbox, Trash2, Check, Search } from 'lucide-react'
 import { watchEnquiries, setEnquiryStatus, deleteEnquiry } from '../../lib/firestore'
-import { fmtDateTime } from '../../lib/format'
+import { fmtDateTime, matchesDateFilter } from '../../lib/format'
 import ContactActions from '../../components/ContactActions'
 import StatusBadge from '../../components/StatusBadge'
+import AdminFilter from '../../components/AdminFilter'
 
 export default function Queries() {
   const [items, setItems] = useState([])
   const [filter, setFilter] = useState('all')
   const [search, setSearch] = useState('')
+  const [dateFilter, setDateFilter] = useState({ day: '', month: '' })
 
   useEffect(() => watchEnquiries(setItems), [])
 
   const filtered = items
     .filter((e) => (filter === 'all' ? true : filter === 'new' ? e.status === 'new' : e.status === 'read'))
+    .filter((e) => matchesDateFilter(e.createdAt, dateFilter))
     .filter((e) =>
       !search ? true : [e.name, e.phone, e.email, e.service, e.message].join(' ').toLowerCase().includes(search.toLowerCase())
     )
@@ -42,6 +45,8 @@ export default function Queries() {
         <input className="input pl-10" placeholder="Search name, phone, service…" value={search} onChange={(e) => setSearch(e.target.value)} />
       </div>
 
+      <div className="card p-4"><AdminFilter filter={dateFilter} setFilter={setDateFilter} /></div>
+
       {filtered.length === 0 ? (
         <div className="card grid place-items-center py-16 text-center">
           <Inbox className="text-slate-300" size={48} />
@@ -50,7 +55,7 @@ export default function Queries() {
       ) : (
         <div className="grid gap-4">
           {filtered.map((e) => (
-            <div key={e.id} className={`card p-5 ${e.status === 'new' ? 'ring-1 ring-amber-200' : ''}`}>
+            <div key={e.id} className={`card p-5 ${e.status === 'new' ? 'ring-2 ring-red-200' : ''}`}>
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">

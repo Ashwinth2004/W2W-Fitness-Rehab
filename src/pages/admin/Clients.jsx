@@ -1,25 +1,27 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Users, Plus, Search, X, Loader2, BadgeCheck } from 'lucide-react'
-import { watchClients, createClient, findClientByClientId } from '../../lib/firestore'
-import { fmtDate } from '../../lib/format'
-import { SERVICE_OPTIONS } from '../../lib/constants'
-import { isValidMobile, onlyDigits } from '../../lib/validate'
+import { Users, Plus, Search, X, BadgeCheck } from 'lucide-react'
+import { watchClients, findClientByClientId } from '../../lib/firestore'
+import { fmtDate, matchesDateFilter } from '../../lib/format'
 import ContactActions from '../../components/ContactActions'
-import PhoneField from '../../components/PhoneField'
+import AdminFilter from '../../components/AdminFilter'
+import ClientForm from '../../components/ClientForm'
 
 export default function Clients() {
   const [clients, setClients] = useState([])
   const [search, setSearch] = useState('')
   const [showForm, setShowForm] = useState(false)
   const [lookupMsg, setLookupMsg] = useState('')
+  const [dateFilter, setDateFilter] = useState({ day: '', month: '' })
   const navigate = useNavigate()
 
   useEffect(() => watchClients(setClients), [])
 
-  const filtered = clients.filter((c) =>
-    !search ? true : [c.name, c.clientId, c.phone, c.email].join(' ').toLowerCase().includes(search.toLowerCase())
-  )
+  const filtered = clients
+    .filter((c) => matchesDateFilter(c.createdAt, dateFilter))
+    .filter((c) =>
+      !search ? true : [c.name, c.clientId, c.phone, c.email].join(' ').toLowerCase().includes(search.toLowerCase())
+    )
 
   // Direct lookup by exact client ID (e.g. W2W-0007)
   async function handleLookup(e) {
@@ -40,7 +42,13 @@ export default function Clients() {
         </button>
       </div>
 
-      {showForm && <NewClientForm onCreated={(id) => { setShowForm(false); navigate(`/admin/clients/${id}`) }} />}
+      {showForm && (
+        <ClientForm
+          clients={clients}
+          onCreated={(id) => { setShowForm(false); navigate(`/admin/clients/${id}`) }}
+          onClose={() => setShowForm(false)}
+        />
+      )}
 
       <form onSubmit={handleLookup} className="relative">
         <Search className="pointer-events-none absolute left-3 top-3 text-slate-400" size={18} />
@@ -52,6 +60,8 @@ export default function Clients() {
         />
       </form>
       {lookupMsg && <p className="text-sm text-red-500">{lookupMsg}</p>}
+
+      <div className="card p-4"><AdminFilter filter={dateFilter} setFilter={setDateFilter} /></div>
 
       {filtered.length === 0 ? (
         <div className="card grid place-items-center py-16 text-center">
@@ -82,58 +92,5 @@ export default function Clients() {
         </div>
       )}
     </div>
-  )
-}
-
-function NewClientForm({ onCreated }) {
-  const [form, setForm] = useState({ name: '', phone: '', email: '', age: '', gender: '', address: '', service: SERVICE_OPTIONS[0], complaint: '', history: '' })
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState('')
-  const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }))
-
-  async function submit(e) {
-    e.preventDefault()
-    setError('')
-    if (!form.name.trim()) { setError('Name is required.'); return }
-    if (!isValidMobile(form.phone)) { setError('Enter a valid 10-digit mobile number.'); return }
-    setBusy(true)
-    try {
-      const { id, clientId } = await createClient(form)
-      onCreated(id, clientId)
-    } catch {
-      setError('Could not create client. Try again.')
-      setBusy(false)
-    }
-  }
-
-  return (
-    <form onSubmit={submit} className="card animate-fade-in space-y-4 p-5">
-      <p className="text-sm text-slate-500">A unique Client ID (e.g. <strong>W2W-0001</strong>) is generated automatically.</p>
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div><label className="label">Full Name *</label><input className="input" value={form.name} onChange={set('name')} required /></div>
-        <div><label className="label">Phone *</label><PhoneField value={form.phone} onChange={(v) => setForm((f) => ({ ...f, phone: v }))} required /></div>
-        <div><label className="label">Email</label><input className="input" type="email" value={form.email} onChange={set('email')} /></div>
-        <div className="grid grid-cols-2 gap-3">
-          <div><label className="label">Age</label><input className="input" value={form.age} onChange={(e) => setForm((f) => ({ ...f, age: onlyDigits(e.target.value).slice(0, 3) }))} inputMode="numeric" /></div>
-          <div>
-            <label className="label">Gender</label>
-            <select className="input" value={form.gender} onChange={set('gender')}>
-              <option value="">—</option><option>Male</option><option>Female</option><option>Other</option>
-            </select>
-          </div>
-        </div>
-        <div><label className="label">Address</label><input className="input" value={form.address} onChange={set('address')} /></div>
-        <div>
-          <label className="label">Primary Service</label>
-          <select className="input" value={form.service} onChange={set('service')}>{SERVICE_OPTIONS.map((s) => <option key={s}>{s}</option>)}</select>
-        </div>
-      </div>
-      <div><label className="label">Chief Complaint / Goal</label><textarea className="input min-h-[70px]" value={form.complaint} onChange={set('complaint')} placeholder="Reason for visit, injury, goal…" /></div>
-      <div><label className="label">Medical History / Previous Reports (paste old report text here)</label><textarea className="input min-h-[100px]" value={form.history} onChange={set('history')} placeholder="Past diagnoses, surgeries, previous report notes, medications…" /></div>
-      {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}
-      <div className="flex justify-end">
-        <button type="submit" disabled={busy} className="btn-primary">{busy ? <Loader2 size={18} className="animate-spin" /> : <Plus size={18} />} Create Client</button>
-      </div>
-    </form>
   )
 }

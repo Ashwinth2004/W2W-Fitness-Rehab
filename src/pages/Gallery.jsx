@@ -41,18 +41,18 @@ export default function Gallery() {
 
       <section className="py-12 md:py-16">
         <div className="container-page">
-          <div className="columns-2 gap-4 sm:columns-3 lg:columns-4 [&>*]:mb-4">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4">
             {GALLERY_PHOTOS.map((p, i) => (
               <button
                 key={p.src}
                 onClick={() => show(i)}
-                className="group block w-full overflow-hidden rounded-2xl shadow-sm ring-1 ring-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-400"
+                className="group relative block aspect-square w-full overflow-hidden rounded-2xl shadow-sm ring-1 ring-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-400"
               >
                 <img
                   src={p.src}
                   alt={p.caption}
                   loading="lazy"
-                  className="w-full transition duration-500 group-hover:scale-[1.04]"
+                  className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
                 />
               </button>
             ))}

@@ -25,23 +25,31 @@ export default function Services() {
           {SERVICES.map((s, i) => (
             <div
               key={s.id}
-              className={`card grid items-center gap-0 overflow-hidden md:grid-cols-2 ${i % 2 ? 'md:[&>img]:order-2' : ''}`}
+              className={`card grid items-stretch gap-0 overflow-hidden ${i % 2 ? 'md:grid-cols-[3fr,2fr] md:[&>div:first-child]:order-2' : 'md:grid-cols-[2fr,3fr]'}`}
             >
-              <img
-                src={s.photo}
-                alt={s.title}
-                loading="lazy"
-                className="aspect-[4/3] w-full object-cover"
-              />
-              <div className="p-6 md:p-10">
-                <div className="grid h-14 w-14 place-items-center rounded-2xl bg-brand-50 text-brand-600">
-                  <ServiceIcon name={s.icon} size={30} />
+              {/* Photo — smaller column, fills its height */}
+              <div className="relative min-h-[14rem]">
+                <img
+                  src={s.photo}
+                  alt={s.title}
+                  loading="lazy"
+                  className="h-56 w-full object-cover sm:h-72 md:absolute md:inset-0 md:h-full"
+                />
+              </div>
+
+              {/* Content — more room for text */}
+              <div className="p-6 md:p-9">
+                <div className="flex items-center gap-3">
+                  <div className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-brand-50 text-brand-600">
+                    <ServiceIcon name={s.icon} size={26} />
+                  </div>
+                  <h2 className="text-2xl font-bold md:text-3xl">{s.title}</h2>
                 </div>
-                <h2 className="mt-5 text-2xl font-bold md:text-3xl">{s.title}</h2>
-                <p className="mt-3 text-slate-600">{s.short}</p>
-                <ul className="mt-5 grid gap-2 sm:grid-cols-2">
+                <p className="mt-4 font-semibold text-brand-700">{s.short}</p>
+                <p className="mt-2 text-sm leading-relaxed text-slate-600">{s.description}</p>
+                <ul className="mt-5 grid gap-2.5 sm:grid-cols-2">
                   {s.points.map((p) => (
-                    <li key={p} className="flex items-start gap-2 text-sm text-slate-700">
+                    <li key={p} className="flex items-start gap-2 rounded-xl bg-brand-50/70 px-3 py-2 text-sm font-medium text-slate-700">
                       <CheckCircle2 className="mt-0.5 shrink-0 text-brand-500" size={18} /> {p}
                     </li>
                   ))}

@@ -2,8 +2,10 @@ import { Link } from 'react-router-dom'
 import { MapPin, Phone, Mail, Clock } from 'lucide-react'
 import { BUSINESS, whatsappLink, telLink } from '../lib/constants'
 import { WhatsAppIcon, InstagramIcon } from './BrandIcons'
+import { useBooking } from '../context/BookingContext'
 
 export default function Footer() {
+  const { openBooking } = useBooking()
   return (
     <footer className="bg-brand-950 text-brand-100">
       <div className="container-page grid gap-10 py-12 text-center md:grid-cols-2 md:text-left lg:grid-cols-4">
@@ -15,7 +17,7 @@ export default function Footer() {
               <p className="text-xs text-brand-300">{BUSINESS.tagline}</p>
             </div>
           </div>
-          <p className="mt-4 text-sm leading-relaxed text-brand-200">{BUSINESS.slogan}</p>
+          <p className="mt-4 text-sm leading-relaxed text-white">{BUSINESS.slogan}</p>
         </div>
 
         <div>
@@ -26,8 +28,11 @@ export default function Footer() {
             <li><Link to="/gallery" className="hover:text-white">Gallery</Link></li>
             <li><Link to="/testimonials" className="hover:text-white">Testimonials</Link></li>
             <li><Link to="/workshop" className="hover:text-white">W2W Workshop</Link></li>
-            <li><Link to="/blog" className="hover:text-white">Health Tips</Link></li>
-            <li><Link to="/book" className="hover:text-white">Book Appointment</Link></li>
+            <li>
+              <button type="button" onClick={() => openBooking()} className="hover:text-white">
+                Book Appointment
+              </button>
+            </li>
             <li><Link to="/contact" className="hover:text-white">Contact</Link></li>
           </ul>
         </div>
@@ -51,7 +56,12 @@ export default function Footer() {
             {BUSINESS.hours.map((h) => (
               <li key={h.day} className="flex items-start justify-center gap-2 text-left md:justify-start">
                 <Clock size={18} className="mt-0.5 shrink-0 text-brand-400" />
-                <span><span className="block font-medium text-white">{h.day}</span>{h.time}</span>
+                <span>
+                  <span className="block font-medium text-white">{h.day}</span>
+                  {h.time.split(' & ').map((t) => (
+                    <span key={t} className="block">{t}</span>
+                  ))}
+                </span>
               </li>
             ))}
           </ul>

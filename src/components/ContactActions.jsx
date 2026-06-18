@@ -1,10 +1,12 @@
 import { WhatsAppIcon, PhoneIcon } from './BrandIcons'
 
 // Click-to-call + WhatsApp icons next to a client's phone number.
-export default function ContactActions({ phone, size = 'md', showNumber = false }) {
+// Pass `message` to pre-fill the WhatsApp chat with a ready-to-send text.
+export default function ContactActions({ phone, size = 'md', showNumber = false, message }) {
   if (!phone) return <span className="text-slate-400">—</span>
   const digits = String(phone).replace(/\D/g, '')
   const wa = digits.length === 10 ? `91${digits}` : digits
+  const waHref = `https://wa.me/${wa}${message ? `?text=${encodeURIComponent(message)}` : ''}`
   const cls = size === 'sm' ? 'h-7 w-7' : 'h-9 w-9'
   const icon = size === 'sm' ? 15 : 18
 
@@ -19,7 +21,7 @@ export default function ContactActions({ phone, size = 'md', showNumber = false 
         <PhoneIcon size={icon} />
       </a>
       <a
-        href={`https://wa.me/${wa}`}
+        href={waHref}
         target="_blank"
         rel="noreferrer"
         title={`WhatsApp ${phone}`}

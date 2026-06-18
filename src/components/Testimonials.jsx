@@ -1,14 +1,18 @@
-import { useEffect, useState } from 'react'
-import { Star, ExternalLink } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
+import { Star } from 'lucide-react'
 import { GoogleIcon } from './BrandIcons'
 import { getApprovedTestimonials } from '../lib/firestore'
 import { BUSINESS } from '../lib/constants'
 
-// Falls back to seed reviews until the admin adds real ones in the dashboard.
+// Real Google reviews (5.0★) for W2W Fitness & Rehab — kept as a fallback that
+// matches the live Google listing until the admin curates reviews in Firestore.
 const SEED = [
-  { name: 'Priya R.', rating: 5, text: 'Recovered from a knee injury in weeks. Sakthi’s hands-on physiotherapy and home exercises made all the difference!', when: 'a month ago' },
-  { name: 'Karthik M.', rating: 5, text: 'The lifestyle fitness program is brilliant — personalised, sustainable and the trainers genuinely care about results.', when: '2 months ago' },
-  { name: 'Lakshmi S.', rating: 5, text: 'Post-surgery rehab here was reassuring and professional. Highly recommend W2W in Mylapore.', when: '3 weeks ago' },
+  { name: 'Tharun Kumar', rating: 5, when: '2 months ago', text: 'Had knee pain and took treatment here. Feeling much better now and even started working out again. Good experience overall.' },
+  { name: 'Sandeep Mishra', rating: 5, when: 'a year ago', text: 'Great experience working with Shakti who has now practically worked with my entire family. Her approach is simple and highly effective — working towards overall outcomes vs temporary pain fixes. Would highly recommend!' },
+  { name: 'Vibhu Natarajan', rating: 5, when: 'a year ago', text: 'Shakti is hands on. She has good intuition and is very thorough in her assessments. She is professional and is able to assess your physical abilities even better than you can judge yourself. No hesitation in recommending her.' },
+  { name: 'Suhas Anjan', rating: 5, when: '2 years ago', text: 'Dr. Sakthi visited my father as he was recovering from a major skull operation. Within 2 weeks my father was able to walk around — a huge progress as he was bedridden. Highly recommend the consult here.' },
+  { name: 'Yamuna Dhasan', rating: 5, when: '2 years ago', text: 'My experience with physiotherapist Sakthi was incredibly positive. She expertly addressed my back pain by identifying the fundamental cause, and as a result my back pain eased off over time. Thanks for helping me out, Sakthi.' },
+  { name: 'Kala Natarajan', rating: 5, when: 'a year ago', text: 'I have been visiting W2W Fitness & Rehab for my back pain. After my PT visits I have now gained confidence. The team has a good vision and offers a suitable treatment and rehabilitation plan.' },
 ]
 
 // Deterministic avatar colour from the name (Google-style coloured initials).
@@ -17,11 +21,32 @@ const colorFor = (name) => AVATAR_COLORS[(name?.charCodeAt(0) || 0) % AVATAR_COL
 
 function Stars({ n = 5 }) {
   return (
-    <div className="flex">
+    <div className="flex gap-0.5">
       {Array.from({ length: 5 }).map((_, k) => (
-        <Star key={k} size={16} className={k < n ? 'fill-[#fbbc05] text-[#fbbc05]' : 'fill-slate-200 text-slate-200'} />
+        <Star key={k} size={16} className={k < n ? 'fill-[#fbbc05] text-[#fbbc05]' : 'fill-white/20 text-white/20'} />
       ))}
     </div>
+  )
+}
+
+function Card({ t }) {
+  return (
+    <article className="mx-3 flex w-[300px] shrink-0 flex-col rounded-2xl bg-white p-6 text-left shadow-xl sm:w-[360px]">
+      <div className="flex items-center justify-between">
+        <Stars n={t.rating || 5} />
+        <GoogleIcon size={20} />
+      </div>
+      <p className="mt-4 flex-1 text-sm leading-relaxed text-slate-600">{t.text}</p>
+      <div className="mt-5 flex items-center gap-3 border-t border-slate-100 pt-4">
+        <div className={`grid h-10 w-10 shrink-0 place-items-center rounded-full text-base font-bold text-white ${colorFor(t.name)}`}>
+          {(t.name || 'A')[0].toUpperCase()}
+        </div>
+        <div className="min-w-0">
+          <p className="truncate font-semibold text-slate-900">{t.name}</p>
+          {t.date && <p className="text-xs text-slate-400">{t.date}</p>}
+        </div>
+      </div>
+    </article>
   )
 }
 
@@ -30,79 +55,52 @@ export default function Testimonials() {
 
   useEffect(() => {
     getApprovedTestimonials()
-      .then((list) => {
-        if (list.length) setItems(list)
-      })
+      .then((list) => { if (list.length) setItems(list) })
       .catch(() => {})
   }, [])
 
+  // Repeat the reviews until there are enough cards to fill the row, then lay
+  // them out twice so a -50% translate loops seamlessly. Speed is constant.
+  const { loop, duration } = useMemo(() => {
+    const base = []
+    while (base.length < Math.max(items.length, 6)) base.push(...items)
+    return { loop: [...base, ...base], duration: `${base.length * 6}s` }
+  }, [items])
+
   return (
-    <section className="bg-brand-50/60 py-16 md:py-24">
+    <section className="overflow-hidden bg-brand-950 py-16 text-white md:py-24">
       <div className="container-page">
         <div className="mx-auto max-w-2xl text-center">
-          <span className="section-eyebrow">Happy Clients</span>
-          <h2 className="text-3xl font-bold md:text-4xl">What our community says</h2>
-        </div>
+          <span className="mb-2 inline-block text-sm font-semibold uppercase tracking-wider text-brand-300">Happy Clients</span>
+          <h2 className="text-3xl font-bold text-white md:text-4xl">What our community says</h2>
+          <p className="mt-3 text-brand-100">Real stories from the people we’ve helped move, heal and feel their best.</p>
 
-        {/* Google rating summary bar */}
-        <div className="mx-auto mt-8 flex max-w-xl flex-col items-center justify-center gap-3 rounded-2xl border border-slate-200 bg-white px-6 py-5 text-center shadow-sm sm:flex-row sm:gap-6 sm:text-left">
-          <div className="flex items-center gap-3">
-            <GoogleIcon size={34} />
-            <div>
-              <p className="text-sm font-semibold text-slate-700">Google Reviews</p>
-              <p className="text-xs text-slate-500">W2W Fitness &amp; Rehab</p>
-            </div>
-          </div>
-          <div className="hidden h-10 w-px bg-slate-200 sm:block" />
-          <div className="flex items-center gap-3">
-            <span className="text-3xl font-bold text-slate-900">{BUSINESS.rating.toFixed(1)}</span>
-            <div>
+          {/* Google rating trust pill */}
+          <div className="mx-auto mt-6 inline-flex flex-wrap items-center justify-center gap-x-4 gap-y-2 rounded-full bg-white/10 px-5 py-3 ring-1 ring-white/15">
+            <span className="flex items-center gap-2">
+              <GoogleIcon size={22} />
+              <span className="text-2xl font-bold text-white">{BUSINESS.rating.toFixed(1)}</span>
               <Stars n={5} />
-              <p className="mt-0.5 text-xs text-slate-500">Based on {BUSINESS.reviewCount}+ reviews</p>
-            </div>
+            </span>
+            <span className="text-sm text-brand-100">{BUSINESS.reviewCount}+ Google reviews</span>
+            <a
+              href={BUSINESS.reviewsUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="rounded-full bg-white px-4 py-1.5 text-xs font-semibold text-brand-700 transition hover:bg-brand-50"
+            >
+              Write a review
+            </a>
           </div>
-          <a
-            href={BUSINESS.reviewsUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="rounded-full bg-brand-600 px-4 py-2 text-xs font-semibold text-white transition hover:bg-brand-700 sm:ml-auto"
-          >
-            Write a review
-          </a>
         </div>
+      </div>
 
-        <div className="mt-10 grid gap-6 md:grid-cols-3">
-          {items.slice(0, 6).map((t, i) => (
-            <div key={t.id || i} className="card animate-fade-in p-6">
-              <div className="flex items-start justify-between">
-                <div className="flex items-center gap-3">
-                  <div className={`grid h-10 w-10 shrink-0 place-items-center rounded-full text-base font-bold text-white ${colorFor(t.name)}`}>
-                    {(t.name || 'A')[0].toUpperCase()}
-                  </div>
-                  <div>
-                    <p className="font-semibold text-slate-900">{t.name}</p>
-                    <p className="text-xs text-slate-400">{t.when || 'Verified client'}</p>
-                  </div>
-                </div>
-                <GoogleIcon size={18} />
-              </div>
-              <div className="mt-3">
-                <Stars n={t.rating || 5} />
-              </div>
-              <p className="mt-3 text-sm leading-relaxed text-slate-600">{t.text}</p>
-            </div>
+      {/* Self-running marquee of review cards — pauses on hover, freezes for reduced-motion users. */}
+      <div className="marquee-viewport marquee-mask mt-12 overflow-hidden">
+        <div className="marquee-track" style={{ '--marquee-duration': duration }}>
+          {loop.map((t, i) => (
+            <Card key={(t.id || t.name) + '-' + i} t={t} />
           ))}
-        </div>
-
-        <div className="mt-8 text-center">
-          <a
-            href={BUSINESS.reviewsUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="inline-flex items-center gap-2 text-sm font-semibold text-brand-700 hover:underline"
-          >
-            See all reviews on Google <ExternalLink size={15} />
-          </a>
         </div>
       </div>
     </section>

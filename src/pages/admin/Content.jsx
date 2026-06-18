@@ -1,22 +1,20 @@
 import { useEffect, useState } from 'react'
-import { Star, Trash2, Plus, Eye, EyeOff, Newspaper, MessageSquareQuote, Loader2, Film } from 'lucide-react'
+import { Trash2, Plus, Eye, EyeOff, Newspaper, Loader2, Film } from 'lucide-react'
 import {
-  watchTestimonials, createTestimonial, setTestimonialApproved, deleteTestimonial,
   watchPosts, createPost, updatePost, deletePost,
   watchReels, createReel, deleteReel,
 } from '../../lib/firestore'
 import { fmtDate } from '../../lib/format'
 
 export default function Content() {
-  const [tab, setTab] = useState('reviews')
+  const [tab, setTab] = useState('blog')
   return (
     <div className="space-y-5">
-      <h1 className="text-2xl font-bold md:text-3xl">Content</h1>
+      <h1 className="text-2xl font-bold md:text-3xl">Blogs</h1>
       <div className="flex flex-wrap gap-2">
         {[
-          { id: 'reviews', label: 'Reviews', icon: MessageSquareQuote },
+          { id: 'blog', label: 'Blogs', icon: Newspaper },
           { id: 'videos', label: 'Video Testimonials', icon: Film },
-          { id: 'blog', label: 'Blog', icon: Newspaper },
         ].map((t) => (
           <button
             key={t.id}
@@ -29,9 +27,8 @@ export default function Content() {
           </button>
         ))}
       </div>
-      {tab === 'reviews' && <Reviews />}
-      {tab === 'videos' && <Videos />}
       {tab === 'blog' && <BlogManager />}
+      {tab === 'videos' && <Videos />}
     </div>
   )
 }
@@ -58,8 +55,13 @@ function Videos() {
     try {
       await createReel({ url: form.url.trim(), caption: form.caption.trim(), thumbnail: form.thumbnail.trim() })
       setForm({ url: '', caption: '', thumbnail: '' })
-    } catch (_) {
-      setError('Could not save. Please try again.')
+    } catch (err) {
+      console.error('createReel failed:', err)
+      setError(
+        err?.code === 'permission-denied'
+          ? 'Permission denied. Please sign out and sign back in as admin, then try again.'
+          : 'Could not save. Check your connection and try again.'
+      )
     }
     setBusy(false)
   }
@@ -98,56 +100,6 @@ function Videos() {
   )
 }
 
-function Reviews() {
-  const [items, setItems] = useState([])
-  const [form, setForm] = useState({ name: '', text: '', rating: 5 })
-  const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }))
-
-  useEffect(() => watchTestimonials(setItems), [])
-
-  async function add(e) {
-    e.preventDefault()
-    if (!form.name || !form.text) return
-    await createTestimonial({ name: form.name.trim(), text: form.text.trim(), rating: Number(form.rating), approved: true })
-    setForm({ name: '', text: '', rating: 5 })
-  }
-
-  return (
-    <div className="space-y-5">
-      <form onSubmit={add} className="card grid gap-3 p-5 sm:grid-cols-[1fr,1fr,auto] sm:items-end">
-        <div><label className="label text-xs">Client Name</label><input className="input" value={form.name} onChange={set('name')} /></div>
-        <div><label className="label text-xs">Review</label><input className="input" value={form.text} onChange={set('text')} placeholder="What the client said…" /></div>
-        <div className="flex items-end gap-2">
-          <div><label className="label text-xs">Rating</label><select className="input w-20" value={form.rating} onChange={set('rating')}>{[5,4,3,2,1].map((n)=><option key={n}>{n}</option>)}</select></div>
-          <button className="btn-primary"><Plus size={16} /> Add</button>
-        </div>
-      </form>
-      <p className="text-xs text-slate-400">Approved reviews appear on the public homepage. Toggle the eye to show/hide.</p>
-      {items.length === 0 ? (
-        <p className="card py-10 text-center text-sm text-slate-400">No reviews yet.</p>
-      ) : (
-        <div className="grid gap-4 md:grid-cols-2">
-          {items.map((t) => (
-            <div key={t.id} className={`card p-5 ${t.approved ? '' : 'opacity-60'}`}>
-              <div className="flex items-start justify-between">
-                <div>
-                  <p className="font-semibold text-slate-900">{t.name}</p>
-                  <div className="flex">{Array.from({ length: t.rating || 5 }).map((_, i) => <Star key={i} size={14} className="fill-amber-400 text-amber-400" />)}</div>
-                </div>
-                <div className="flex gap-1">
-                  <button onClick={() => setTestimonialApproved(t.id, !t.approved)} title={t.approved ? 'Hide' : 'Show'} className="grid h-8 w-8 place-items-center rounded-lg text-slate-500 hover:bg-slate-100">{t.approved ? <Eye size={16} /> : <EyeOff size={16} />}</button>
-                  <button onClick={() => deleteTestimonial(t.id)} className="grid h-8 w-8 place-items-center rounded-lg text-red-500 hover:bg-red-50"><Trash2 size={16} /></button>
-                </div>
-              </div>
-              <p className="mt-2 text-sm text-slate-600">{t.text}</p>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  )
-}
-
 const slugify = (s) => s.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
 
 function BlogManager() {
@@ -178,7 +130,7 @@ function BlogManager() {
     <div className="space-y-5">
       <form onSubmit={add} className="card space-y-3 p-5">
         <div><label className="label text-xs">Title</label><input className="input" value={form.title} onChange={set('title')} placeholder="Article title" /></div>
-        <div><label className="label text-xs">Cover Image URL (optional)</label><input className="input" value={form.coverImage} onChange={set('coverImage')} placeholder="https://… or /blog/your-image.jpg" /></div>
+        <div><label className="label text-xs">Cover Image URL (optional)</label><input className="input" value={form.coverImage} onChange={set('coverImage')} placeholder="https://… or /blog/your-image.webp" /></div>
         <div><label className="label text-xs">Short Excerpt (optional)</label><input className="input" value={form.excerpt} onChange={set('excerpt')} placeholder="One-line summary shown on the blog list" /></div>
         <div><label className="label text-xs">Body</label><textarea className="input min-h-[140px]" value={form.body} onChange={set('body')} placeholder="Write the full article here…" /></div>
         <div className="flex justify-end"><button disabled={busy} className="btn-primary">{busy ? <Loader2 size={18} className="animate-spin" /> : <Plus size={18} />} Publish Post</button></div>

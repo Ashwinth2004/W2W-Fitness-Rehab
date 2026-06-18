@@ -12,7 +12,7 @@ const STATS = [
   { value: '10+', label: 'Years Experience', icon: Award },
   { value: '100+', label: 'Students Trained', icon: Users },
   { value: '6 AM–9 PM', label: 'Mon to Sat', icon: Activity },
-  { value: '4.9★', label: 'Client Rating', icon: Star },
+  { value: '5.0★', label: 'Client Rating', icon: Star },
 ]
 
 const WHY = [
@@ -32,16 +32,16 @@ export default function Home() {
         <div className="absolute -right-24 -top-24 h-96 w-96 rounded-full bg-brand-200/40 blur-3xl" />
         <div className="absolute -bottom-32 -left-24 h-96 w-96 rounded-full bg-brand-100/60 blur-3xl" />
         <div className="container-page relative grid items-center gap-10 py-16 md:grid-cols-2 md:py-24">
-          <div className="animate-fade-in">
+          <div className="animate-fade-in text-center md:text-left">
             <span className="badge bg-brand-100 text-brand-700">{BUSINESS.tagline} · Mylapore, Chennai</span>
             <h1 className="mt-4 text-4xl font-extrabold leading-tight text-slate-900 md:text-5xl lg:text-6xl">
               Your Journey to <span className="gradient-text">Strength</span> Starts Here!
             </h1>
-            <p className="mt-5 max-w-lg text-lg text-slate-600">
+            <p className="mx-auto mt-5 max-w-lg text-lg text-slate-600 md:mx-0">
               Expert physiotherapy, rehabilitation, yoga and lifestyle fitness — personalised to help you move better,
               heal faster and live pain-free.
             </p>
-            <div className="mt-8 flex flex-wrap gap-3">
+            <div className="mt-8 flex flex-wrap justify-center gap-3 md:justify-start">
               <button onClick={() => openBooking()} className="btn-primary">
                 <CalendarCheck size={18} /> Book Appointment
               </button>
@@ -49,7 +49,7 @@ export default function Home() {
                 Explore Services <ArrowRight size={18} />
               </Link>
             </div>
-            <p className="mt-6 flex items-center gap-2 text-sm text-slate-500">
+            <p className="mt-6 flex items-center justify-center gap-2 text-sm text-slate-500 md:justify-start">
               <ShieldCheck size={18} className="text-brand-500" /> Trusted by athletes, post-surgery & elderly clients alike.
             </p>
           </div>
@@ -139,7 +139,7 @@ export default function Home() {
                 </li>
               ))}
             </ul>
-            <button onClick={() => openBooking()} className="btn-primary mt-8 bg-white !text-brand-700 hover:bg-brand-50">
+            <button onClick={() => openBooking()} className="btn-white mt-8">
               <CalendarCheck size={18} /> Start Your Journey
             </button>
           </div>
@@ -201,7 +201,7 @@ export default function Home() {
               Book an appointment in under a minute, or follow our journey on Instagram for tips and transformations.
             </p>
             <div className="mt-8 flex flex-wrap justify-center gap-3">
-              <button onClick={() => openBooking()} className="btn-primary bg-white !text-brand-700 hover:bg-brand-50">
+              <button onClick={() => openBooking()} className="btn-white">
                 <CalendarCheck size={18} /> Book Now
               </button>
               <a href={BUSINESS.instagram} target="_blank" rel="noreferrer" className="btn-outline border-white !text-white hover:bg-white/10">
