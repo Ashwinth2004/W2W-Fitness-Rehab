@@ -60,7 +60,7 @@ export default function WorkshopPopup() {
             <GraduationCap size={28} className="text-brand-300" />
           </span>
           <p className="text-xs font-semibold uppercase tracking-widest text-brand-300">W2W Academy · Registrations Open</p>
-          <h3 className="mt-1 text-2xl font-bold leading-tight">{workshop.title}</h3>
+          <h3 className="mt-1 text-2xl font-bold leading-tight text-white">{workshop.title}</h3>
         </div>
 
         <div className="p-6">

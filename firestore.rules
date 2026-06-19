@@ -92,18 +92,11 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
-    // Public seat counter (no PII). Increment-by-one only so it can't be set to
-    // an arbitrary value (no "mark full" / reset abuse); admin may delete.
+    // Public seat counter (no PII) — confirmed seats. Public reads it to show
+    // remaining seats; only the admin writes it (on approve/reject).
     match /workshopStats/{id} {
       allow read: if true;
-      allow create: if isAdmin() || (
-        data().keys().hasOnly(['count', 'workshopId']) && data().count == 1
-      );
-      allow update: if isAdmin() || (
-        data().keys().hasOnly(['count', 'workshopId'])
-        && data().count == resource.data.count + 1
-      );
-      allow delete: if isAdmin();
+      allow write: if isAdmin();
     }
 
     // Workshop registrations contain PII — public create (validated); admin reads.
@@ -121,5 +114,6 @@ service cloud.firestore {
     match /therapists/{id} { allow read, write: if isAdmin(); }
     match /accounting/{id} { allow read, write: if isAdmin(); }
     match /expenses/{id} { allow read, write: if isAdmin(); }
+    match /expenseCategories/{id} { allow read, write: if isAdmin(); }
   }
 }

@@ -369,34 +369,28 @@ export async function deleteWorkshop(id) {
   try { await deleteDoc(doc(db, 'workshopStats', id)) } catch (_) {}
 }
 
-// Public seat counter (no PII) so the site can show remaining slots.
+// Public seat counter (no PII) — number of admin-CONFIRMED seats, so the site
+// can show how many are left and auto-close when full.
 export function watchWorkshopSeats(workshopId, cb) {
   return onSnapshot(
     doc(db, 'workshopStats', workshopId),
-    (snap) => cb(snap.exists() ? snap.data().count || 0 : 0),
+    (snap) => cb(snap.exists() ? (snap.data().confirmed ?? snap.data().count ?? 0) : 0),
     () => cb(0)
   )
 }
 
 // ---------- Workshop registrations -----------------------------------------
-// Public create (reserves a seat atomically). Reads are admin-only (PII).
+// Public create — the registration is PENDING (the student has paid via UPI and
+// must message the admin). A seat is only consumed once the admin APPROVES, so
+// there is no public counter write here. Reads are admin-only (PII).
 export async function registerForWorkshop(workshop, data) {
-  const statsRef = doc(db, 'workshopStats', workshop.id)
-  const regRef = doc(collection(db, 'workshopRegistrations'))
-  await runTransaction(db, async (tx) => {
-    const statsSnap = await tx.get(statsRef)
-    const count = statsSnap.exists() ? statsSnap.data().count || 0 : 0
-    if (workshop.slots && count >= Number(workshop.slots)) throw new Error('WORKSHOP_FULL')
-    tx.set(statsRef, { count: count + 1, workshopId: workshop.id }, { merge: true })
-    tx.set(regRef, {
-      ...data,
-      workshopId: workshop.id,
-      workshopTitle: workshop.title,
-      status: 'pending', // pending → confirmed once payment screenshot is verified
-      createdAt: serverTimestamp(),
-    })
+  return addDoc(collection(db, 'workshopRegistrations'), {
+    ...data,
+    workshopId: workshop.id,
+    workshopTitle: workshop.title,
+    status: 'pending',
+    createdAt: serverTimestamp(),
   })
-  return regRef.id
 }
 
 export function watchWorkshopRegistrations(cb) {
@@ -404,12 +398,47 @@ export function watchWorkshopRegistrations(cb) {
   return onSnapshot(q, (snap) => cb(snap.docs.map((d) => ({ id: d.id, ...d.data() }))))
 }
 
-export async function setRegistrationStatus(id, status) {
-  return updateDoc(doc(db, 'workshopRegistrations', id), { status })
+// Admin approves a paid registration → confirmed (books a seat: +1 confirmed).
+export async function approveRegistration(reg) {
+  if (reg.status === 'confirmed') return
+  const statsRef = doc(db, 'workshopStats', reg.workshopId)
+  const regRef = doc(db, 'workshopRegistrations', reg.id)
+  await runTransaction(db, async (tx) => {
+    const snap = await tx.get(statsRef)
+    const confirmed = snap.exists() ? snap.data().confirmed || 0 : 0
+    tx.set(statsRef, { confirmed: confirmed + 1, workshopId: reg.workshopId }, { merge: true })
+    tx.update(regRef, { status: 'confirmed' })
+  })
 }
 
-export async function deleteRegistration(id) {
-  return deleteDoc(doc(db, 'workshopRegistrations', id))
+// Admin reverts a confirmed registration back to pending → frees the seat.
+export async function unapproveRegistration(reg) {
+  const regRef = doc(db, 'workshopRegistrations', reg.id)
+  if (reg.status !== 'confirmed') return updateDoc(regRef, { status: 'pending' })
+  const statsRef = doc(db, 'workshopStats', reg.workshopId)
+  await runTransaction(db, async (tx) => {
+    const snap = await tx.get(statsRef)
+    const confirmed = snap.exists() ? snap.data().confirmed || 0 : 0
+    tx.set(statsRef, { confirmed: Math.max(0, confirmed - 1), workshopId: reg.workshopId }, { merge: true })
+    tx.update(regRef, { status: 'pending' })
+  })
+}
+
+// Accepts a registration object (preferred — adjusts the seat count if it was
+// confirmed) or a bare id.
+export async function deleteRegistration(reg) {
+  if (typeof reg === 'string') return deleteDoc(doc(db, 'workshopRegistrations', reg))
+  if (reg.status === 'confirmed') {
+    const statsRef = doc(db, 'workshopStats', reg.workshopId)
+    await runTransaction(db, async (tx) => {
+      const snap = await tx.get(statsRef)
+      const confirmed = snap.exists() ? snap.data().confirmed || 0 : 0
+      tx.set(statsRef, { confirmed: Math.max(0, confirmed - 1) }, { merge: true })
+      tx.delete(doc(db, 'workshopRegistrations', reg.id))
+    })
+    return
+  }
+  return deleteDoc(doc(db, 'workshopRegistrations', reg.id))
 }
 
 // ---------- Therapists ------------------------------------------------------
@@ -486,4 +515,43 @@ export async function getExpensesInRange(start, end) {
 
 export async function deleteExpense(id) {
   return deleteDoc(doc(db, 'expenses', id))
+}
+
+// Reusable expense names for the dropdown (admin adds new ones on the fly).
+export function watchExpenseCategories(cb) {
+  const q = query(collection(db, 'expenseCategories'), orderBy('name'))
+  return onSnapshot(q, (snap) => cb(snap.docs.map((d) => ({ id: d.id, ...d.data() }))), () => cb([]))
+}
+
+export async function addExpenseCategory(name) {
+  return addDoc(collection(db, 'expenseCategories'), { name: name.trim(), createdAt: serverTimestamp() })
+}
+
+// ---------- Treatments (per-visit clinical assessments) --------------------
+// Stored under clients/{id}/treatments — one record per session, holding the
+// clinical fields + handling therapist + next-session date.
+export async function addTreatment(clientId, data) {
+  const ref = await addDoc(collection(db, 'clients', clientId, 'treatments'), {
+    ...data,
+    createdAt: serverTimestamp(),
+  })
+  // Remember the latest handling therapist on the client (default for next time).
+  if (data.therapist) {
+    try { await updateDoc(doc(db, 'clients', clientId), { therapist: data.therapist, updatedAt: serverTimestamp() }) } catch (_) {}
+  }
+  return ref.id
+}
+
+export function watchTreatments(clientId, cb) {
+  const q = query(collection(db, 'clients', clientId, 'treatments'), orderBy('date', 'desc'))
+  return onSnapshot(q, (snap) => cb(snap.docs.map((d) => ({ id: d.id, ...d.data() }))))
+}
+
+export async function getTreatmentsOnce(clientId) {
+  const snap = await getDocs(query(collection(db, 'clients', clientId, 'treatments'), orderBy('date', 'desc')))
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+}
+
+export async function deleteTreatment(clientId, id) {
+  return deleteDoc(doc(db, 'clients', clientId, 'treatments', id))
 }

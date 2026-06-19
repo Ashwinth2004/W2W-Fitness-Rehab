@@ -30,6 +30,7 @@ const Queries = lazy(() => import('./pages/admin/Queries'))
 const Appointments = lazy(() => import('./pages/admin/Appointments'))
 const Clients = lazy(() => import('./pages/admin/Clients'))
 const ClientDetail = lazy(() => import('./pages/admin/ClientDetail'))
+const Treatment = lazy(() => import('./pages/admin/Treatment'))
 const Reports = lazy(() => import('./pages/admin/Reports'))
 const Accounting = lazy(() => import('./pages/admin/Accounting'))
 const Content = lazy(() => import('./pages/admin/Content'))
@@ -74,6 +75,7 @@ export default function App() {
               <Route path="appointments" element={<Appointments />} />
               <Route path="clients" element={<Clients />} />
               <Route path="clients/:id" element={<ClientDetail />} />
+              <Route path="treatment" element={<Treatment />} />
               <Route path="reports" element={<Reports />} />
               <Route path="accounting" element={<Accounting />} />
               <Route path="content" element={<Content />} />

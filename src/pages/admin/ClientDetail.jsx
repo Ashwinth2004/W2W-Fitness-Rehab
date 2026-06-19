@@ -2,14 +2,12 @@ import { useEffect, useState } from 'react'
 import { Link, useParams, useNavigate } from 'react-router-dom'
 import {
   ArrowLeft, BadgeCheck, FileDown, Pencil, Trash2, Plus, Save, X, Loader2,
-  NotebookPen, TrendingUp, User, Calendar, Send, UserPlus, IndianRupee, MapPin,
+  NotebookPen, Stethoscope, User, Calendar, Send, UserPlus, IndianRupee, MapPin,
+  CalendarClock, Activity,
 } from 'lucide-react'
 import {
-  LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
-} from 'recharts'
-import {
   getClient, updateClient, deleteClient, watchClientNotes, addClientNote, deleteClientNote,
-  watchProgress, addProgress, deleteProgress, getClientNotesOnce, getClientProgressOnce,
+  watchTreatments, deleteTreatment, getClientNotesOnce,
   watchTherapists, createTherapist, addAccountingEntry,
 } from '../../lib/firestore'
 import { fmtDate, todayISO } from '../../lib/format'
@@ -20,19 +18,28 @@ import DateField from '../../components/DateField'
 import PhoneField from '../../components/PhoneField'
 import { generateClientReport } from '../../lib/pdf'
 
+const SESSION_GROUPS = [
+  ['Pain assessment', [['painArea', 'Area'], ['painDuration', 'Duration'], ['painType', 'Type'], ['painADL', 'Impact on ADL'], ['painAggravating', 'Aggravating'], ['painRelieving', 'Relieving'], ['vas', 'VAS (0–10)']]],
+  ['Objective', [['built', 'Built'], ['deformities', 'Deformities / Edema'], ['gait', 'Gait'], ['objectiveNotes', 'Notes']]],
+  ['On palpation', [['tenderness', 'Tenderness'], ['swelling', 'Swelling / Spasm'], ['crepitus', 'Crepitus']]],
+  ['On examination', [['rom', 'ROM'], ['endFeel', 'End feel'], ['grip', 'Grip'], ['muscleTone', 'Muscle tone'], ['girth', 'Girth'], ['limbLength', 'Limb length'], ['reflexes', 'Reflexes'], ['specialTests', 'Special tests']]],
+  ['Assessment & plan', [['opinion', 'Opinion'], ['treatmentOptions', 'Treatment options'], ['expectedRecovery', 'Expected recovery'], ['treatmentPlan', 'Treatment plan'], ['followUp', 'Follow up']]],
+]
+const ACTIVITY = [['walking', 'Walking / steps'], ['exercise', 'Exercise'], ['deskWork', 'Desk work'], ['sleep', 'Sleep'], ['hydration', 'Hydration']]
+
 export default function ClientDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
   const [client, setClient] = useState(undefined)
   const [notes, setNotes] = useState([])
-  const [progress, setProgress] = useState([])
+  const [treatments, setTreatments] = useState([])
   const [editing, setEditing] = useState(false)
   const [reporting, setReporting] = useState(false)
 
   useEffect(() => {
     getClient(id).then(setClient)
     const u1 = watchClientNotes(id, setNotes)
-    const u2 = watchProgress(id, setProgress)
+    const u2 = watchTreatments(id, setTreatments)
     return () => { u1(); u2() }
   }, [id])
 
@@ -49,6 +56,8 @@ export default function ClientDetail() {
     await deleteClient(id)
     navigate('/admin/clients')
   }
+
+  const activity = ACTIVITY.filter(([k]) => client[k])
 
   return (
     <div className="space-y-6">
@@ -70,10 +79,9 @@ export default function ClientDetail() {
             </div>
           </div>
           <div className="flex flex-wrap gap-2">
-            <button onClick={() => setReporting(true)} className="btn-primary">
-              <FileDown size={18} /> Generate Report
-            </button>
-            <button onClick={() => setEditing(true)} className="btn-outline"><Pencil size={16} /> Edit</button>
+            <Link to={`/admin/treatment?client=${id}`} className="btn-outline"><Stethoscope size={16} /> New Treatment</Link>
+            <button onClick={() => setReporting(true)} className="btn-primary"><FileDown size={18} /> Generate Report</button>
+            <button onClick={() => setEditing(true)} className="btn-ghost"><Pencil size={16} /> Edit</button>
             <button onClick={handleDelete} className="btn-ghost text-red-500 hover:bg-red-50"><Trash2 size={16} /></button>
           </div>
         </div>
@@ -81,14 +89,14 @@ export default function ClientDetail() {
         {/* Quick facts */}
         <div className="mt-5 grid gap-4 border-t border-slate-100 pt-5 sm:grid-cols-2 lg:grid-cols-4">
           <Fact icon={User} label="Age / Gender" value={`${client.age || '—'} / ${client.gender || '—'}`} />
-          <Fact icon={Calendar} label="Registered" value={fmtDate(client.createdAt)} />
+          <Fact icon={Calendar} label="Registered" value={fmtDate(client.registeredOn || client.createdAt)} />
           <Fact icon={NotebookPen} label="Primary Service" value={client.service || '—'} />
-          <Fact icon={User} label="Email" value={client.email || '—'} />
+          <Fact icon={Stethoscope} label="Handled by" value={client.therapist || '—'} />
         </div>
         {client.address && <p className="mt-3 flex items-center gap-1.5 text-sm text-slate-500"><MapPin size={14} className="shrink-0" /> {client.address}</p>}
       </div>
 
-      {/* Complaint + history */}
+      {/* Complaint + history (basic details) */}
       <div className="grid gap-6 lg:grid-cols-2">
         <InfoBlock title="Chief Complaint / Goal" text={client.complaint} empty="No complaint recorded." />
         <InfoBlock
@@ -102,17 +110,25 @@ export default function ClientDetail() {
         />
       </div>
 
-      {/* Physiotherapy assessment (from the intake form) */}
-      <AssessmentSection client={client} />
+      {activity.length > 0 && (
+        <div className="card p-5">
+          <h2 className="mb-3 flex items-center gap-2 font-bold text-slate-900"><Activity size={18} className="text-brand-600" /> Lifestyle &amp; Activity</h2>
+          <dl className="grid gap-x-8 gap-y-2 sm:grid-cols-2">
+            {activity.map(([k, label]) => (
+              <div key={k} className="flex gap-2 text-sm"><dt className="shrink-0 text-slate-400">{label}:</dt><dd className="text-slate-700">{String(client[k])}</dd></div>
+            ))}
+          </dl>
+        </div>
+      )}
 
-      {/* Progress */}
-      <ProgressSection clientId={id} progress={progress} />
+      {/* Treatment sessions (per visit) */}
+      <TreatmentSessions clientId={id} treatments={treatments} />
 
       {/* Notes */}
       <NotesSection clientId={id} notes={notes} />
 
       {editing && <EditClientModal client={client} onClose={() => setEditing(false)} onSaved={(d) => { setClient((c) => ({ ...c, ...d })); setEditing(false) }} />}
-      {reporting && <ReportModal client={client} onClose={() => setReporting(false)} />}
+      {reporting && <ReportModal client={client} treatments={treatments} onClose={() => setReporting(false)} />}
     </div>
   )
 }
@@ -126,48 +142,6 @@ function Fact({ icon: Icon, label, value }) {
   )
 }
 
-// ---- Physiotherapy assessment (read-only view of intake fields) -----------
-const ASSESS_GROUPS = [
-  ['Activity levels', [['walking', 'Walking / steps'], ['exercise', 'Exercise'], ['deskWork', 'Desk work'], ['sleep', 'Sleep'], ['hydration', 'Hydration']]],
-  ['Pain assessment', [['painArea', 'Area'], ['painDuration', 'Duration'], ['painType', 'Type'], ['painADL', 'Impact on ADL'], ['painAggravating', 'Aggravating'], ['painRelieving', 'Relieving'], ['vas', 'VAS (0–10)']]],
-  ['Objective', [['built', 'Built'], ['deformities', 'Deformities / Edema'], ['gait', 'Gait'], ['objectiveNotes', 'Notes']]],
-  ['On palpation', [['tenderness', 'Tenderness'], ['swelling', 'Swelling / Spasm'], ['crepitus', 'Crepitus']]],
-  ['On examination', [['rom', 'ROM'], ['endFeel', 'End feel'], ['grip', 'Grip'], ['muscleTone', 'Muscle tone'], ['girth', 'Girth'], ['limbLength', 'Limb length'], ['reflexes', 'Reflexes'], ['specialTests', 'Special tests']]],
-  ['Assessment & plan', [['opinion', 'Opinion'], ['treatmentOptions', 'Treatment options'], ['expectedRecovery', 'Expected recovery'], ['treatmentPlan', 'Treatment plan'], ['followUp', 'Follow up']]],
-]
-
-function AssessmentSection({ client }) {
-  const groups = ASSESS_GROUPS
-    .map(([title, pairs]) => [title, pairs.filter(([k]) => client[k])])
-    .filter(([, pairs]) => pairs.length > 0)
-
-  if (groups.length === 0) return null
-
-  return (
-    <div className="card p-5">
-      <div className="mb-4 flex items-center justify-between">
-        <h2 className="flex items-center gap-2 font-bold text-slate-900"><NotebookPen size={18} className="text-brand-600" /> Physiotherapy Assessment</h2>
-        {client.assessmentDate && <span className="text-xs text-slate-400">Assessed {fmtDate(client.assessmentDate)}</span>}
-      </div>
-      <div className="grid gap-x-8 gap-y-5 md:grid-cols-2">
-        {groups.map(([title, pairs]) => (
-          <div key={title}>
-            <p className="mb-2 text-xs font-bold uppercase tracking-wide text-brand-600">{title}</p>
-            <dl className="space-y-1.5">
-              {pairs.map(([k, label]) => (
-                <div key={k} className="flex gap-2 text-sm">
-                  <dt className="shrink-0 text-slate-400">{label}:</dt>
-                  <dd className="whitespace-pre-line text-slate-700">{String(client[k])}</dd>
-                </div>
-              ))}
-            </dl>
-          </div>
-        ))}
-      </div>
-    </div>
-  )
-}
-
 function InfoBlock({ title, text, empty }) {
   return (
     <div className="card p-5">
@@ -177,78 +151,48 @@ function InfoBlock({ title, text, empty }) {
   )
 }
 
-// ---- Progress (charts + measurements) -------------------------------------
-function ProgressSection({ clientId, progress }) {
-  const [form, setForm] = useState({ date: todayISO(), pain: '', rom: '', weight: '' })
-  const [open, setOpen] = useState(false)
-  const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }))
-
-  async function add(e) {
-    e.preventDefault()
-    await addProgress(clientId, {
-      date: form.date || todayISO(),
-      pain: form.pain === '' ? null : Number(form.pain),
-      rom: form.rom,
-      weight: form.weight === '' ? null : Number(form.weight),
-    })
-    setForm({ date: todayISO(), pain: '', rom: '', weight: '' })
-    setOpen(false)
-  }
-
-  const chartData = progress.map((p) => ({ date: fmtDate(p.date, 'dd-MM'), Pain: p.pain, Weight: p.weight }))
-
+// ---- Treatment sessions (per-visit clinical records) ----------------------
+function TreatmentSessions({ clientId, treatments }) {
   return (
     <div className="card p-5">
       <div className="mb-4 flex items-center justify-between">
-        <h2 className="flex items-center gap-2 font-bold text-slate-900"><TrendingUp size={18} className="text-brand-600" /> Progress Tracking</h2>
-        <button onClick={() => setOpen((v) => !v)} className="btn-ghost px-3 py-1.5 text-sm">{open ? <X size={16} /> : <Plus size={16} />} {open ? 'Close' : 'Add Entry'}</button>
+        <h2 className="flex items-center gap-2 font-bold text-slate-900"><Stethoscope size={18} className="text-brand-600" /> Treatment Sessions</h2>
+        <Link to={`/admin/treatment?client=${clientId}`} className="btn-ghost px-3 py-1.5 text-sm"><Plus size={16} /> New session</Link>
       </div>
-
-      {open && (
-        <form onSubmit={add} className="mb-5 grid gap-3 rounded-xl bg-slate-50 p-4 sm:grid-cols-5">
-          <div><label className="label text-xs">Date (DD-MM-YYYY)</label><DateField value={form.date} onChange={(iso) => setForm((f) => ({ ...f, date: iso }))} max={todayISO()} /></div>
-          <div><label className="label text-xs">Pain (0-10)</label><input className="input" inputMode="numeric" value={form.pain} onChange={(e) => setForm((f) => ({ ...f, pain: onlyDigits(e.target.value).slice(0, 2) }))} placeholder="0-10" /></div>
-          <div className="sm:col-span-2"><label className="label text-xs">ROM / Notes</label><input className="input" value={form.rom} onChange={set('rom')} placeholder="e.g. Knee flexion 110°" /></div>
-          <div><label className="label text-xs">Weight (kg)</label><input className="input" inputMode="decimal" value={form.weight} onChange={set('weight')} /></div>
-          <div className="sm:col-span-5 flex justify-end"><button className="btn-primary px-4 py-2 text-sm"><Save size={16} /> Save</button></div>
-        </form>
-      )}
-
-      {progress.length === 0 ? (
-        <p className="py-8 text-center text-sm text-slate-400">No progress entries yet. Add the first measurement to start tracking.</p>
+      {treatments.length === 0 ? (
+        <p className="py-8 text-center text-sm text-slate-400">No treatment sessions yet. Record one from the Treatment module.</p>
       ) : (
-        <>
-          <div className="h-60 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={chartData} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#eef2f5" />
-                <XAxis dataKey="date" fontSize={11} tickLine={false} />
-                <YAxis fontSize={11} tickLine={false} />
-                <Tooltip />
-                <Line type="monotone" dataKey="Pain" stroke="#0e8ba1" strokeWidth={2} dot={{ r: 3 }} connectNulls />
-                <Line type="monotone" dataKey="Weight" stroke="#f59e0b" strokeWidth={2} dot={{ r: 3 }} connectNulls />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-          <div className="mt-4 overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="text-left text-xs uppercase text-slate-400">
-                <tr><th className="py-2">Date</th><th>Pain</th><th>ROM / Notes</th><th>Weight</th><th></th></tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {[...progress].reverse().map((p) => (
-                  <tr key={p.id}>
-                    <td className="py-2 text-slate-700">{fmtDate(p.date)}</td>
-                    <td>{p.pain ?? '—'}</td>
-                    <td className="text-slate-600">{p.rom || '—'}</td>
-                    <td>{p.weight ?? '—'}</td>
-                    <td className="text-right"><button onClick={() => deleteProgress(clientId, p.id)} className="text-slate-300 hover:text-red-500"><Trash2 size={15} /></button></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </>
+        <div className="space-y-4">
+          {treatments.map((t) => {
+            const groups = SESSION_GROUPS.map(([title, pairs]) => [title, pairs.filter(([k]) => t[k])]).filter(([, p]) => p.length)
+            return (
+              <div key={t.id} className="rounded-2xl border border-slate-100 p-4">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="flex flex-wrap items-center gap-x-3 text-sm">
+                    <span className="font-semibold text-brand-700">{fmtDate(t.date)}</span>
+                    {t.therapist && <span className="text-slate-500">{t.therapist}</span>}
+                    {t.nextSession && <span className="inline-flex items-center gap-1 text-slate-500"><CalendarClock size={13} /> Next: {fmtDate(t.nextSession)}</span>}
+                  </p>
+                  <button onClick={() => window.confirm('Delete this treatment session?') && deleteTreatment(clientId, t.id)} className="text-slate-300 hover:text-red-500"><Trash2 size={15} /></button>
+                </div>
+                {groups.length > 0 && (
+                  <div className="mt-3 grid gap-x-8 gap-y-4 border-t border-slate-100 pt-3 md:grid-cols-2">
+                    {groups.map(([title, pairs]) => (
+                      <div key={title}>
+                        <p className="mb-1.5 text-xs font-bold uppercase tracking-wide text-brand-600">{title}</p>
+                        <dl className="space-y-1">
+                          {pairs.map(([k, label]) => (
+                            <div key={k} className="flex gap-2 text-sm"><dt className="shrink-0 text-slate-400">{label}:</dt><dd className="whitespace-pre-line text-slate-700">{String(t[k])}</dd></div>
+                          ))}
+                        </dl>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
       )}
     </div>
   )
@@ -268,10 +212,10 @@ function NotesSection({ clientId, notes }) {
 
   return (
     <div className="card p-5">
-      <h2 className="mb-4 flex items-center gap-2 font-bold text-slate-900"><NotebookPen size={18} className="text-brand-600" /> Visit Notes & Report Entries</h2>
+      <h2 className="mb-4 flex items-center gap-2 font-bold text-slate-900"><NotebookPen size={18} className="text-brand-600" /> Visit Notes</h2>
       <form onSubmit={add} className="mb-5 grid gap-3 rounded-xl bg-slate-50 p-4 sm:grid-cols-[160px,1fr,auto] sm:items-end">
-        <div><label className="label text-xs">Date (DD-MM-YYYY)</label><DateField value={form.date} onChange={(iso) => setForm((f) => ({ ...f, date: iso }))} max={todayISO()} /></div>
-        <div><label className="label text-xs">Note / Report text</label><textarea className="input min-h-[44px]" value={form.text} onChange={set('text')} placeholder="Assessment, treatment given, observations, next plan…" /></div>
+        <div><label className="label text-xs">Date</label><DateField value={form.date} onChange={(iso) => setForm((f) => ({ ...f, date: iso }))} max={todayISO()} /></div>
+        <div><label className="label text-xs">Note text</label><textarea className="input min-h-[44px]" value={form.text} onChange={set('text')} placeholder="Observations, follow-up notes…" /></div>
         <button className="btn-primary"><Plus size={16} /> Add</button>
       </form>
 
@@ -297,11 +241,12 @@ function NotesSection({ clientId, notes }) {
 // ---- Report + billing modal ----------------------------------------------
 const PAY_MODES = ['Cash', 'UPI', 'Card', 'Bank transfer', 'Other']
 
-function ReportModal({ client, onClose }) {
+function ReportModal({ client, treatments, onClose }) {
   const [therapists, setTherapists] = useState([])
+  const [sessionId, setSessionId] = useState(treatments[0]?.id || '')
   const [therapist, setTherapist] = useState('')
   const [adding, setAdding] = useState('')
-  const [chargeDate, setChargeDate] = useState(client.assessmentDate || todayISO())
+  const [chargeDate, setChargeDate] = useState(todayISO())
   const [amount, setAmount] = useState('')
   const [paid, setPaid] = useState('')
   const [mode, setMode] = useState('Cash')
@@ -311,6 +256,13 @@ function ReportModal({ client, onClose }) {
   const [msg, setMsg] = useState('')
 
   useEffect(() => watchTherapists(setTherapists), [])
+
+  const session = treatments.find((t) => t.id === sessionId) || null
+  // Default the therapist + charge date to the selected session.
+  useEffect(() => {
+    setTherapist(session?.therapist || client.therapist || '')
+    if (session?.date) setChargeDate(session.date)
+  }, [sessionId]) // eslint-disable-line
 
   const names = Array.from(new Set([...FOUNDERS.map((f) => f.name), ...therapists.map((t) => t.name)]))
   const balance = Math.max(0, (Number(amount) || 0) - (Number(paid) || 0))
@@ -326,9 +278,11 @@ function ReportModal({ client, onClose }) {
   async function go(action) {
     setBusy(action); setMsg('')
     try {
-      const [notes, progress] = await Promise.all([getClientNotesOnce(client.id), getClientProgressOnce(client.id)])
+      const notes = await getClientNotesOnce(client.id)
+      // Merge the client's basics with the chosen session's clinical fields.
+      const merged = { ...client, ...(session || {}), assessmentDate: session?.date || todayISO() }
       const bill = { amount: Number(amount) || 0, paid: Number(paid) || 0, balance, mode }
-      const res = await generateClientReport(client, { notes, progress, therapist, bill, action })
+      const res = await generateClientReport(merged, { notes, progress: [], therapist, bill, action })
       if (record && !recorded && (bill.amount > 0 || bill.paid > 0)) {
         await addAccountingEntry({
           date: chargeDate || todayISO(),
@@ -356,6 +310,20 @@ function ReportModal({ client, onClose }) {
             <p className="text-sm text-slate-500">{client.name} · {client.clientId}</p>
           </div>
           <button onClick={onClose} className="rounded-full p-1.5 text-slate-400 hover:bg-slate-100"><X size={22} /></button>
+        </div>
+
+        {/* Past session / history selector */}
+        <div>
+          <label className="label text-xs">Report from session (past history)</label>
+          {treatments.length === 0 ? (
+            <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700">No treatment sessions yet — this report will include basic details only.</p>
+          ) : (
+            <select className="input" value={sessionId} onChange={(e) => setSessionId(e.target.value)}>
+              {treatments.map((t, i) => (
+                <option key={t.id} value={t.id}>{fmtDate(t.date)}{t.therapist ? ` · ${t.therapist}` : ''}{i === 0 ? ' (latest)' : ''}</option>
+              ))}
+            </select>
+          )}
         </div>
 
         {/* Therapist */}
@@ -414,7 +382,7 @@ function EditClientModal({ client, onClose, onSaved }) {
     const data = {
       name: form.name, phone: form.phone, email: form.email || '', age: form.age || '',
       gender: form.gender || '', address: form.address || '', service: form.service || '',
-      complaint: form.complaint || '', history: form.history || '',
+      complaint: form.complaint || '', pastHistory: form.pastHistory || '', presentHistory: form.presentHistory || '',
     }
     await updateClient(client.id, data)
     onSaved(data)
@@ -438,8 +406,11 @@ function EditClientModal({ client, onClose, onSaved }) {
           <div><label className="label">Address</label><input className="input" value={form.address || ''} onChange={set('address')} /></div>
           <div><label className="label">Primary Service</label><select className="input" value={form.service || ''} onChange={set('service')}>{SERVICE_OPTIONS.map((s) => <option key={s}>{s}</option>)}</select></div>
         </div>
-        <div><label className="label">Chief Complaint / Goal</label><textarea className="input min-h-[70px]" value={form.complaint || ''} onChange={set('complaint')} /></div>
-        <div><label className="label">Medical History / Previous Reports</label><textarea className="input min-h-[100px]" value={form.history || ''} onChange={set('history')} /></div>
+        <div><label className="label">Chief Complaint / Goal</label><textarea className="input min-h-[60px]" value={form.complaint || ''} onChange={set('complaint')} /></div>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div><label className="label">Past Medical History</label><textarea className="input min-h-[70px]" value={form.pastHistory || ''} onChange={set('pastHistory')} /></div>
+          <div><label className="label">Present Medical History</label><textarea className="input min-h-[70px]" value={form.presentHistory || ''} onChange={set('presentHistory')} /></div>
+        </div>
         <div className="flex justify-end gap-2">
           <button type="button" onClick={onClose} className="btn-ghost">Cancel</button>
           <button type="submit" disabled={busy} className="btn-primary">{busy ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />} Save Changes</button>

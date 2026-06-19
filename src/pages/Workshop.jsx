@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import {
   CalendarDays, Clock, MapPin, IndianRupee, Users, Loader2, CheckCircle2,
-  AlertCircle, GraduationCap, ShieldCheck,
+  AlertCircle, GraduationCap, ShieldCheck, Copy, Check, ExternalLink, ArrowRight, ArrowLeft,
 } from 'lucide-react'
 import { WhatsAppIcon } from '../components/BrandIcons'
 import PhoneField from '../components/PhoneField'
@@ -93,9 +93,9 @@ function OpenWorkshop({ workshop, seats }) {
   const details = [
     workshop.date && { icon: CalendarDays, label: 'Date', value: fmtDate(workshop.date) },
     workshop.time && { icon: Clock, label: 'Time', value: workshop.time },
-    workshop.venue && { icon: MapPin, label: 'Location', value: workshop.venue },
+    workshop.venue && { icon: MapPin, label: 'Location', value: workshop.venue, href: workshop.mapUrl },
     workshop.fee != null && workshop.fee !== '' && { icon: IndianRupee, label: 'Fee', value: `₹${workshop.fee}` },
-    slots > 0 && { icon: Users, label: 'Slots', value: remaining != null ? `${remaining} of ${slots} left` : `${slots} only` },
+    slots > 0 && { icon: Users, label: 'Seats', value: remaining != null ? `${remaining} of ${slots} left` : `${slots} only` },
   ].filter(Boolean)
 
   return (
@@ -115,89 +115,71 @@ function OpenWorkshop({ workshop, seats }) {
                   <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-brand-50 text-brand-600">
                     <d.icon size={18} />
                   </span>
-                  <span><span className="block text-xs uppercase tracking-wide text-slate-400">{d.label}</span>{d.value}</span>
+                  <span>
+                    <span className="block text-xs uppercase tracking-wide text-slate-400">{d.label}</span>
+                    {d.href ? (
+                      <a href={d.href} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 font-medium text-brand-700 hover:underline">{d.value} <ExternalLink size={13} /></a>
+                    ) : d.value}
+                  </span>
                 </li>
               ))}
             </ul>
             <div className="mt-6 rounded-xl bg-amber-50 p-4 text-sm text-amber-800">
               <p className="flex items-center gap-2 font-semibold"><AlertCircle size={16} /> Important</p>
-              <p className="mt-1">Registration is confirmed only after payment. Payment once done is non-refundable.</p>
+              <p className="mt-1">A slot is booked only after the admin verifies your payment. Payment once done is non-refundable.</p>
             </div>
           </div>
         </div>
 
         {/* Form / state */}
         <div className="card p-6 md:p-8">
-          {full ? (
-            <div className="py-10 text-center">
-              <Users className="mx-auto text-slate-400" size={44} />
-              <h3 className="mt-3 text-xl font-bold">This workshop is full</h3>
-              <p className="mt-2 text-slate-600">All {slots} slots are taken. Please follow us on Instagram for the next batch.</p>
-            </div>
-          ) : (
-            <RegistrationForm workshop={workshop} />
-          )}
+          {full ? <BatchFull slots={slots} /> : <RegistrationForm workshop={workshop} />}
         </div>
       </div>
     </section>
   )
 }
 
+function BatchFull({ slots }) {
+  return (
+    <div className="py-10 text-center">
+      <Users className="mx-auto text-slate-400" size={44} />
+      <h3 className="mt-3 text-xl font-bold">This batch is full</h3>
+      <p className="mt-2 text-slate-600">All {slots} seats are confirmed. Registration is now closed — join the next batch and we’ll let you know when it opens.</p>
+      <a href={whatsappLink('Hi W2W, the current workshop batch is full. Please add me to the next batch.')} target="_blank" rel="noreferrer" className="btn-primary mt-5 !bg-[#25D366] hover:!bg-[#1ebe5a]">
+        <WhatsAppIcon size={18} /> Join the next batch
+      </a>
+    </div>
+  )
+}
+
 function RegistrationForm({ workshop }) {
+  const [step, setStep] = useState('form') // form | pay | done
   const [form, setForm] = useState({
-    email: '',
-    fullName: '',
-    phone: '',
-    qualification: '',
-    reason: '',
-    attendedBefore: '',
-    available: false,
+    email: '', fullName: '', phone: '', qualification: '', reason: '', attendedBefore: '', available: false,
   })
-  const [status, setStatus] = useState('idle') // idle | saving | done
   const [error, setError] = useState('')
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }))
 
-  async function handleSubmit(e) {
+  function next(e) {
     e.preventDefault()
     setError('')
     if (!isValidEmail(form.email)) return setError('Please enter a valid email id.')
     if (!form.fullName.trim()) return setError('Please enter your full name.')
     if (!isValidMobile(form.phone)) return setError('Enter a valid 10-digit mobile number.')
     if (!form.qualification) return setError('Please select your qualification.')
-    if (!form.reason.trim()) return setError('Please tell us why you want to attend.')
     if (!form.attendedBefore) return setError('Please answer whether you’ve attended a workshop before.')
     if (!form.available) return setError('Please confirm your availability on the workshop date.')
-
-    setStatus('saving')
-    try {
-      await registerForWorkshop(workshop, {
-        email: form.email.trim(),
-        fullName: form.fullName.trim(),
-        phone: form.phone.trim(),
-        qualification: form.qualification,
-        reason: form.reason.trim(),
-        attendedBefore: form.attendedBefore,
-        available: true,
-      })
-      setStatus('done')
-    } catch (err) {
-      if (err.message === 'WORKSHOP_FULL') {
-        setError('Sorry, the last slot was just taken. This workshop is now full.')
-      } else {
-        setError('Something went wrong. Please try again or WhatsApp us.')
-      }
-      setStatus('idle')
-    }
+    setStep('pay')
   }
 
-  if (status === 'done') {
-    return <PaymentStep workshop={workshop} fullName={form.fullName} />
-  }
+  if (step === 'done') return <Done fullName={form.fullName} workshop={workshop} />
+  if (step === 'pay') return <PaymentStep workshop={workshop} form={form} onBack={() => setStep('form')} onConfirmed={() => setStep('done')} />
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <form onSubmit={next} className="space-y-4">
       <h3 className="text-xl font-bold">Register for this workshop</h3>
-      <p className="text-sm text-slate-500">Fields marked * are required.</p>
+      <p className="text-sm text-slate-500">Step 1 of 2 — your details. Fields marked * are required.</p>
 
       <div>
         <label className="label">Email id *</label>
@@ -218,14 +200,8 @@ function RegistrationForm({ workshop }) {
         <label className="label">Qualification *</label>
         <div className="flex flex-wrap gap-2">
           {QUALIFICATIONS.map((q) => (
-            <button
-              type="button"
-              key={q}
-              onClick={() => setForm((f) => ({ ...f, qualification: q }))}
-              className={`rounded-full px-4 py-2 text-sm font-medium transition ${
-                form.qualification === q ? 'bg-brand-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-              }`}
-            >
+            <button type="button" key={q} onClick={() => setForm((f) => ({ ...f, qualification: q }))}
+              className={`rounded-full px-4 py-2 text-sm font-medium transition ${form.qualification === q ? 'bg-brand-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
               {q}
             </button>
           ))}
@@ -233,22 +209,16 @@ function RegistrationForm({ workshop }) {
       </div>
 
       <div>
-        <label className="label">Why do you want to attend this workshop? *</label>
-        <textarea className="input min-h-[90px]" value={form.reason} onChange={set('reason')} placeholder="Tell us briefly…" />
+        <label className="label">Why do you want to attend this workshop? <span className="font-normal text-slate-400">(optional)</span></label>
+        <textarea className="input min-h-[80px]" value={form.reason} onChange={set('reason')} placeholder="Tell us briefly…" />
       </div>
 
       <div>
         <label className="label">Have you attended any related workshop before? *</label>
         <div className="flex gap-2">
           {['Yes', 'No'].map((v) => (
-            <button
-              type="button"
-              key={v}
-              onClick={() => setForm((f) => ({ ...f, attendedBefore: v }))}
-              className={`rounded-full px-5 py-2 text-sm font-medium transition ${
-                form.attendedBefore === v ? 'bg-brand-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-              }`}
-            >
+            <button type="button" key={v} onClick={() => setForm((f) => ({ ...f, attendedBefore: v }))}
+              className={`rounded-full px-5 py-2 text-sm font-medium transition ${form.attendedBefore === v ? 'bg-brand-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
               {v}
             </button>
           ))}
@@ -256,79 +226,127 @@ function RegistrationForm({ workshop }) {
       </div>
 
       <label className="flex items-start gap-3 rounded-xl bg-slate-50 p-4 text-sm text-slate-700">
-        <input
-          type="checkbox"
-          checked={form.available}
-          onChange={(e) => setForm((f) => ({ ...f, available: e.target.checked }))}
-          className="mt-0.5 h-4 w-4 rounded border-slate-300 text-brand-600"
-        />
+        <input type="checkbox" checked={form.available} onChange={(e) => setForm((f) => ({ ...f, available: e.target.checked }))} className="mt-0.5 h-4 w-4 rounded border-slate-300 text-brand-600" />
         <span>I confirm my availability on {workshop.date ? fmtDate(workshop.date) : 'the workshop date'}. *</span>
       </label>
 
       {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}
 
-      <button type="submit" disabled={status === 'saving'} className="btn-primary w-full">
-        {status === 'saving' ? <Loader2 size={18} className="animate-spin" /> : <CheckCircle2 size={18} />}
-        {status === 'saving' ? 'Submitting…' : 'Register'}
-      </button>
-      <p className="text-center text-xs text-slate-400">
-        After registering, complete the payment and send your screenshot on WhatsApp to confirm your slot.
-      </p>
+      <button type="submit" className="btn-primary w-full">Continue to payment <ArrowRight size={18} /></button>
     </form>
   )
 }
 
-function PaymentStep({ workshop, fullName }) {
+function PaymentStep({ workshop, form, onBack, onConfirmed }) {
+  const [paidVia, setPaidVia] = useState('')
+  const [paid, setPaid] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  const [copied, setCopied] = useState(false)
+
   const amount = workshop.fee
   const payNumber = workshop.paymentNumber || BUSINESS.whatsapp.replace(/^91/, '')
-  const upiPay = upiLink({
-    upiId: workshop.upiId,
-    name: BUSINESS.name,
-    amount,
-    note: `${workshop.title} registration`,
-  })
+  const upiPay = upiLink({ upiId: workshop.upiId, name: BUSINESS.name, amount, note: `${workshop.title} registration` })
   const qr = upiQrImage(upiPay, 220)
-  const waLink = whatsappLink(workshopWhatsappMessage(workshop.title, fullName))
+
+  function copyUpi() {
+    if (!workshop.upiId) return
+    navigator.clipboard?.writeText(workshop.upiId).then(() => { setCopied(true); setTimeout(() => setCopied(false), 1500) }).catch(() => {})
+  }
+
+  async function confirm() {
+    if (!paid) return setError('Please tick “I have paid” once your payment is done.')
+    setBusy(true); setError('')
+    try {
+      await registerForWorkshop(workshop, {
+        email: form.email.trim(), fullName: form.fullName.trim(), phone: form.phone.trim(),
+        qualification: form.qualification, reason: form.reason.trim(), attendedBefore: form.attendedBefore,
+        available: true, paidVia: paidVia.trim(), markedPaid: true,
+      })
+      onConfirmed()
+    } catch (err) {
+      console.error('register failed:', err)
+      setError('Could not submit. Please try again or WhatsApp us.')
+      setBusy(false)
+    }
+  }
 
   return (
-    <div className="animate-fade-in text-center">
+    <div className="animate-fade-in space-y-4">
+      <button onClick={onBack} className="inline-flex items-center gap-1 text-sm font-medium text-slate-500 hover:text-brand-600"><ArrowLeft size={15} /> Back</button>
+      <h3 className="text-xl font-bold">Step 2 of 2 — Payment</h3>
+      <p className="text-sm text-slate-600">Pay {amount != null && amount !== '' ? <strong>₹{amount}</strong> : 'the workshop fee'} via UPI, then mark it as paid and confirm.</p>
+
+      <div className="rounded-2xl bg-brand-50 p-5">
+        {workshop.upiId && qr && (
+          <div className="flex flex-col items-center">
+            <img src={qr} alt="Scan to pay via UPI" className="h-44 w-44 rounded-xl bg-white p-2 shadow-sm" />
+            <a href={upiPay} className="btn-primary mt-3 w-full text-sm">Open UPI app to pay</a>
+          </div>
+        )}
+        {workshop.upiId && (
+          <div className="mt-4 flex items-center justify-between gap-2 rounded-xl bg-white px-3 py-2 text-sm">
+            <span className="truncate"><span className="text-slate-400">UPI ID:</span> <span className="font-semibold text-slate-800">{workshop.upiId}</span></span>
+            <button type="button" onClick={copyUpi} className="inline-flex shrink-0 items-center gap-1 rounded-lg bg-brand-50 px-2.5 py-1.5 text-xs font-semibold text-brand-700 hover:bg-brand-100">
+              {copied ? <><Check size={14} /> Copied</> : <><Copy size={14} /> Copy</>}
+            </button>
+          </div>
+        )}
+        <p className="mt-3 text-center text-sm text-slate-700">Payment number: <span className="font-semibold">{payNumber}</span></p>
+      </div>
+
+      {/* What to do note */}
+      <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+        <p className="font-semibold">How confirmation works</p>
+        <ol className="mt-2 list-decimal space-y-1 pl-5">
+          <li>Pay the fee using the UPI ID / QR above.</li>
+          <li>Tick “I have paid” and click <strong>Confirm registration</strong> below.</li>
+          <li>Message us on WhatsApp with your <strong>name</strong> &amp; the <strong>app you paid through</strong> (GPay/PhonePe/Paytm…).</li>
+          <li>Your seat is <strong>booked only after the admin verifies your payment</strong> and approves it.</li>
+        </ol>
+      </div>
+
+      <div>
+        <label className="label">Which app did you pay with? <span className="font-normal text-slate-400">(optional)</span></label>
+        <input className="input" value={paidVia} onChange={(e) => setPaidVia(e.target.value)} placeholder="GPay / PhonePe / Paytm / Bank" />
+      </div>
+
+      <label className="flex items-start gap-3 rounded-xl bg-slate-50 p-4 text-sm text-slate-700">
+        <input type="checkbox" checked={paid} onChange={(e) => setPaid(e.target.checked)} className="mt-0.5 h-4 w-4 rounded border-slate-300 text-brand-600" />
+        <span>I have completed the payment of {amount != null && amount !== '' ? `₹${amount}` : 'the fee'}.</span>
+      </label>
+
+      {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}
+
+      <button onClick={confirm} disabled={busy} className="btn-primary w-full">
+        {busy ? <Loader2 size={18} className="animate-spin" /> : <CheckCircle2 size={18} />} Confirm registration
+      </button>
+    </div>
+  )
+}
+
+function Done({ fullName, workshop }) {
+  const waLink = whatsappLink(workshopWhatsappMessage(workshop.title, fullName))
+  return (
+    <div className="animate-fade-in py-4 text-center">
       <CheckCircle2 className="mx-auto text-green-500" size={52} />
       <h3 className="mt-3 text-xl font-bold">Registration received!</h3>
       <p className="mt-2 text-slate-600">
-        One last step, {fullName.split(' ')[0] || 'there'} — complete the payment to confirm your slot.
+        Thanks {fullName.split(' ')[0] || 'there'} — your registration is <strong>pending admin approval</strong>. Your
+        seat is booked once we verify your payment.
       </p>
-
-      <div className="mt-6 rounded-2xl bg-brand-50 p-5 text-left">
-        <p className="text-center text-sm font-semibold text-slate-700">
-          Pay {amount != null && amount !== '' ? `₹${amount}` : 'the workshop fee'} via UPI / GPay
-        </p>
-
-        {workshop.upiId && qr && (
-          <div className="mt-4 flex flex-col items-center">
-            <img src={qr} alt="Scan to pay via UPI" className="h-44 w-44 rounded-xl bg-white p-2 shadow-sm" />
-            <a href={upiPay} className="btn-primary mt-3 text-sm">Open UPI app to pay</a>
-          </div>
-        )}
-
-        <div className="mt-4 space-y-1.5 text-center text-sm text-slate-700">
-          {workshop.upiId && <p>UPI ID: <span className="font-semibold">{workshop.upiId}</span></p>}
-          <p>Payment number: <span className="font-semibold">{payNumber}</span></p>
-        </div>
-        <p className="mt-3 text-center text-xs text-slate-500">Payment once done is non-refundable.</p>
-      </div>
-
-      <div className="mt-6 rounded-2xl border border-green-200 bg-green-50 p-5">
-        <p className="text-sm font-semibold text-slate-800">Final step to confirm</p>
+      <div className="mt-6 rounded-2xl border border-green-200 bg-green-50 p-5 text-left">
+        <p className="text-sm font-semibold text-slate-800">One quick step</p>
         <p className="mt-1 text-sm text-slate-600">
-          After paying, send your <strong>payment screenshot</strong> on WhatsApp and we’ll confirm your slot.
+          Message us on WhatsApp with your <strong>name</strong> and the <strong>app you paid through</strong> so we can
+          verify and confirm your slot.
         </p>
         <a href={waLink} target="_blank" rel="noreferrer" className="btn-primary mt-4 w-full !bg-[#25D366] hover:!bg-[#1ebe5a]">
-          <WhatsAppIcon size={18} /> Send screenshot on WhatsApp
+          <WhatsAppIcon size={18} /> Message us on WhatsApp
         </a>
       </div>
-
       <p className="mt-4 flex items-center justify-center gap-2 text-xs text-slate-400">
-        <ShieldCheck size={14} /> Your slot is reserved for a short while pending payment confirmation.
+        <ShieldCheck size={14} /> You’ll get a confirmation once the admin approves your payment.
       </p>
     </div>
   )

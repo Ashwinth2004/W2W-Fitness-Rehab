@@ -1,105 +1,17 @@
 import { useEffect, useRef, useState } from 'react'
 import {
-  Trash2, Plus, Eye, EyeOff, Newspaper, Loader2, Film,
+  Trash2, Plus, Eye, EyeOff, Loader2,
   Bold, Italic, Heading2, Heading3, List, Quote, Link2,
 } from 'lucide-react'
-import {
-  watchPosts, createPost, updatePost, deletePost,
-  watchReels, createReel, deleteReel,
-} from '../../lib/firestore'
+import { watchPosts, createPost, updatePost, deletePost } from '../../lib/firestore'
 import { fmtDate } from '../../lib/format'
 import Markdown from '../../components/Markdown'
 
 export default function Content() {
-  const [tab, setTab] = useState('blog')
   return (
     <div className="space-y-5">
       <h1 className="text-2xl font-bold md:text-3xl">Blogs</h1>
-      <div className="flex flex-wrap gap-2">
-        {[
-          { id: 'blog', label: 'Blogs', icon: Newspaper },
-          { id: 'videos', label: 'Video Testimonials', icon: Film },
-        ].map((t) => (
-          <button
-            key={t.id}
-            onClick={() => setTab(t.id)}
-            className={`flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-medium transition ${
-              tab === t.id ? 'bg-brand-600 text-white' : 'bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50'
-            }`}
-          >
-            <t.icon size={16} /> {t.label}
-          </button>
-        ))}
-      </div>
-      {tab === 'blog' && <BlogManager />}
-      {tab === 'videos' && <Videos />}
-    </div>
-  )
-}
-
-function Videos() {
-  const [items, setItems] = useState([])
-  const [form, setForm] = useState({ url: '', caption: '', thumbnail: '' })
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState('')
-  const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }))
-
-  useEffect(() => watchReels(setItems), [])
-
-  const isInstaUrl = (u) => /instagram\.com\/(reel|p|tv)\//i.test(u.trim())
-
-  async function add(e) {
-    e.preventDefault()
-    setError('')
-    if (!isInstaUrl(form.url)) {
-      setError('Paste a valid Instagram reel/post URL (e.g. https://www.instagram.com/reel/XXXX/).')
-      return
-    }
-    setBusy(true)
-    try {
-      await createReel({ url: form.url.trim(), caption: form.caption.trim(), thumbnail: form.thumbnail.trim() })
-      setForm({ url: '', caption: '', thumbnail: '' })
-    } catch (err) {
-      console.error('createReel failed:', err)
-      setError(
-        err?.code === 'permission-denied'
-          ? 'Permission denied. Please sign out and sign back in as admin, then try again.'
-          : 'Could not save. Check your connection and try again.'
-      )
-    }
-    setBusy(false)
-  }
-
-  return (
-    <div className="space-y-5">
-      <form onSubmit={add} className="card space-y-3 p-5">
-        <p className="text-sm text-slate-600">
-          Paste an Instagram reel/post link — it appears on the public <strong>Testimonials</strong> page with a play button.
-        </p>
-        <div><label className="label text-xs">Instagram Reel/Post URL *</label><input className="input" value={form.url} onChange={set('url')} placeholder="https://www.instagram.com/reel/XXXXXXXXX/" /></div>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <div><label className="label text-xs">Caption (optional)</label><input className="input" value={form.caption} onChange={set('caption')} placeholder="Knee rehab success story" /></div>
-          <div><label className="label text-xs">Thumbnail image URL (optional)</label><input className="input" value={form.thumbnail} onChange={set('thumbnail')} placeholder="https://… (shows a custom poster)" /></div>
-        </div>
-        {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}
-        <div className="flex justify-end"><button disabled={busy} className="btn-primary">{busy ? <Loader2 size={18} className="animate-spin" /> : <Plus size={18} />} Add Video</button></div>
-      </form>
-
-      {items.length === 0 ? (
-        <p className="card py-10 text-center text-sm text-slate-400">No videos yet. Add an Instagram reel link above.</p>
-      ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {items.map((r) => (
-            <div key={r.id} className="card flex items-center justify-between gap-3 p-4">
-              <div className="min-w-0">
-                <p className="truncate text-sm font-semibold text-slate-900">{r.caption || 'Instagram video'}</p>
-                <a href={r.url} target="_blank" rel="noreferrer" className="truncate text-xs text-brand-600 hover:underline">{r.url}</a>
-              </div>
-              <button onClick={() => window.confirm('Remove this video?') && deleteReel(r.id)} className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-red-500 hover:bg-red-50"><Trash2 size={16} /></button>
-            </div>
-          ))}
-        </div>
-      )}
+      <BlogManager />
     </div>
   )
 }

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { Users, Plus, Search, X, BadgeCheck } from 'lucide-react'
 import { watchClients, findClientByClientId } from '../../lib/firestore'
 import { fmtDate, matchesDateFilter } from '../../lib/format'
@@ -10,7 +10,8 @@ import ClientForm from '../../components/ClientForm'
 export default function Clients() {
   const [clients, setClients] = useState([])
   const [search, setSearch] = useState('')
-  const [showForm, setShowForm] = useState(false)
+  const [searchParams, setSearchParams] = useSearchParams()
+  const [showForm, setShowForm] = useState(searchParams.get('new') === '1')
   const [lookupMsg, setLookupMsg] = useState('')
   const [dateFilter, setDateFilter] = useState({ day: '', month: '' })
   const navigate = useNavigate()
@@ -37,7 +38,7 @@ export default function Clients() {
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-bold md:text-3xl">Clients / Patients</h1>
-        <button onClick={() => setShowForm((v) => !v)} className="btn-primary">
+        <button onClick={() => { setShowForm((v) => !v); if (searchParams.get('new')) setSearchParams({}) }} className="btn-primary">
           {showForm ? <X size={18} /> : <Plus size={18} />} {showForm ? 'Close' : 'New Client'}
         </button>
       </div>
@@ -45,8 +46,8 @@ export default function Clients() {
       {showForm && (
         <ClientForm
           clients={clients}
-          onCreated={(id) => { setShowForm(false); navigate(`/admin/clients/${id}`) }}
-          onClose={() => setShowForm(false)}
+          onCreated={(id) => { setShowForm(false); navigate(`/admin/treatment?client=${id}`) }}
+          onClose={() => { setShowForm(false); if (searchParams.get('new')) setSearchParams({}) }}
         />
       )}
 

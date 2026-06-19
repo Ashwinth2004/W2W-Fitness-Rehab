@@ -5,16 +5,38 @@ import {
 } from 'lucide-react'
 import {
   watchWorkshops, createWorkshop, updateWorkshop, deleteWorkshop,
-  watchWorkshopRegistrations, setRegistrationStatus, deleteRegistration,
+  watchWorkshopRegistrations, approveRegistration, unapproveRegistration, deleteRegistration,
 } from '../../lib/firestore'
 import ContactActions from '../../components/ContactActions'
 import AdminFilter from '../../components/AdminFilter'
 import { fmtDate, matchesDateFilter } from '../../lib/format'
 
 const EMPTY = {
-  title: '', description: '', date: '', time: '', venue: '',
+  title: '', description: '', date: '', startTime: '', endTime: '', venue: '', mapUrl: '',
   fee: '', slots: '', upiId: '', paymentNumber: '', status: 'draft',
 }
+
+// 12-hour time picker → value like "10:00 AM".
+const HOURS = Array.from({ length: 12 }, (_, i) => String(i + 1))
+const MINS = ['00', '15', '30', '45']
+function parse12(v) {
+  const m = /^(\d{1,2}):(\d{2})\s*(AM|PM)$/i.exec(v || '')
+  return m ? { h: String(+m[1]), min: m[2], ap: m[3].toUpperCase() } : { h: '', min: '00', ap: 'AM' }
+}
+function Time12({ value, onChange }) {
+  const p = parse12(value)
+  const upd = (k, val) => { const n = { ...p, [k]: val }; onChange(n.h ? `${n.h}:${n.min} ${n.ap}` : '') }
+  return (
+    <div className="flex gap-1.5">
+      <select className="input px-2" value={p.h} onChange={(e) => upd('h', e.target.value)}><option value="">Hr</option>{HOURS.map((h) => <option key={h}>{h}</option>)}</select>
+      <select className="input px-2" value={p.min} onChange={(e) => upd('min', e.target.value)}>{MINS.map((m) => <option key={m}>{m}</option>)}</select>
+      <select className="input px-2" value={p.ap} onChange={(e) => upd('ap', e.target.value)}><option>AM</option><option>PM</option></select>
+    </div>
+  )
+}
+
+const regWhatsApp = (r) =>
+  `Hi ${r.fullName || 'there'}, greetings from W2W Fitness & Rehab! Your slot for *${r.workshopTitle || 'the workshop'}* is *confirmed*. We look forward to seeing you. — Team W2W`
 
 export default function Workshops() {
   const [tab, setTab] = useState('workshops')
@@ -84,8 +106,11 @@ function WorkshopManager() {
       title: form.title.trim(),
       description: form.description.trim(),
       date: form.date,
-      time: form.time.trim(),
+      startTime: form.startTime,
+      endTime: form.endTime,
+      time: [form.startTime, form.endTime].filter(Boolean).join(' – '),
       venue: form.venue.trim(),
+      mapUrl: form.mapUrl.trim(),
       fee: form.fee === '' ? '' : Number(form.fee),
       slots: form.slots === '' ? '' : Number(form.slots),
       upiId: form.upiId.trim(),
@@ -111,9 +136,9 @@ function WorkshopManager() {
   function edit(w) {
     setEditingId(w.id)
     setForm({
-      title: w.title || '', description: w.description || '', date: w.date || '', time: w.time || '',
-      venue: w.venue || '', fee: w.fee ?? '', slots: w.slots ?? '', upiId: w.upiId || '',
-      paymentNumber: w.paymentNumber || '', status: w.status || 'draft',
+      title: w.title || '', description: w.description || '', date: w.date || '',
+      startTime: w.startTime || '', endTime: w.endTime || '', venue: w.venue || '', mapUrl: w.mapUrl || '',
+      fee: w.fee ?? '', slots: w.slots ?? '', upiId: w.upiId || '', paymentNumber: w.paymentNumber || '', status: w.status || 'draft',
     })
     setError('')
     window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -141,9 +166,18 @@ function WorkshopManager() {
         <div><label className="label text-xs">Details / Description</label><textarea className="input min-h-[90px]" value={form.description} onChange={set('description')} placeholder="What the workshop covers, who it's for, notes…" /></div>
         <div className="grid gap-3 sm:grid-cols-2">
           <div><label className="label text-xs">Date</label><input type="date" className="input" value={form.date} onChange={set('date')} /></div>
-          <div><label className="label text-xs">Time</label><input className="input" value={form.time} onChange={set('time')} placeholder="10:00 AM – 1:00 PM" /></div>
+          <div>
+            <label className="label text-xs">Time (start – end)</label>
+            <div className="grid grid-cols-2 gap-2">
+              <Time12 value={form.startTime} onChange={(v) => setForm((f) => ({ ...f, startTime: v }))} />
+              <Time12 value={form.endTime} onChange={(v) => setForm((f) => ({ ...f, endTime: v }))} />
+            </div>
+          </div>
         </div>
-        <div><label className="label text-xs">Venue</label><input className="input" value={form.venue} onChange={set('venue')} placeholder="Balaiah Avenue, Mylapore" /></div>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div><label className="label text-xs">Venue</label><input className="input" value={form.venue} onChange={set('venue')} placeholder="Balaiah Avenue, Mylapore" /></div>
+          <div><label className="label text-xs">Google Maps location link</label><input className="input" value={form.mapUrl} onChange={set('mapUrl')} placeholder="https://maps.app.goo.gl/…" /></div>
+        </div>
         <div className="grid gap-3 sm:grid-cols-2">
           <div><label className="label text-xs">Fee (₹)</label><input type="number" min="0" className="input" value={form.fee} onChange={set('fee')} placeholder="500" /></div>
           <div><label className="label text-xs">Number of Slots</label><input type="number" min="1" className="input" value={form.slots} onChange={set('slots')} placeholder="12" /></div>
@@ -226,9 +260,16 @@ function Registrations() {
 
   const counts = useMemo(() => {
     const m = {}
-    regs.forEach((r) => { m[r.workshopId] = (m[r.workshopId] || 0) + 1 })
+    regs.forEach((r) => {
+      if (!m[r.workshopId]) m[r.workshopId] = { total: 0, confirmed: 0 }
+      m[r.workshopId].total++
+      if (r.status === 'confirmed') m[r.workshopId].confirmed++
+    })
     return m
   }, [regs])
+
+  const selected = filter !== 'all' ? workshops.find((w) => w.id === filter) : null
+  const sc = filter !== 'all' ? (counts[filter] || { total: 0, confirmed: 0 }) : null
 
   return (
     <div className="space-y-5">
@@ -237,10 +278,19 @@ function Registrations() {
         <select className="input max-w-xs" value={filter} onChange={(e) => setFilter(e.target.value)}>
           <option value="all">All workshops ({regs.length})</option>
           {workshops.map((w) => (
-            <option key={w.id} value={w.id}>{w.title} ({counts[w.id] || 0}{w.slots ? ` / ${w.slots}` : ''})</option>
+            <option key={w.id} value={w.id}>{w.title} ({counts[w.id]?.confirmed || 0}{w.slots ? `/${w.slots}` : ''} confirmed)</option>
           ))}
         </select>
       </div>
+
+      {selected && (
+        <div className="card flex flex-wrap gap-x-6 gap-y-2 p-4 text-sm">
+          <span>Confirmed (booked): <strong className="text-green-700">{sc.confirmed}{selected.slots ? ` / ${selected.slots}` : ''}</strong></span>
+          <span>Pending approval: <strong className="text-amber-700">{sc.total - sc.confirmed}</strong></span>
+          {selected.slots ? <span>Seats left: <strong className={selected.slots - sc.confirmed <= 0 ? 'text-red-600' : 'text-slate-800'}>{Math.max(0, selected.slots - sc.confirmed)}</strong></span> : null}
+          {selected.slots && sc.confirmed >= selected.slots ? <span className="badge bg-red-100 text-red-700">Full — registration closed</span> : null}
+        </div>
+      )}
 
       <div className="card p-4"><AdminFilter filter={dateFilter} setFilter={setDateFilter} /></div>
 
@@ -255,23 +305,21 @@ function Registrations() {
                   <div className="flex items-center gap-2">
                     <p className="font-semibold text-slate-900">{r.fullName}</p>
                     <span className={`badge ${r.status === 'confirmed' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
-                      {r.status === 'confirmed' ? 'Confirmed' : 'Pending payment'}
+                      {r.status === 'confirmed' ? 'Confirmed (booked)' : 'Pending approval'}
                     </span>
                   </div>
-                  <p className="mt-1 text-xs text-slate-500">
-                    {r.workshopTitle} · {r.qualification} · {r.email} · {fmtDate(r.createdAt)}
-                  </p>
-                  {r.reason && <p className="mt-1 text-xs text-slate-500">“{r.reason}”</p>}
-                  <p className="mt-1 text-xs text-slate-400">Attended before: {r.attendedBefore || '—'}</p>
+                  <p className="mt-1 text-xs text-slate-500">{[r.workshopTitle, r.email, fmtDate(r.createdAt)].filter(Boolean).join(' · ')}</p>
+                  <p className="mt-1 text-xs font-medium text-slate-600">Phone: {r.phone}{r.paidVia ? ` · Paid via ${r.paidVia}` : ''}</p>
+                  {r.reason && <p className="mt-1 text-xs italic text-slate-500">“{r.reason}”</p>}
                 </div>
                 <div className="flex items-center gap-2">
-                  <ContactActions phone={r.phone} size="sm" />
+                  <ContactActions phone={r.phone} size="sm" message={regWhatsApp(r)} />
                   {r.status !== 'confirmed' ? (
-                    <button onClick={() => setRegistrationStatus(r.id, 'confirmed')} title="Mark confirmed" className="grid h-8 w-8 place-items-center rounded-lg bg-green-50 text-green-600 hover:bg-green-100"><Check size={16} /></button>
+                    <button onClick={() => approveRegistration(r)} title="Approve & book seat" className="grid h-8 w-8 place-items-center rounded-lg bg-green-50 text-green-600 hover:bg-green-100"><Check size={16} /></button>
                   ) : (
-                    <button onClick={() => setRegistrationStatus(r.id, 'pending')} title="Mark pending" className="grid h-8 w-8 place-items-center rounded-lg text-slate-500 hover:bg-slate-100"><X size={16} /></button>
+                    <button onClick={() => unapproveRegistration(r)} title="Revert to pending (frees seat)" className="grid h-8 w-8 place-items-center rounded-lg text-slate-500 hover:bg-slate-100"><X size={16} /></button>
                   )}
-                  <button onClick={() => window.confirm('Delete this registration?') && deleteRegistration(r.id)} className="grid h-8 w-8 place-items-center rounded-lg text-red-500 hover:bg-red-50"><Trash2 size={16} /></button>
+                  <button onClick={() => window.confirm('Delete this registration?') && deleteRegistration(r)} className="grid h-8 w-8 place-items-center rounded-lg text-red-500 hover:bg-red-50"><Trash2 size={16} /></button>
                 </div>
               </div>
             </div>
