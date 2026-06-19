@@ -2,10 +2,16 @@ import { MapPin, Phone, Mail, Clock } from 'lucide-react'
 import EnquiryForm from '../components/EnquiryForm'
 import { WhatsAppIcon, InstagramIcon } from '../components/BrandIcons'
 import { BUSINESS, whatsappLink, telLink } from '../lib/constants'
+import Seo from '../components/Seo'
 
 export default function Contact() {
   return (
     <>
+      <Seo
+        title="Contact & Book Appointment"
+        description="Visit W2W Fitness & Rehab at Balaiah Avenue, Luz, Mylapore, Chennai. Call +91 72000 43621 or book your physiotherapy appointment online."
+        path="/contact"
+      />
       <section className="bg-gradient-to-br from-brand-50 to-white py-14 md:py-20">
         <div className="container-page text-center">
           <span className="section-eyebrow">Contact</span>

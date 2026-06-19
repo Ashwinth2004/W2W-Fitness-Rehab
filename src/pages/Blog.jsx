@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { ArrowRight, CalendarDays } from 'lucide-react'
 import { getPublishedPosts } from '../lib/firestore'
 import { fmtDate } from '../lib/format'
+import Seo from '../components/Seo'
 
 // Seed articles shown until the admin publishes real posts.
 const SEED = [
@@ -22,6 +23,11 @@ export default function Blog() {
 
   return (
     <>
+      <Seo
+        title="Health Tips & Blog"
+        description="Physiotherapy, fitness and wellness tips from the experts at W2W Fitness & Rehab, Mylapore."
+        path="/blog"
+      />
       <section className="bg-gradient-to-br from-brand-50 to-white py-14 md:py-20">
         <div className="container-page text-center">
           <span className="section-eyebrow">Health Tips & Insights</span>

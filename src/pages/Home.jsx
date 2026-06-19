@@ -7,12 +7,13 @@ import { useBooking } from '../context/BookingContext'
 import ServiceIcon from '../components/ServiceIcon'
 import Testimonials from '../components/Testimonials'
 import { SERVICES, FOUNDERS, BUSINESS } from '../lib/constants'
+import Seo from '../components/Seo'
 
 const STATS = [
   { value: '10+', label: 'Years Experience', icon: Award },
   { value: '100+', label: 'Students Trained', icon: Users },
   { value: '6 AM–9 PM', label: 'Mon to Sat', icon: Activity },
-  { value: '5.0★', label: 'Client Rating', icon: Star },
+  { value: '5.0', label: 'Client Rating', icon: Star },
 ]
 
 const WHY = [
@@ -27,6 +28,7 @@ export default function Home() {
 
   return (
     <>
+      <Seo path="/" />
       {/* HERO */}
       <section className="mesh-bg relative overflow-hidden bg-gradient-to-br from-brand-50 via-white to-brand-50">
         <div className="absolute -right-24 -top-24 h-96 w-96 rounded-full bg-brand-200/40 blur-3xl" />

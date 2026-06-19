@@ -14,7 +14,7 @@ export const BUSINESS = {
   whatsapp: '917200043621', // digits only, country code first
   whatsappDisplay: '+91 72000 43621',
   email: 'contact@w2wfitnessandrehab.in',
-  website: 'https://w2wfitnessandrehab.in',
+  website: 'https://www.w2wfitnessandrehab.in',
   instagram: 'https://www.instagram.com/w2wphysiotherapy/',
   instagramHandle: '@w2wphysiotherapy',
   mapsUrl: 'https://www.google.com/maps/search/?api=1&query=No.5+Balaiah+Avenue+Luz+Road+Mylapore+Chennai+600004',
@@ -26,6 +26,9 @@ export const BUSINESS = {
     { day: 'Sunday', time: 'Closed' },
   ],
 }
+
+// Canonical site origin (no trailing slash) — used for SEO canonical/OG tags.
+export const SITE_URL = BUSINESS.website
 
 export const SERVICES = [
   {
@@ -156,11 +159,11 @@ export const INSTAGRAM_FEED_EMBED = '' // e.g. 'https://lightwidget.com/widgets/
 // Used as a fallback until the admin curates reels in Firestore.
 export const REELS = [
   { url: 'https://www.instagram.com/reel/DZr4htuCBSS/', thumbnail: '/reels/knee-pain-clinical-reasoning.webp', caption: 'Why did my knee pain return? — the clinical reasoning' },
-  { url: 'https://www.instagram.com/reel/DTyAqiakt8i/', thumbnail: '/reels/way-to-wellness-2-years.webp', caption: 'Way to Wellness turns two 🎉' },
+  { url: 'https://www.instagram.com/reel/DTyAqiakt8i/', thumbnail: '/reels/way-to-wellness-2-years.webp', caption: 'Way to Wellness turns two' },
   { url: 'https://www.instagram.com/reel/DRQ_H-nkp_E/', thumbnail: '/reels/physiotherapy-clinical-reasoning.webp', caption: 'When the prescription already decides the treatment…' },
   { url: 'https://www.instagram.com/reel/DRHlSbYEmhW/', thumbnail: '/reels/vertigo-balance-challenge.webp', caption: 'The vertigo challenge — give it a try!' },
-  { url: 'https://www.instagram.com/reel/DQ_hB3Ukn2Q/', thumbnail: '/reels/chase-understanding-not-certificates.webp', caption: 'Don’t chase certificates, chase understanding 🎓' },
-  { url: 'https://www.instagram.com/reel/DQyb_0ZEnZh/', thumbnail: '/reels/healing-emotional-wellbeing.webp', caption: 'Healing isn’t just physical, it’s emotional too ❤️' },
+  { url: 'https://www.instagram.com/reel/DQ_hB3Ukn2Q/', thumbnail: '/reels/chase-understanding-not-certificates.webp', caption: 'Don’t chase certificates, chase understanding' },
+  { url: 'https://www.instagram.com/reel/DQyb_0ZEnZh/', thumbnail: '/reels/healing-emotional-wellbeing.webp', caption: 'Healing isn’t just physical, it’s emotional too' },
 ]
 
 // Appointment slots, kept in sync with the opening hours (BUSINESS.hours):
@@ -182,11 +185,11 @@ export function whatsappLink(message) {
 }
 
 export function defaultWhatsappGreeting() {
-  return `Hi ${BUSINESS.name} 👋\n\nI'd like to know more about your services and book an appointment. Could you please help me?`
+  return `Hi ${BUSINESS.name},\n\nI'd like to know more about your services and book an appointment. Could you please help me?`
 }
 
 export function serviceWhatsappMessage(service) {
-  return `Hi ${BUSINESS.name} 👋\n\nI'm interested in your *${service}* service. Please share availability and details for booking.`
+  return `Hi ${BUSINESS.name},\n\nI'm interested in your *${service}* service. Please share availability and details for booking.`
 }
 
 export function telLink() {
@@ -214,5 +217,5 @@ export function upiQrImage(upiPayUrl, size = 220) {
 }
 
 export function workshopWhatsappMessage(workshopTitle, fullName) {
-  return `Hi ${BUSINESS.name} 👋\n\nI have registered for *${workshopTitle}* under the name *${fullName || ''}* and completed the payment. Sharing my payment screenshot here to confirm my slot.`
+  return `Hi ${BUSINESS.name},\n\nI have registered for *${workshopTitle}* under the name *${fullName || ''}* and completed the payment. Sharing my payment screenshot here to confirm my slot.`
 }

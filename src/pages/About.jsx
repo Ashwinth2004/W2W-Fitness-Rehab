@@ -1,10 +1,16 @@
 import { Link } from 'react-router-dom'
 import { Instagram, GraduationCap, Target, Heart, Eye } from 'lucide-react'
 import { FOUNDERS, BUSINESS } from '../lib/constants'
+import Seo from '../components/Seo'
 
 export default function About() {
   return (
     <>
+      <Seo
+        title="About Us & Our Founders"
+        description="Meet the physiotherapists behind W2W Fitness & Rehab, Mylapore — our story, mission, vision and W2W Academy."
+        path="/about"
+      />
       <section className="bg-gradient-to-br from-brand-50 to-white py-14 md:py-20">
         <div className="container-page text-center">
           <span className="section-eyebrow">About Us</span>

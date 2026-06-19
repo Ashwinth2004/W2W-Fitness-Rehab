@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import { Lock, Mail, Loader2, AlertCircle } from 'lucide-react'
+import { Lock, Mail, Loader2, AlertCircle, ArrowLeft } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 
 export default function AdminLogin() {
@@ -65,7 +65,7 @@ export default function AdminLogin() {
             </button>
           </form>
         </div>
-        <Link to="/" className="mt-6 block text-center text-sm text-slate-500 hover:text-brand-600">← Back to website</Link>
+        <Link to="/" className="mt-6 flex items-center justify-center gap-1.5 text-center text-sm text-slate-500 hover:text-brand-600"><ArrowLeft size={15} /> Back to website</Link>
       </div>
     </div>
   )

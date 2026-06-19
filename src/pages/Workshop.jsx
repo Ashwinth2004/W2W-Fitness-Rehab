@@ -11,6 +11,7 @@ import {
 } from '../lib/constants'
 import { isValidMobile } from '../lib/validate'
 import { fmtDate } from '../lib/format'
+import Seo from '../components/Seo'
 
 const QUALIFICATIONS = ['BPT', 'MPT', 'Intern', 'Others']
 const isValidEmail = (s) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(s).trim())
@@ -37,6 +38,11 @@ export default function Workshop() {
 
   return (
     <>
+      <Seo
+        title="Workshops & Academy"
+        description="Upcoming physiotherapy and fitness workshops at W2W Academy, Mylapore. Check dates, slots and register online."
+        path="/workshop"
+      />
       <section className="relative overflow-hidden bg-brand-950 text-white">
         <div className="absolute -right-24 -top-24 h-96 w-96 rounded-full bg-brand-700/40 blur-3xl" />
         <div className="container-page relative py-14 text-center md:py-20">
@@ -287,7 +293,7 @@ function PaymentStep({ workshop, fullName }) {
   return (
     <div className="animate-fade-in text-center">
       <CheckCircle2 className="mx-auto text-green-500" size={52} />
-      <h3 className="mt-3 text-xl font-bold">Registration received! 🎉</h3>
+      <h3 className="mt-3 text-xl font-bold">Registration received!</h3>
       <p className="mt-2 text-slate-600">
         One last step, {fullName.split(' ')[0] || 'there'} — complete the payment to confirm your slot.
       </p>

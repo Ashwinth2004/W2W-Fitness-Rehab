@@ -2,31 +2,61 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // The single clinic admin = any signed-in Firebase user (only the admin
-    // has an account). Tighten further by checking a specific email if needed:
-    //   request.auth.token.email == 'admin@w2wfitnessandrehab.in'
+    // ---- Admin identity ----------------------------------------------------
+    // Pinned to the clinic admin's Firebase Auth account (uid). A custom claim
+    // {admin: true} also grants access, so more admins can be added later via
+    // the Admin SDK without editing these rules. (Do NOT loosen this to
+    // "request.auth != null" — that lets ANY signed-up user read patient PII.)
     function isAdmin() {
-      return request.auth != null;
+      return request.auth != null && (
+        request.auth.uid == 'ZP5dBxEpcENZjeFMjEzFBxmL6PN2'
+        || request.auth.token.admin == true
+      );
+    }
+
+    // ---- Validation helpers (for public, unauthenticated writes) -----------
+    function data() { return request.resource.data; }
+    function optStr(f, max) {
+      return !(f in data()) || (data()[f] is string && data()[f].size() <= max);
+    }
+    function reqStr(f, max) {
+      return data()[f] is string && data()[f].size() > 0 && data()[f].size() <= max;
     }
 
     // Public can submit enquiries; only the admin can read/manage them.
     match /enquiries/{id} {
-      allow create: if true;
+      allow create: if isAdmin() || (
+        data().size() <= 8 && data().status == 'new'
+        && reqStr('name', 120)
+        && optStr('phone', 20) && optStr('email', 200)
+        && optStr('service', 100) && optStr('message', 3000)
+      );
       allow read, update, delete: if isAdmin();
     }
 
-    // Public booking writes here (auto-confirm). Documents contain client PII,
-    // so reads are admin-only; public can only create.
+    // Public booking create (auto-confirm). Documents contain PII, so reads are
+    // admin-only; public create is shape-validated to curb spam/abuse.
     match /appointments/{id} {
-      allow create: if true;
+      allow create: if isAdmin() || (
+        data().size() <= 11 && data().status == 'confirmed'
+        && data().date is string && data().date.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
+        && data().time is string && data().time.matches('^[0-9]{2}:[0-9]{2}$')
+        && reqStr('name', 120)
+        && optStr('phone', 20) && optStr('email', 200)
+        && optStr('service', 100) && optStr('notes', 2000) && optStr('source', 20)
+      );
       allow read, update, delete: if isAdmin();
     }
 
-    // Only booked time strings (no PII) — public read to show availability,
-    // public write to reserve a slot during booking.
+    // Booked time strings only (no PII). Public read; public write constrained
+    // to a single `times` list of bounded length (no arbitrary payloads).
     match /availability/{date} {
       allow read: if true;
-      allow write: if true;
+      allow write: if isAdmin() || (
+        data().keys().hasOnly(['times'])
+        && data().times is list
+        && data().times.size() <= 60
+      );
     }
 
     // Running counter for unique client IDs — admin only.
@@ -42,7 +72,7 @@ service cloud.firestore {
       }
     }
 
-    // Testimonials & blog: public can read, admin manages.
+    // Testimonials, blog & reels: public read, admin manages.
     match /testimonials/{id} {
       allow read: if true;
       allow write: if isAdmin();
@@ -51,30 +81,45 @@ service cloud.firestore {
       allow read: if true;
       allow write: if isAdmin();
     }
-
-    // Video testimonials (Instagram reels): public read, admin manages.
     match /reels/{id} {
       allow read: if true;
       allow write: if isAdmin();
     }
 
-    // Workshops: public can read (to show open registrations), admin manages.
+    // Workshops: public read (to show open registrations), admin manages.
     match /workshops/{id} {
       allow read: if true;
       allow write: if isAdmin();
     }
 
-    // Public seat counter for workshops (no PII) — read + write open, like
-    // availability, so a public registration can reserve a seat atomically.
+    // Public seat counter (no PII). Increment-by-one only so it can't be set to
+    // an arbitrary value (no "mark full" / reset abuse); admin may delete.
     match /workshopStats/{id} {
       allow read: if true;
-      allow write: if true;
+      allow create: if isAdmin() || (
+        data().keys().hasOnly(['count', 'workshopId']) && data().count == 1
+      );
+      allow update: if isAdmin() || (
+        data().keys().hasOnly(['count', 'workshopId'])
+        && data().count == resource.data.count + 1
+      );
+      allow delete: if isAdmin();
     }
 
-    // Workshop registrations contain PII — public can only create; admin reads.
+    // Workshop registrations contain PII — public create (validated); admin reads.
     match /workshopRegistrations/{id} {
-      allow create: if true;
+      allow create: if isAdmin() || (
+        data().size() <= 8 && data().status == 'pending'
+        && reqStr('fullName', 120)
+        && optStr('phone', 20) && optStr('email', 200)
+        && optStr('workshopId', 80) && optStr('workshopTitle', 200)
+      );
       allow read, update, delete: if isAdmin();
     }
+
+    // Therapists, accounting (patient charges) and expenses — admin only.
+    match /therapists/{id} { allow read, write: if isAdmin(); }
+    match /accounting/{id} { allow read, write: if isAdmin(); }
+    match /expenses/{id} { allow read, write: if isAdmin(); }
   }
 }

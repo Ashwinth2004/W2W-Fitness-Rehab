@@ -4,7 +4,7 @@ import { GoogleIcon } from './BrandIcons'
 import { getApprovedTestimonials } from '../lib/firestore'
 import { BUSINESS } from '../lib/constants'
 
-// Real Google reviews (5.0★) for W2W Fitness & Rehab — kept as a fallback that
+// Real Google reviews (5.0/5) for W2W Fitness & Rehab — kept as a fallback that
 // matches the live Google listing until the admin curates reviews in Firestore.
 const SEED = [
   { name: 'Tharun Kumar', rating: 5, when: '2 months ago', text: 'Had knee pain and took treatment here. Feeling much better now and even started working out again. Good experience overall.' },

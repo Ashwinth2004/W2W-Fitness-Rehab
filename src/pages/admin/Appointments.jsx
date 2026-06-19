@@ -18,7 +18,7 @@ import AdminFilter from '../../components/AdminFilter'
 
 // Ready-to-send WhatsApp confirmation for an appointment.
 const apptWhatsApp = (a) =>
-  `Hi ${a.name}, greetings from W2W Fitness & Rehab! 🙏\n\n` +
+  `Hi ${a.name}, greetings from W2W Fitness & Rehab!\n\n` +
   `Thank you for booking with us. Your ${a.service || 'appointment'} is *confirmed* for ` +
   `${fmtDate(a.date, 'EEEE, dd MMM yyyy')} at ${fmt12h(a.time)}.\n\n` +
   `Please arrive 5–10 minutes early. To reschedule, just reply to this message.\n\n— Team W2W (Way to Wellness)`

@@ -80,7 +80,7 @@ export default function BookingForm({ preset = {}, onDone }) {
     return (
       <div className="animate-fade-in py-6 text-center">
         <CheckCircle2 className="mx-auto mb-3 text-green-500" size={56} />
-        <h3 className="text-xl font-bold text-slate-900">Appointment Confirmed! 🎉</h3>
+        <h3 className="text-xl font-bold text-slate-900">Appointment Confirmed!</h3>
         <p className="mt-2 text-slate-600">
           See you on <strong>{new Date(form.date + 'T00:00').toDateString()}</strong> at{' '}
           <strong>{formatTime(form.time)}</strong>.

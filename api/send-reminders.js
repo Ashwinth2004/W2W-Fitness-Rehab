@@ -32,20 +32,28 @@ function fmt12h(t) {
   return `${hr}:${String(m || 0).padStart(2, '0')} ${period}`
 }
 
+// Escape user-controlled values before putting them in email HTML. Appointment
+// fields (name/phone/service/email) are public-writable, so treat as untrusted.
+function esc(v) {
+  return String(v ?? '—').replace(/[<>&"']/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;', "'": '&#39;' }[c]))
+}
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
 export default async function handler(req, res) {
-  // Protect the endpoint. Vercel Cron sends Authorization: Bearer <CRON_SECRET>.
+  // Protect the endpoint — fail CLOSED. Vercel Cron sends this header
+  // automatically once CRON_SECRET is configured.
   const secret = process.env.CRON_SECRET
-  if (secret) {
-    const auth = req.headers.authorization || ''
-    const key = req.query?.key
-    if (auth !== `Bearer ${secret}` && key !== secret) {
-      return res.status(401).json({ error: 'Unauthorized' })
-    }
+  if (!secret) {
+    console.error('CRON_SECRET not set; refusing to run.')
+    return res.status(503).json({ error: 'Cron not configured' })
+  }
+  if ((req.headers.authorization || '') !== `Bearer ${secret}`) {
+    return res.status(401).json({ error: 'Unauthorized' })
   }
 
   const apiKey = process.env.RESEND_API_KEY
   const from = process.env.ENQUIRY_FROM_EMAIL || 'W2W Fitness & Rehab <onboarding@resend.dev>'
-  const clinicTo = process.env.ENQUIRY_TO_EMAIL || 'ashwinthips@gmail.com'
+  const clinicTo = process.env.ENQUIRY_TO_EMAIL || ''
 
   try {
     const db = getDb()
@@ -64,9 +72,9 @@ export default async function handler(req, res) {
     const resend = new Resend(apiKey)
     let sent = 0
 
-    // Reminder to each client with an email.
+    // Reminder to each client with a valid email.
     for (const a of appts) {
-      if (!a.email) continue
+      if (!a.email || !EMAIL_RE.test(String(a.email))) continue
       try {
         await resend.emails.send({
           from,
@@ -81,15 +89,17 @@ export default async function handler(req, res) {
     }
 
     // Daily summary to the clinic.
-    try {
-      await resend.emails.send({
-        from,
-        to: clinicTo.split(',').map((s) => s.trim()),
-        subject: `📋 Tomorrow's schedule (${date}) — ${appts.length} appointment(s)`,
-        html: clinicSummaryHtml(date, appts),
-      })
-    } catch (e) {
-      console.error('clinic summary failed:', e)
+    if (clinicTo) {
+      try {
+        await resend.emails.send({
+          from,
+          to: clinicTo.split(',').map((s) => s.trim()),
+          subject: `Tomorrow's schedule (${date}) — ${appts.length} appointment(s)`,
+          html: clinicSummaryHtml(date, appts),
+        })
+      } catch (e) {
+        console.error('clinic summary failed:', e)
+      }
     }
 
     return res.status(200).json({ ok: true, appointments: appts.length, clientEmailsSent: sent })
@@ -105,12 +115,12 @@ function clientReminderHtml(a) {
     <div style="max-width:520px;margin:0 auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 8px 30px rgba(14,139,161,.15)">
       <div style="background:${BRAND};color:#fff;padding:20px 24px"><h2 style="margin:0">W2W Fitness &amp; Rehab</h2></div>
       <div style="padding:24px;color:#1f2937">
-        <p>Hi ${a.name || 'there'},</p>
+        <p>Hi ${esc(a.name || 'there')},</p>
         <p>This is a friendly reminder of your appointment <strong>tomorrow</strong>:</p>
         <div style="background:#f1f7f8;border-radius:10px;padding:16px;margin:12px 0">
-          <p style="margin:4px 0"><strong>Service:</strong> ${a.service || '—'}</p>
-          <p style="margin:4px 0"><strong>Date:</strong> ${a.date}</p>
-          <p style="margin:4px 0"><strong>Time:</strong> ${fmt12h(a.time)}</p>
+          <p style="margin:4px 0"><strong>Service:</strong> ${esc(a.service || '—')}</p>
+          <p style="margin:4px 0"><strong>Date:</strong> ${esc(a.date)}</p>
+          <p style="margin:4px 0"><strong>Time:</strong> ${esc(fmt12h(a.time))}</p>
         </div>
         <p>Please arrive 5–10 minutes early. To reschedule, just reply or WhatsApp us.</p>
         <p style="color:#64748b;font-size:13px;margin-top:20px">No.5, Balaiah Avenue, Luz Road, Mylapore, Chennai – 600 004<br/>See you soon! — Team W2W</p>
@@ -124,7 +134,7 @@ function clinicSummaryHtml(date, appts) {
     .sort((a, b) => a.time.localeCompare(b.time))
     .map(
       (a) =>
-        `<tr><td style="padding:8px;border-bottom:1px solid #eee">${fmt12h(a.time)}</td><td style="padding:8px;border-bottom:1px solid #eee">${a.name}</td><td style="padding:8px;border-bottom:1px solid #eee">${a.phone || ''}</td><td style="padding:8px;border-bottom:1px solid #eee">${a.service || ''}</td></tr>`
+        `<tr><td style="padding:8px;border-bottom:1px solid #eee">${esc(fmt12h(a.time))}</td><td style="padding:8px;border-bottom:1px solid #eee">${esc(a.name)}</td><td style="padding:8px;border-bottom:1px solid #eee">${esc(a.phone || '')}</td><td style="padding:8px;border-bottom:1px solid #eee">${esc(a.service || '')}</td></tr>`
     )
     .join('')
   return `

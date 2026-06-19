@@ -13,7 +13,7 @@ import PhoneField from './PhoneField'
 // empty field to keep the old value, or just type to replace it. Untouched
 // fields keep the old value on save.
 const SECTIONS = [
-  { title: 'Registration', fields: [
+  { title: 'Registration', stage: 'basic', fields: [
     { k: 'name', label: 'Name *' },
     { k: 'phone', label: 'Contact number *', type: 'phone' },
     { k: 'gender', label: 'Gender', type: 'select', options: ['Male', 'Female', 'Other'] },
@@ -27,20 +27,20 @@ const SECTIONS = [
     { k: 'service', label: 'Primary service', type: 'select', options: SERVICE_OPTIONS },
     { k: 'address', label: 'Address', full: true },
   ] },
-  { title: 'Activity levels', ghost: true, fields: [
+  { title: 'Activity levels', stage: 'basic', ghost: true, fields: [
     { k: 'walking', label: 'Walking / steps per day' },
     { k: 'exercise', label: 'Exercise routines (if any)' },
     { k: 'deskWork', label: 'Desktop work or others' },
     { k: 'sleep', label: 'Sleeping hours per day & cycle' },
     { k: 'hydration', label: 'Hydration (water intake / day)', full: true },
   ] },
-  { title: 'History', ghost: true, cols1: true, fields: [
+  { title: 'History', stage: 'basic', ghost: true, cols1: true, fields: [
     { k: 'pastHistory', label: 'Past Medical History (major illness, injury or surgery)', area: true },
     { k: 'presentHistory', label: 'Present Medical History (Diabetes, BP, Thyroid)', area: true },
     { k: 'complaint', label: 'Current chief complaints', area: true },
     { k: 'mechanism', label: 'Mechanism of injury', area: true },
   ] },
-  { title: 'Pain Assessment', ghost: true, fields: [
+  { title: 'Pain Assessment', stage: 'treatment', ghost: true, fields: [
     { k: 'painArea', label: 'Area (side & site) of pain' },
     { k: 'painDuration', label: 'Duration' },
     { k: 'painType', label: 'Nature / type of pain' },
@@ -49,18 +49,18 @@ const SECTIONS = [
     { k: 'painRelieving', label: 'Pain relieving factor' },
     { k: 'vas', label: 'VAS — pain score (0–10)', num: true },
   ] },
-  { title: 'Objective Assessment', ghost: true, fields: [
+  { title: 'Objective Assessment', stage: 'treatment', ghost: true, fields: [
     { k: 'built', label: 'Built' },
     { k: 'deformities', label: 'Deformities / Edema / Wasting' },
     { k: 'gait', label: 'Gait' },
     { k: 'objectiveNotes', label: 'Notes', area: true, full: true },
   ] },
-  { title: 'On Palpation', ghost: true, fields: [
+  { title: 'On Palpation', stage: 'treatment', ghost: true, fields: [
     { k: 'tenderness', label: 'Tenderness' },
     { k: 'swelling', label: 'Swelling / Spasm' },
     { k: 'crepitus', label: 'Crepitus / Abnormal sounds' },
   ] },
-  { title: 'On Examination', ghost: true, fields: [
+  { title: 'On Examination', stage: 'treatment', ghost: true, fields: [
     { k: 'rom', label: 'ROM', area: true, full: true },
     { k: 'endFeel', label: 'End Feel' },
     { k: 'grip', label: 'Grip' },
@@ -70,7 +70,7 @@ const SECTIONS = [
     { k: 'reflexes', label: 'Reflexes' },
     { k: 'specialTests', label: 'Special tests & functional testing', area: true, full: true },
   ] },
-  { title: 'Assessment & Plan', ghost: true, cols1: true, fields: [
+  { title: 'Assessment & Plan', stage: 'treatment', ghost: true, cols1: true, fields: [
     { k: 'opinion', label: 'Opinion about the patient & condition', area: true },
     { k: 'treatmentOptions', label: 'Treatment options (with evidence)', area: true },
     { k: 'expectedRecovery', label: 'Expected duration of recovery & outcomes', area: true },
@@ -81,6 +81,13 @@ const SECTIONS = [
 
 const ALL_KEYS = SECTIONS.flatMap((s) => s.fields.map((f) => f.k))
 const blankForm = () => Object.fromEntries(ALL_KEYS.map((k) => [k, '']))
+
+// Three scrollable stages the form is grouped into.
+const STAGES = [
+  { id: 'basic', n: 1, title: 'Basic Details', subtitle: 'Registration, lifestyle & medical history' },
+  { id: 'treatment', n: 2, title: 'Treatment Details', subtitle: 'Pain & objective assessment, examination, opinion and plan' },
+  { id: 'declaration', n: 3, title: 'Declaration', subtitle: 'Consent for assessment & treatment' },
+]
 
 function Field({ f, value, ghost, onChange }) {
   const onKey = (e) => { if (e.key === 'Tab' && !value && ghost) { e.preventDefault(); onChange(ghost) } }
@@ -224,49 +231,62 @@ export default function ClientForm({ clients = [], onCreated, onClose }) {
         )}
       </div>
 
-      {/* Reg No + Date */}
-      <div className="grid gap-3 sm:grid-cols-2">
-        <div>
-          <label className="label text-xs">Reg. No</label>
-          <input className="input cursor-not-allowed bg-slate-50 text-slate-500" value={existing?.clientId || 'Auto-generated (W2W-####)'} readOnly />
-        </div>
-        <div>
-          <label className="label text-xs">Date</label>
-          <DateField value={assessmentDate} onChange={setAssessmentDate} max={todayISO()} />
-        </div>
-      </div>
-
-      {/* Sections */}
-      {SECTIONS.map((s) => (
-        <fieldset key={s.title} className="rounded-2xl border border-slate-100 p-4">
-          <legend className="px-2 text-sm font-bold text-brand-700">{s.title}</legend>
-          <div className={`grid gap-3 ${s.cols1 ? '' : 'sm:grid-cols-2'}`}>
-            {s.fields.map((f) => (
-              <Field
-                key={f.k}
-                f={f}
-                value={form[f.k]}
-                ghost={s.ghost && existing ? String(existing[f.k] ?? '') : ''}
-                onChange={set(f.k)}
-              />
-            ))}
+      {/* Scrollable stages: Basic Details → Treatment Details → Declaration */}
+      {STAGES.map((stage) => (
+        <section key={stage.id} className="space-y-4">
+          <div className="flex items-center gap-3 rounded-xl bg-brand-50 px-4 py-2.5">
+            <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-brand-600 text-sm font-bold text-white">{stage.n}</span>
+            <div>
+              <h3 className="text-base font-bold text-slate-900">{stage.title}</h3>
+              <p className="text-xs text-slate-500">{stage.subtitle}</p>
+            </div>
           </div>
-        </fieldset>
-      ))}
 
-      {/* Declaration */}
-      <div className="rounded-xl bg-slate-50 p-4 text-xs leading-relaxed text-slate-600">
-        <p className="font-semibold text-slate-700">Declaration</p>
-        <p className="mt-1">
-          Physiotherapy involves physical evaluation and treatment by qualified therapists at Way to Wellness. During
-          treatment it may be necessary to expose and touch the area being treated; you may decline any part at any
-          time. Every effort is made to preserve modesty and keep you comfortable.
-        </p>
-        <label className="mt-3 flex items-start gap-2 font-medium text-slate-700">
-          <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} className="mt-0.5 h-4 w-4 rounded border-slate-300 text-brand-600" />
-          The procedure was explained and the patient consents to the assessment &amp; treatment.
-        </label>
-      </div>
+          {stage.id === 'basic' && (
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div>
+                <label className="label text-xs">Reg. No</label>
+                <input className="input cursor-not-allowed bg-slate-50 text-slate-500" value={existing?.clientId || 'Auto-generated (W2W-####)'} readOnly />
+              </div>
+              <div>
+                <label className="label text-xs">Date</label>
+                <DateField value={assessmentDate} onChange={setAssessmentDate} max={todayISO()} />
+              </div>
+            </div>
+          )}
+
+          {SECTIONS.filter((s) => s.stage === stage.id).map((s) => (
+            <fieldset key={s.title} className="rounded-2xl border border-slate-100 p-4">
+              <legend className="px-2 text-sm font-bold text-brand-700">{s.title}</legend>
+              <div className={`grid gap-3 ${s.cols1 ? '' : 'sm:grid-cols-2'}`}>
+                {s.fields.map((f) => (
+                  <Field
+                    key={f.k}
+                    f={f}
+                    value={form[f.k]}
+                    ghost={s.ghost && existing ? String(existing[f.k] ?? '') : ''}
+                    onChange={set(f.k)}
+                  />
+                ))}
+              </div>
+            </fieldset>
+          ))}
+
+          {stage.id === 'declaration' && (
+            <div className="rounded-xl bg-slate-50 p-4 text-xs leading-relaxed text-slate-600">
+              <p className="mt-1">
+                Physiotherapy involves physical evaluation and treatment by qualified therapists at Way to Wellness.
+                During treatment it may be necessary to expose and touch the area being treated; you may decline any
+                part at any time. Every effort is made to preserve modesty and keep you comfortable.
+              </p>
+              <label className="mt-3 flex items-start gap-2 font-medium text-slate-700">
+                <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} className="mt-0.5 h-4 w-4 rounded border-slate-300 text-brand-600" />
+                The procedure was explained and the patient consents to the assessment &amp; treatment.
+              </label>
+            </div>
+          )}
+        </section>
+      ))}
 
       {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}
 

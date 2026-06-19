@@ -4,6 +4,7 @@ import { InstagramIcon } from '../components/BrandIcons'
 import {
   GALLERY_PHOTOS, INSTAGRAM_PROFILE, INSTAGRAM_HANDLE, INSTAGRAM_FEED_EMBED,
 } from '../lib/constants'
+import Seo from '../components/Seo'
 
 export default function Gallery() {
   const [active, setActive] = useState(null) // index of open photo, or null
@@ -28,6 +29,11 @@ export default function Gallery() {
 
   return (
     <>
+      <Seo
+        title="Gallery"
+        description="Photos of our clinic, treatments, workshops and W2W Academy in Mylapore, Chennai."
+        path="/gallery"
+      />
       <section className="bg-gradient-to-br from-brand-50 to-white py-14 md:py-20">
         <div className="container-page text-center">
           <span className="section-eyebrow">Gallery</span>

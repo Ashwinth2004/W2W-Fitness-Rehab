@@ -38,7 +38,7 @@ export default function EnquiryForm() {
     return (
       <div className="animate-fade-in rounded-2xl bg-green-50 p-8 text-center">
         <CheckCircle2 className="mx-auto mb-3 text-green-500" size={48} />
-        <h3 className="text-xl font-bold text-slate-900">Message sent! 🙌</h3>
+        <h3 className="text-xl font-bold text-slate-900">Message sent!</h3>
         <p className="mt-2 text-slate-600">Thank you, {form.name}. Our team will get back to you shortly.</p>
       </div>
     )

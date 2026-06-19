@@ -3,6 +3,7 @@ import { Play, X, ExternalLink } from 'lucide-react'
 import { InstagramIcon } from '../components/BrandIcons'
 import { getReels } from '../lib/firestore'
 import { INSTAGRAM_PROFILE, INSTAGRAM_HANDLE, REELS } from '../lib/constants'
+import Seo from '../components/Seo'
 
 // Loads Instagram's embed script once, then (re)processes blockquotes so the
 // reel renders and plays inline.
@@ -49,6 +50,11 @@ export default function Testimonials() {
 
   return (
     <>
+      <Seo
+        title="Patient Testimonials & Reviews"
+        description="Real recovery stories and 5-star Google reviews from W2W Fitness & Rehab patients in Mylapore, Chennai."
+        path="/testimonials"
+      />
       <section className="bg-gradient-to-br from-brand-50 to-white py-14 md:py-20">
         <div className="container-page text-center">
           <span className="section-eyebrow">Testimonials</span>

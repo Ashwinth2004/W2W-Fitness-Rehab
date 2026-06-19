@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useParams, useNavigate } from 'react-router-dom'
 import {
   ArrowLeft, BadgeCheck, FileDown, Pencil, Trash2, Plus, Save, X, Loader2,
-  NotebookPen, TrendingUp, User, Calendar,
+  NotebookPen, TrendingUp, User, Calendar, Send, UserPlus, IndianRupee, MapPin,
 } from 'lucide-react'
 import {
   LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
@@ -10,9 +10,10 @@ import {
 import {
   getClient, updateClient, deleteClient, watchClientNotes, addClientNote, deleteClientNote,
   watchProgress, addProgress, deleteProgress, getClientNotesOnce, getClientProgressOnce,
+  watchTherapists, createTherapist, addAccountingEntry,
 } from '../../lib/firestore'
 import { fmtDate, todayISO } from '../../lib/format'
-import { SERVICE_OPTIONS } from '../../lib/constants'
+import { SERVICE_OPTIONS, FOUNDERS } from '../../lib/constants'
 import { onlyDigits } from '../../lib/validate'
 import ContactActions from '../../components/ContactActions'
 import DateField from '../../components/DateField'
@@ -26,7 +27,7 @@ export default function ClientDetail() {
   const [notes, setNotes] = useState([])
   const [progress, setProgress] = useState([])
   const [editing, setEditing] = useState(false)
-  const [downloading, setDownloading] = useState(false)
+  const [reporting, setReporting] = useState(false)
 
   useEffect(() => {
     getClient(id).then(setClient)
@@ -42,16 +43,6 @@ export default function ClientDetail() {
       <Link to="/admin/clients" className="btn-outline mt-4">Back to clients</Link>
     </div>
   )
-
-  async function handleReport() {
-    setDownloading(true)
-    try {
-      const [n, p] = await Promise.all([getClientNotesOnce(id), getClientProgressOnce(id)])
-      await generateClientReport(client, n, p)
-    } finally {
-      setDownloading(false)
-    }
-  }
 
   async function handleDelete() {
     if (!window.confirm(`Delete ${client.name} (${client.clientId}) permanently? This cannot be undone.`)) return
@@ -79,8 +70,8 @@ export default function ClientDetail() {
             </div>
           </div>
           <div className="flex flex-wrap gap-2">
-            <button onClick={handleReport} disabled={downloading} className="btn-primary">
-              {downloading ? <Loader2 size={18} className="animate-spin" /> : <FileDown size={18} />} Generate Report
+            <button onClick={() => setReporting(true)} className="btn-primary">
+              <FileDown size={18} /> Generate Report
             </button>
             <button onClick={() => setEditing(true)} className="btn-outline"><Pencil size={16} /> Edit</button>
             <button onClick={handleDelete} className="btn-ghost text-red-500 hover:bg-red-50"><Trash2 size={16} /></button>
@@ -94,7 +85,7 @@ export default function ClientDetail() {
           <Fact icon={NotebookPen} label="Primary Service" value={client.service || '—'} />
           <Fact icon={User} label="Email" value={client.email || '—'} />
         </div>
-        {client.address && <p className="mt-3 text-sm text-slate-500">📍 {client.address}</p>}
+        {client.address && <p className="mt-3 flex items-center gap-1.5 text-sm text-slate-500"><MapPin size={14} className="shrink-0" /> {client.address}</p>}
       </div>
 
       {/* Complaint + history */}
@@ -121,6 +112,7 @@ export default function ClientDetail() {
       <NotesSection clientId={id} notes={notes} />
 
       {editing && <EditClientModal client={client} onClose={() => setEditing(false)} onSaved={(d) => { setClient((c) => ({ ...c, ...d })); setEditing(false) }} />}
+      {reporting && <ReportModal client={client} onClose={() => setReporting(false)} />}
     </div>
   )
 }
@@ -298,6 +290,114 @@ function NotesSection({ clientId, notes }) {
           ))}
         </ul>
       )}
+    </div>
+  )
+}
+
+// ---- Report + billing modal ----------------------------------------------
+const PAY_MODES = ['Cash', 'UPI', 'Card', 'Bank transfer', 'Other']
+
+function ReportModal({ client, onClose }) {
+  const [therapists, setTherapists] = useState([])
+  const [therapist, setTherapist] = useState('')
+  const [adding, setAdding] = useState('')
+  const [chargeDate, setChargeDate] = useState(client.assessmentDate || todayISO())
+  const [amount, setAmount] = useState('')
+  const [paid, setPaid] = useState('')
+  const [mode, setMode] = useState('Cash')
+  const [record, setRecord] = useState(true)
+  const [busy, setBusy] = useState('')
+  const [recorded, setRecorded] = useState(false)
+  const [msg, setMsg] = useState('')
+
+  useEffect(() => watchTherapists(setTherapists), [])
+
+  const names = Array.from(new Set([...FOUNDERS.map((f) => f.name), ...therapists.map((t) => t.name)]))
+  const balance = Math.max(0, (Number(amount) || 0) - (Number(paid) || 0))
+  const money = (set) => (e) => set(onlyDigits(e.target.value).slice(0, 7))
+
+  async function addTherapist() {
+    const n = adding.trim()
+    if (!n) return
+    await createTherapist(n)
+    setTherapist(n); setAdding('')
+  }
+
+  async function go(action) {
+    setBusy(action); setMsg('')
+    try {
+      const [notes, progress] = await Promise.all([getClientNotesOnce(client.id), getClientProgressOnce(client.id)])
+      const bill = { amount: Number(amount) || 0, paid: Number(paid) || 0, balance, mode }
+      const res = await generateClientReport(client, { notes, progress, therapist, bill, action })
+      if (record && !recorded && (bill.amount > 0 || bill.paid > 0)) {
+        await addAccountingEntry({
+          date: chargeDate || todayISO(),
+          clientId: client.clientId, clientDocId: client.id, clientName: client.name,
+          service: client.service || '', therapist,
+          amount: bill.amount, paid: bill.paid, balance: bill.balance, mode,
+        })
+        setRecorded(true)
+      }
+      if (res === 'shared') setMsg('Report shared.')
+      else if (res === 'downloaded') setMsg('Report downloaded.')
+    } catch (err) {
+      console.error('report failed:', err)
+      setMsg('Could not generate the report. Please try again.')
+    }
+    setBusy('')
+  }
+
+  return (
+    <div className="fixed inset-0 z-[80] grid place-items-center bg-slate-900/50 p-4 backdrop-blur-sm">
+      <div className="max-h-[92vh] w-full max-w-lg animate-pop-in space-y-4 overflow-y-auto rounded-3xl bg-white p-6 shadow-2xl">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-xl font-bold">Generate Report</h2>
+            <p className="text-sm text-slate-500">{client.name} · {client.clientId}</p>
+          </div>
+          <button onClick={onClose} className="rounded-full p-1.5 text-slate-400 hover:bg-slate-100"><X size={22} /></button>
+        </div>
+
+        {/* Therapist */}
+        <div>
+          <label className="label text-xs">Treatment given by (Physiotherapist)</label>
+          <select className="input" value={therapist} onChange={(e) => setTherapist(e.target.value)}>
+            <option value="">— Select therapist —</option>
+            {names.map((n) => <option key={n} value={n}>{n}</option>)}
+          </select>
+          <div className="mt-2 flex gap-2">
+            <input className="input" value={adding} onChange={(e) => setAdding(e.target.value)} placeholder="Add another therapist…" />
+            <button type="button" onClick={addTherapist} className="btn-outline shrink-0"><UserPlus size={15} /> Add</button>
+          </div>
+        </div>
+
+        {/* Billing */}
+        <div className="rounded-2xl border border-slate-100 p-4">
+          <p className="mb-3 flex items-center gap-1.5 text-sm font-bold text-brand-700"><IndianRupee size={15} /> Billing</p>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div><label className="label text-xs">Date</label><DateField value={chargeDate} onChange={setChargeDate} max={todayISO()} /></div>
+            <div><label className="label text-xs">Mode of payment</label><select className="input" value={mode} onChange={(e) => setMode(e.target.value)}>{PAY_MODES.map((m) => <option key={m}>{m}</option>)}</select></div>
+            <div><label className="label text-xs">Amount charged (Rs.)</label><input className="input" inputMode="numeric" value={amount} onChange={money(setAmount)} placeholder="0" /></div>
+            <div><label className="label text-xs">Amount paid (Rs.)</label><input className="input" inputMode="numeric" value={paid} onChange={money(setPaid)} placeholder="0" /></div>
+          </div>
+          <div className="mt-3 flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2 text-sm">
+            <span className="text-slate-500">Balance due</span>
+            <span className={`font-bold ${balance > 0 ? 'text-red-600' : 'text-emerald-600'}`}>Rs. {balance.toLocaleString('en-IN')}</span>
+          </div>
+          <label className="mt-3 flex items-center gap-2 text-xs font-medium text-slate-600">
+            <input type="checkbox" checked={record} onChange={(e) => setRecord(e.target.checked)} className="h-4 w-4 rounded border-slate-300 text-brand-600" />
+            Record this charge in Accounting {recorded && <span className="text-emerald-600">· saved</span>}
+          </label>
+        </div>
+
+        {msg && <p className="rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-600">{msg}</p>}
+
+        <div className="flex flex-wrap justify-end gap-2">
+          <button onClick={onClose} className="btn-ghost">Close</button>
+          <button onClick={() => go('share')} disabled={!!busy} className="btn-outline">{busy === 'share' ? <Loader2 size={18} className="animate-spin" /> : <Send size={16} />} Send</button>
+          <button onClick={() => go('download')} disabled={!!busy} className="btn-primary">{busy === 'download' ? <Loader2 size={18} className="animate-spin" /> : <FileDown size={18} />} Download</button>
+        </div>
+      </div>
     </div>
   )
 }

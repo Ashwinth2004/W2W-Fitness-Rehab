@@ -10,12 +10,12 @@ export default async function handler(req, res) {
   }
 
   const apiKey = process.env.RESEND_API_KEY
-  const to = process.env.ENQUIRY_TO_EMAIL || 'ashwinthips@gmail.com'
+  const to = process.env.ENQUIRY_TO_EMAIL
   const from = process.env.ENQUIRY_FROM_EMAIL || 'W2W Fitness & Rehab <onboarding@resend.dev>'
 
-  if (!apiKey) {
+  if (!apiKey || !to) {
     // Not fatal for the user — the booking/enquiry is already saved in Firestore.
-    console.warn('RESEND_API_KEY missing; skipping email.')
+    console.warn('Email not configured (RESEND_API_KEY / ENQUIRY_TO_EMAIL); skipping email.')
     return res.status(200).json({ ok: false, reason: 'email-not-configured' })
   }
 
@@ -56,8 +56,10 @@ export default async function handler(req, res) {
   }
 }
 
+// Attribute-safe HTML escaping (covers quotes too, since values like `phone`
+// are interpolated into href="..." attributes).
 function esc(v) {
-  return String(v ?? '—').replace(/[<>&]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[c]))
+  return String(v ?? '—').replace(/[<>&"']/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;', "'": '&#39;' }[c]))
 }
 
 function renderEmail({ isBooking, rows, phone }) {

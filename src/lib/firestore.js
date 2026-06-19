@@ -411,3 +411,79 @@ export async function setRegistrationStatus(id, status) {
 export async function deleteRegistration(id) {
   return deleteDoc(doc(db, 'workshopRegistrations', id))
 }
+
+// ---------- Therapists ------------------------------------------------------
+// The physiotherapists who deliver treatment (selected on the patient report).
+export function watchTherapists(cb) {
+  const q = query(collection(db, 'therapists'), orderBy('name'))
+  return onSnapshot(
+    q,
+    (snap) => cb(snap.docs.map((d) => ({ id: d.id, ...d.data() }))),
+    () => cb([])
+  )
+}
+
+export async function createTherapist(name) {
+  return addDoc(collection(db, 'therapists'), { name: name.trim(), createdAt: serverTimestamp() })
+}
+
+export async function deleteTherapist(id) {
+  return deleteDoc(doc(db, 'therapists', id))
+}
+
+// ---------- Accounting: patient charges (income) ---------------------------
+// One entry per billed report: { date, clientId, clientName, service,
+// therapist, amount, paid, balance, mode, note }. `date` is 'yyyy-MM-dd'.
+export async function addAccountingEntry(data) {
+  return addDoc(collection(db, 'accounting'), {
+    ...data,
+    type: 'income',
+    createdAt: serverTimestamp(),
+  })
+}
+
+export function watchAccounting(cb) {
+  const q = query(collection(db, 'accounting'), orderBy('date', 'desc'))
+  return onSnapshot(q, (snap) => cb(snap.docs.map((d) => ({ id: d.id, ...d.data() }))))
+}
+
+export async function getAccountingInRange(start, end) {
+  const q = query(
+    collection(db, 'accounting'),
+    where('date', '>=', start),
+    where('date', '<=', end),
+    orderBy('date', 'asc')
+  )
+  const snap = await getDocs(q)
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+}
+
+export async function deleteAccountingEntry(id) {
+  return deleteDoc(doc(db, 'accounting', id))
+}
+
+// ---------- Accounting: expenses (submodule) -------------------------------
+// Admin-defined: { date, name (salary/rent/eb…), amount, note }.
+export async function addExpense(data) {
+  return addDoc(collection(db, 'expenses'), { ...data, createdAt: serverTimestamp() })
+}
+
+export function watchExpenses(cb) {
+  const q = query(collection(db, 'expenses'), orderBy('date', 'desc'))
+  return onSnapshot(q, (snap) => cb(snap.docs.map((d) => ({ id: d.id, ...d.data() }))))
+}
+
+export async function getExpensesInRange(start, end) {
+  const q = query(
+    collection(db, 'expenses'),
+    where('date', '>=', start),
+    where('date', '<=', end),
+    orderBy('date', 'asc')
+  )
+  const snap = await getDocs(q)
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+}
+
+export async function deleteExpense(id) {
+  return deleteDoc(doc(db, 'expenses', id))
+}

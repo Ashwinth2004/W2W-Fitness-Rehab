@@ -84,8 +84,31 @@ Admin: <http://localhost:5173/admin> (redirects to login).
 4. For the reminder cron also add `FIREBASE_SERVICE_ACCOUNT` (Firebase → Project settings →
    Service accounts → *Generate new private key* → paste the whole JSON on one line) and a
    random `CRON_SECRET`.
-5. **Deploy.** Add your custom domain (`w2wfitnessandrehab.in`) under **Settings → Domains**, and
-   add that domain to Firebase **Authentication → Settings → Authorized domains**.
+5. **Deploy.**
+
+### 7. Custom domain — `www.w2wfitnessandrehab.in`
+The whole codebase already uses `https://www.w2wfitnessandrehab.in` as the canonical origin
+(see `BUSINESS.website` / `SITE_URL` in `src/lib/constants.js`, `index.html`, `public/sitemap.xml`,
+`public/robots.txt`). To go live:
+
+1. **Buy the domain** at a registrar that sells `.in` (GoDaddy, Namecheap, BigRock, Cloudflare).
+   Vercel's domain store does **not** sell `.in`, so purchase it there.
+2. **Add it to Vercel** → project **Settings → Domains** → add *both* `www.w2wfitnessandrehab.in`
+   and the apex `w2wfitnessandrehab.in`. Set **`www` as the primary** (Vercel auto-301s the apex → www,
+   matching our canonical tags).
+3. **DNS** (at the registrar) — Vercel shows the exact records; typically:
+   - `CNAME  www  → cname.vercel-dns.com`
+   - apex `A  @  → 76.76.21.21` (or the ALIAS/ANAME Vercel lists).
+   Wait for "Valid Configuration" + SSL to issue.
+4. **Firebase Auth** → **Authentication → Settings → Authorized domains** → add
+   `www.w2wfitnessandrehab.in` **and** `w2wfitnessandrehab.in` (so admin login works on the live domain).
+5. **SEO** → Google **Search Console**: add the property, verify, and submit
+   `https://www.w2wfitnessandrehab.in/sitemap.xml`. (robots.txt already points to it.)
+6. **Email** (optional) → verify the domain in Resend, then set
+   `ENQUIRY_FROM_EMAIL`/`ENQUIRY_TO_EMAIL` to `…@w2wfitnessandrehab.in`.
+
+> Firestore security rules need **no** domain change — access is gated by Firebase Auth
+> (`request.auth != null`), not by hostname.
 
 ---
 

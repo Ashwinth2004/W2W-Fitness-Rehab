@@ -3,12 +3,18 @@ import { CheckCircle2, CalendarCheck, ArrowRight, MessageSquare } from 'lucide-r
 import { useBooking } from '../context/BookingContext'
 import ServiceIcon from '../components/ServiceIcon'
 import { SERVICES } from '../lib/constants'
+import Seo from '../components/Seo'
 
 export default function Services() {
   const { openBooking } = useBooking()
 
   return (
     <>
+      <Seo
+        title="Physiotherapy, Yoga & Fitness Services"
+        description="Evidence-based physiotherapy, sports-injury rehab, Hatha yoga and lifestyle fitness at W2W Fitness & Rehab, Mylapore, Chennai."
+        path="/services"
+      />
       <section className="bg-gradient-to-br from-brand-50 to-white py-14 md:py-20">
         <div className="container-page text-center">
           <span className="section-eyebrow">Our Services</span>
