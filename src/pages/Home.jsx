@@ -12,7 +12,7 @@ import Seo from '../components/Seo'
 const STATS = [
   { value: '10+', label: 'Years Experience', icon: Award },
   { value: '100+', label: 'Students Trained', icon: Users },
-  { value: '6 AM–9 PM', label: 'Mon to Sat', icon: Activity },
+  { value: '9–12 & 4–8', label: 'Mon–Sat · Sun closed', icon: Activity },
   { value: '5.0', label: 'Client Rating', icon: Star },
 ]
 
@@ -60,8 +60,8 @@ export default function Home() {
             <div className="relative mx-auto h-72 w-72 md:h-80 md:w-80">
               {/* soft glow */}
               <div className="absolute inset-0 rounded-full bg-brand-200/50 blur-2xl" />
-              {/* the moving circle — logo perfectly centred inside */}
-              <div className="absolute inset-0 flex animate-float items-center justify-center rounded-full bg-white p-8 shadow-soft md:p-10">
+              {/* the moving circle — logo fills the circle */}
+              <div className="absolute inset-0 flex animate-float items-center justify-center overflow-hidden rounded-full bg-white p-2 shadow-soft">
                 <img
                   src="/logo.jpg"
                   alt="W2W Fitness & Rehab"

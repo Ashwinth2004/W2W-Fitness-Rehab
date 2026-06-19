@@ -7,6 +7,7 @@ import { bookAppointment } from '../lib/firestore'
 import { notifyClinic } from '../lib/email'
 import { BUSINESS } from '../lib/constants'
 import { isValidMobile } from '../lib/validate'
+import { fmtDate } from '../lib/format'
 
 // Online booking is for Physiotherapy only. Other services are handled as
 // enquiries on the Contact page.
@@ -82,7 +83,7 @@ export default function BookingForm({ preset = {}, onDone }) {
         <CheckCircle2 className="mx-auto mb-3 text-green-500" size={56} />
         <h3 className="text-xl font-bold text-slate-900">Appointment Confirmed!</h3>
         <p className="mt-2 text-slate-600">
-          See you on <strong>{new Date(form.date + 'T00:00').toDateString()}</strong> at{' '}
+          See you on <strong>{fmtDate(form.date)}</strong> at{' '}
           <strong>{formatTime(form.time)}</strong>.
         </p>
         <p className="mt-1 text-sm text-slate-500">

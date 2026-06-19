@@ -13,14 +13,14 @@ export function toDate(value) {
   return null
 }
 
-export function fmtDate(value, pattern = 'dd MMM yyyy') {
+export function fmtDate(value, pattern = 'dd-MM-yyyy') {
   const d = toDate(value)
   return d ? format(d, pattern) : '—'
 }
 
 export function fmtDateTime(value) {
   const d = toDate(value)
-  return d ? format(d, 'dd MMM yyyy, h:mm a') : '—'
+  return d ? format(d, 'dd-MM-yyyy, h:mm a') : '—'
 }
 
 export function fmt12h(t) {

@@ -168,7 +168,7 @@ export async function generateClientReport(client, opts = {}) {
   const logo = await loadLogo()
   const doc = new jsPDF({ unit: 'mm', format: 'a4' })
   let y = header(doc, logo, 'Physiotherapy Assessment Report',
-    `Date: ${fmtDate(client.assessmentDate || new Date(), 'dd MMM yyyy')}`)
+    `Date: ${fmtDate(client.assessmentDate || new Date())}`)
 
   // Patient details box
   y += 4

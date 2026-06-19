@@ -131,10 +131,8 @@ export const GALLERY_PHOTOS = [
   { src: '/gallery/strength-and-conditioning-training.webp', caption: 'Strength & conditioning' },
   { src: '/gallery/inside-w2w-clinic.webp', caption: 'Inside W2W Fitness & Rehab' },
   { src: '/gallery/w2w-academy-certificate-presentation.webp', caption: 'Certificate presentation' },
-  { src: '/gallery/w2w-academy-achievement.webp', caption: 'Achievement, recognised' },
   // Photos from our Google Business listing
   { src: '/gallery/w2w-clinic-consultation.webp', caption: 'Consultation at the clinic' },
-  { src: '/gallery/w2w-fitness-rehab-centre.webp', caption: 'At W2W Fitness & Rehab' },
   { src: '/gallery/physiotherapy-patient-assessment.webp', caption: 'Patient assessment' },
   { src: '/gallery/physiotherapy-treatment-planning.webp', caption: 'Treatment planning session' },
   { src: '/gallery/inside-w2w-fitness-rehab.webp', caption: 'Inside the W2W clinic' },

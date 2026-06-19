@@ -33,7 +33,7 @@ export default function AnnouncementBar() {
   return (
     <div
       className={`no-print text-white ${
-        isOpen ? 'bg-gradient-to-r from-accent-500 to-accent-600' : 'bg-brand-900'
+        isOpen ? 'bg-gradient-to-r from-brand-600 to-brand-700' : 'bg-brand-900'
       }`}
     >
       <Link to="/workshop" className="block hover:opacity-95" title="W2W Workshop registration">

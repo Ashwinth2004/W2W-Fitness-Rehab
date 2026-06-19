@@ -1,5 +1,13 @@
 import { X } from 'lucide-react'
+import { format, subMonths } from 'date-fns'
 import DateField from './DateField'
+
+// Last 18 months as { value:'yyyy-MM', label:'June 2026' } for a clean dropdown
+// (replaces the browser's native month input, which shows an ugly "----" state).
+const MONTHS = Array.from({ length: 18 }, (_, i) => {
+  const d = subMonths(new Date(), i)
+  return { value: format(d, 'yyyy-MM'), label: format(d, 'MMMM yyyy') }
+})
 
 /**
  * Reusable date + month filter for admin list pages.
@@ -18,12 +26,16 @@ export default function AdminFilter({ filter, setFilter }) {
       </div>
       <div>
         <label className="label text-xs">Filter by month</label>
-        <input
-          type="month"
-          className="input h-[42px] w-40"
+        <select
+          className="input h-[42px] w-44"
           value={filter.month}
           onChange={(e) => setFilter({ day: '', month: e.target.value })}
-        />
+        >
+          <option value="">All months</option>
+          {MONTHS.map((m) => (
+            <option key={m.value} value={m.value}>{m.label}</option>
+          ))}
+        </select>
       </div>
       {active && (
         <button

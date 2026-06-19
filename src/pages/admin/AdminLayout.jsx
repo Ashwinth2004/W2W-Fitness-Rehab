@@ -78,8 +78,8 @@ export default function AdminLayout() {
 
   return (
     <div className="flex min-h-screen bg-slate-50">
-      {/* Desktop sidebar */}
-      <aside className="hidden w-64 shrink-0 bg-brand-950 lg:block">{SidebarContent}</aside>
+      {/* Desktop sidebar — fixed in place while the content scrolls */}
+      <aside className="hidden w-64 shrink-0 bg-brand-950 lg:sticky lg:top-0 lg:block lg:h-screen lg:overflow-y-auto">{SidebarContent}</aside>
 
       {/* Mobile drawer */}
       {open && (

@@ -93,7 +93,7 @@ export default function About() {
         <div className="container-page">
           <div className="overflow-hidden rounded-3xl bg-brand-950 text-white">
             {/* Intro + certificate presentation photo */}
-            <div className="grid items-center gap-8 p-8 md:grid-cols-2 md:gap-12 md:p-12">
+            <div className="grid items-stretch gap-8 p-8 md:grid-cols-2 md:gap-12 md:p-12">
               <div>
                 <div className="mb-4 inline-grid h-16 w-16 place-items-center rounded-2xl bg-white/10">
                   <GraduationCap size={34} className="text-brand-300" />
@@ -109,14 +109,14 @@ export default function About() {
                   Enquire about workshops
                 </Link>
               </div>
-              <figure className="mx-auto w-full max-w-sm">
+              <figure className="relative h-full min-h-[260px] w-full overflow-hidden rounded-2xl shadow-2xl ring-1 ring-white/15">
                 <img
                   src="/academy/w2w-academy-certificate-ceremony.webp"
                   alt="Certificate presentation at a W2W Academy physiotherapy workshop in Mylapore"
                   loading="lazy"
-                  className="w-full rounded-2xl object-cover shadow-2xl ring-1 ring-white/15"
+                  className="absolute inset-0 h-full w-full object-cover"
                 />
-                <figcaption className="mt-3 text-center text-sm text-brand-200">
+                <figcaption className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-3 text-center text-sm text-brand-100">
                   Certificate presentation to a W2W Academy participant
                 </figcaption>
               </figure>

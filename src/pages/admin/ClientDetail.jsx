@@ -195,7 +195,7 @@ function ProgressSection({ clientId, progress }) {
     setOpen(false)
   }
 
-  const chartData = progress.map((p) => ({ date: fmtDate(p.date, 'dd MMM'), Pain: p.pain, Weight: p.weight }))
+  const chartData = progress.map((p) => ({ date: fmtDate(p.date, 'dd-MM'), Pain: p.pain, Weight: p.weight }))
 
   return (
     <div className="card p-5">

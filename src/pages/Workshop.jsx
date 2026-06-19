@@ -91,7 +91,7 @@ function OpenWorkshop({ workshop, seats }) {
   const full = slots > 0 && seats >= slots
 
   const details = [
-    workshop.date && { icon: CalendarDays, label: 'Date', value: fmtDate(workshop.date, 'EEEE, dd MMM yyyy') },
+    workshop.date && { icon: CalendarDays, label: 'Date', value: fmtDate(workshop.date) },
     workshop.time && { icon: Clock, label: 'Time', value: workshop.time },
     workshop.venue && { icon: MapPin, label: 'Location', value: workshop.venue },
     workshop.fee != null && workshop.fee !== '' && { icon: IndianRupee, label: 'Fee', value: `₹${workshop.fee}` },
@@ -262,7 +262,7 @@ function RegistrationForm({ workshop }) {
           onChange={(e) => setForm((f) => ({ ...f, available: e.target.checked }))}
           className="mt-0.5 h-4 w-4 rounded border-slate-300 text-brand-600"
         />
-        <span>I confirm my availability on {workshop.date ? fmtDate(workshop.date, 'dd MMM yyyy') : 'the workshop date'}. *</span>
+        <span>I confirm my availability on {workshop.date ? fmtDate(workshop.date) : 'the workshop date'}. *</span>
       </label>
 
       {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}

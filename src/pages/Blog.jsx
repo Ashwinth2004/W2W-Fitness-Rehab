@@ -45,29 +45,31 @@ export default function Blog() {
           ) : (
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
               {posts.map((p) => (
-                <article key={p.slug} className="card group flex flex-col overflow-hidden transition hover:-translate-y-1 hover:shadow-soft">
-                  <div className="h-44 overflow-hidden">
-                    {p.coverImage ? (
-                      <img
-                        src={p.coverImage}
-                        alt={p.title}
-                        loading="lazy"
-                        className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
-                      />
-                    ) : (
-                      <div className="grid h-full place-items-center bg-gradient-to-br from-brand-400 to-brand-700 text-2xl font-bold text-white">
-                        W2W
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex flex-1 flex-col p-6">
-                    <p className="flex items-center gap-1.5 text-xs font-medium text-brand-600">
-                      <CalendarDays size={14} /> {p.createdAt ? fmtDate(p.createdAt) : p.createdAtText || 'Article'}
-                    </p>
-                    <h3 className="mt-2 text-lg font-bold">{p.title}</h3>
-                    <p className="mt-2 flex-1 text-sm text-slate-600">{p.excerpt}</p>
-                    <Link to={`/blog/${p.slug}`} className="mt-4 inline-flex items-center gap-1 text-sm font-semibold text-brand-600 hover:gap-2">
-                      Read more <ArrowRight size={16} />
+                <article
+                  key={p.slug}
+                  className="group flex flex-col overflow-hidden rounded-3xl border border-slate-100 bg-white shadow-sm transition hover:-translate-y-1 hover:border-brand-200 hover:shadow-soft"
+                >
+                  <span className="h-1.5 w-full bg-gradient-to-r from-brand-400 to-brand-700" />
+                  <div className="flex flex-1 flex-col p-6 md:p-7">
+                    <div className="flex flex-wrap items-center gap-2 text-xs font-semibold">
+                      <span className="rounded-full bg-brand-50 px-2.5 py-1 uppercase tracking-wide text-brand-700">
+                        {p.createdAtText || 'Article'}
+                      </span>
+                      {p.createdAt && (
+                        <span className="inline-flex items-center gap-1 text-slate-400">
+                          <CalendarDays size={13} /> {fmtDate(p.createdAt)}
+                        </span>
+                      )}
+                    </div>
+                    <h3 className="mt-4 text-xl font-bold leading-snug text-slate-900 transition group-hover:text-brand-700">
+                      {p.title}
+                    </h3>
+                    <p className="mt-3 flex-1 text-sm leading-relaxed text-slate-600">{p.excerpt}</p>
+                    <Link
+                      to={`/blog/${p.slug}`}
+                      className="mt-5 inline-flex items-center gap-1 text-sm font-semibold text-brand-600 hover:gap-2"
+                    >
+                      Read article <ArrowRight size={16} />
                     </Link>
                   </div>
                 </article>

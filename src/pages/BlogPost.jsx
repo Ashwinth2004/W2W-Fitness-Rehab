@@ -4,6 +4,7 @@ import { ArrowLeft, CalendarDays } from 'lucide-react'
 import { getPostBySlug } from '../lib/firestore'
 import { fmtDate } from '../lib/format'
 import { useBooking } from '../context/BookingContext'
+import Markdown from '../components/Markdown'
 
 const SEED_BODY = {
   'prevent-running-injuries':
@@ -43,18 +44,22 @@ export default function BlogPost() {
       <Link to="/blog" className="inline-flex items-center gap-1 text-sm font-medium text-brand-600 hover:gap-2">
         <ArrowLeft size={16} /> All articles
       </Link>
-      <h1 className="mt-4 text-3xl font-extrabold md:text-4xl">{post.title}</h1>
-      {post.createdAt && (
-        <p className="mt-2 flex items-center gap-1.5 text-sm text-slate-500">
-          <CalendarDays size={14} /> {fmtDate(post.createdAt)}
-        </p>
-      )}
-      {post.coverImage && (
-        <img src={post.coverImage} alt={post.title} className="mt-6 max-h-[420px] w-full rounded-2xl object-cover" />
-      )}
-      <div className="prose mt-8 max-w-none whitespace-pre-line text-lg leading-relaxed text-slate-700">
-        {post.body}
-      </div>
+      <header className="mt-5 border-b border-slate-100 pb-6">
+        {post.createdAtText && (
+          <span className="rounded-full bg-brand-50 px-2.5 py-1 text-xs font-semibold uppercase tracking-wide text-brand-700">
+            {post.createdAtText}
+          </span>
+        )}
+        <h1 className="mt-3 text-3xl font-extrabold leading-tight text-slate-900 md:text-4xl">{post.title}</h1>
+        {post.createdAt && (
+          <p className="mt-3 flex items-center gap-1.5 text-sm text-slate-500">
+            <CalendarDays size={14} /> {fmtDate(post.createdAt)}
+          </p>
+        )}
+      </header>
+
+      <Markdown className="mt-8 text-[1.05rem] text-slate-700">{post.body}</Markdown>
+
       <div className="mt-12 rounded-2xl bg-brand-50 p-6 text-center">
         <p className="font-semibold text-slate-900">Have a concern we can help with?</p>
         <button onClick={() => openBooking()} className="btn-primary mt-4">Book an appointment</button>

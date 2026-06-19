@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Inbox, CalendarDays, Users, CalendarClock, ArrowRight } from 'lucide-react'
-import { watchEnquiries, watchAppointments, watchClients } from '../../lib/firestore'
+import { Inbox, CalendarDays, Users, CalendarClock, ArrowRight, CheckCheck } from 'lucide-react'
+import { watchEnquiries, watchAppointments, watchClients, setEnquiryStatus } from '../../lib/firestore'
 import { fmt12h, fmtDate, todayISO } from '../../lib/format'
 import ContactActions from '../../components/ContactActions'
 import StatusBadge from '../../components/StatusBadge'
@@ -26,6 +26,10 @@ export default function Dashboard() {
   )
   const upcoming = appointments.filter((a) => a.date > today && a.status !== 'cancelled').length
 
+  // "Clear" the Recent Enquiries highlights by marking every new one as read.
+  const clearNewEnquiries = () =>
+    Promise.all(enquiries.filter((e) => e.status === 'new').map((e) => setEnquiryStatus(e.id, 'read')))
+
   const stats = [
     { label: 'New Enquiries', value: newEnquiries, icon: Inbox, to: '/admin/queries', color: 'bg-amber-50 text-amber-600' },
     { label: "Today's Appointments", value: todays.length, icon: CalendarDays, to: '/admin/appointments', color: 'bg-brand-50 text-brand-600' },
@@ -37,7 +41,7 @@ export default function Dashboard() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-slate-900 md:text-3xl">Dashboard</h1>
-        <p className="text-sm text-slate-500">{fmtDate(new Date(), 'EEEE, dd MMMM yyyy')}</p>
+        <p className="text-sm text-slate-500">{fmtDate(new Date())}</p>
       </div>
 
       {/* Stat cards */}
@@ -86,7 +90,14 @@ export default function Dashboard() {
         <div className="card p-5">
           <div className="mb-4 flex items-center justify-between">
             <h2 className="font-bold text-slate-900">Recent Enquiries</h2>
-            <Link to="/admin/queries" className="text-sm font-medium text-brand-600 hover:underline">Inbox <ArrowRight size={14} className="inline" /></Link>
+            <div className="flex items-center gap-3">
+              {newEnquiries > 0 && (
+                <button onClick={clearNewEnquiries} title="Mark all as read" className="inline-flex items-center gap-1 text-sm font-medium text-slate-400 hover:text-brand-600">
+                  <CheckCheck size={15} /> Clear
+                </button>
+              )}
+              <Link to="/admin/queries" className="text-sm font-medium text-brand-600 hover:underline">Inbox <ArrowRight size={14} className="inline" /></Link>
+            </div>
           </div>
           {enquiries.length === 0 ? (
             <p className="py-8 text-center text-sm text-slate-400">No enquiries yet.</p>

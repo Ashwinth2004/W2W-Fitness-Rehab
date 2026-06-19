@@ -42,7 +42,7 @@ export default function WorkshopPopup() {
   const slots = Number(workshop.slots) || 0
   const remaining = slots ? Math.max(0, slots - seats) : null
   const details = [
-    workshop.date && { icon: CalendarDays, label: fmtDate(workshop.date, 'EEEE, dd MMM yyyy') },
+    workshop.date && { icon: CalendarDays, label: fmtDate(workshop.date) },
     workshop.time && { icon: Clock, label: workshop.time },
     workshop.fee != null && workshop.fee !== '' && { icon: IndianRupee, label: `₹${workshop.fee} registration fee` },
     slots > 0 && { icon: Users, label: remaining != null ? `Only ${remaining} of ${slots} slots left!` : `${slots} slots only` },

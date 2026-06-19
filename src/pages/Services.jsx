@@ -34,12 +34,12 @@ export default function Services() {
               className={`card grid items-stretch gap-0 overflow-hidden ${i % 2 ? 'md:grid-cols-[3fr,2fr] md:[&>div:first-child]:order-2' : 'md:grid-cols-[2fr,3fr]'}`}
             >
               {/* Photo — smaller column, fills its height */}
-              <div className="relative min-h-[14rem]">
+              <div className="relative min-h-[14rem] overflow-hidden">
                 <img
                   src={s.photo}
                   alt={s.title}
                   loading="lazy"
-                  className="h-56 w-full object-cover sm:h-72 md:absolute md:inset-0 md:h-full"
+                  className={`h-56 w-full object-cover sm:h-72 md:absolute md:inset-0 md:h-full ${s.id === 'yoga' ? 'scale-[1.35]' : ''}`}
                 />
               </div>
 

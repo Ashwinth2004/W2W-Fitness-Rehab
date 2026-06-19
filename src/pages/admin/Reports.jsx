@@ -31,10 +31,10 @@ export default function Reports() {
         label: format(new Date(y, m - 1, 1), 'MMMM yyyy'),
       }
     }
-    if (mode === 'day') return { start: day, end: day, label: fmtDate(day, 'dd MMM yyyy') }
+    if (mode === 'day') return { start: day, end: day, label: fmtDate(day) }
     const lo = from <= to ? from : to
     const hi = from <= to ? to : from
-    return { start: lo, end: hi, label: `${fmtDate(lo, 'dd MMM yyyy')} – ${fmtDate(hi, 'dd MMM yyyy')}` }
+    return { start: lo, end: hi, label: `${fmtDate(lo)} – ${fmtDate(hi)}` }
   }
 
   async function run(id, fn) {

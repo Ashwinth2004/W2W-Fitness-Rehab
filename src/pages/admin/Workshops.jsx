@@ -183,7 +183,7 @@ function WorkshopManager() {
                     <StatusPill status={w.status} />
                   </div>
                   <p className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500">
-                    {w.date && <span className="inline-flex items-center gap-1"><CalendarDays size={13} /> {fmtDate(w.date, 'dd MMM yyyy')}</span>}
+                    {w.date && <span className="inline-flex items-center gap-1"><CalendarDays size={13} /> {fmtDate(w.date)}</span>}
                     {w.time && <span>{w.time}</span>}
                     {w.fee !== '' && w.fee != null && <span>₹{w.fee}</span>}
                     {w.slots !== '' && w.slots != null && <span className="inline-flex items-center gap-1"><Users size={13} /> {w.slots} slots</span>}
