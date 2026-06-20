@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import { Lock, Mail, Loader2, AlertCircle, ArrowLeft } from 'lucide-react'
+import { Lock, User, Loader2, AlertCircle, ArrowLeft } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 
 export default function AdminLogin() {
@@ -41,10 +41,10 @@ export default function AdminLogin() {
 
           <form onSubmit={handleSubmit} className="mt-6 space-y-4">
             <div>
-              <label className="label">Email</label>
+              <label className="label">Username</label>
               <div className="relative">
-                <Mail className="pointer-events-none absolute left-3 top-3 text-slate-400" size={18} />
-                <input className="input pl-10" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="admin@w2wfitnessandrehab.in" required />
+                <User className="pointer-events-none absolute left-3 top-3 text-slate-400" size={18} />
+                <input className="input pl-10" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Username" autoComplete="username" required />
               </div>
             </div>
             <div>

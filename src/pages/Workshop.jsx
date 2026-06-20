@@ -100,14 +100,14 @@ function OpenWorkshop({ workshop, seats }) {
 
   return (
     <section className="py-12 md:py-16">
-      <div className="container-page grid gap-10 lg:grid-cols-[1fr,1.2fr]">
+      <div className="container-page grid gap-10 lg:grid-cols-[minmax(0,1fr),minmax(0,1.2fr)]">
         {/* Details */}
-        <div className="space-y-5">
+        <div className="min-w-0 space-y-5">
           <div className="card p-6 md:p-8">
             <span className="badge bg-green-100 text-green-700">Registrations Open</span>
-            <h2 className="mt-3 text-2xl font-bold md:text-3xl">{workshop.title}</h2>
+            <h2 className="mt-3 break-words text-2xl font-bold md:text-3xl">{workshop.title}</h2>
             {workshop.description && (
-              <p className="mt-3 whitespace-pre-line text-slate-600">{workshop.description}</p>
+              <p className="mt-3 whitespace-pre-line break-words text-slate-600">{workshop.description}</p>
             )}
             <ul className="mt-6 space-y-3">
               {details.map((d) => (
@@ -132,7 +132,7 @@ function OpenWorkshop({ workshop, seats }) {
         </div>
 
         {/* Form / state */}
-        <div className="card p-6 md:p-8">
+        <div className="card min-w-0 p-6 md:p-8">
           {full ? <BatchFull slots={slots} /> : <RegistrationForm workshop={workshop} />}
         </div>
       </div>
