@@ -11,7 +11,7 @@ export default function Footer() {
       <div className="container-page grid gap-10 py-12 text-center md:grid-cols-2 md:text-left lg:grid-cols-4">
         <div>
           <div className="flex items-center justify-center gap-3 md:justify-start">
-            <img src="/logo.jpg" alt="W2W" className="h-14 w-14 rounded-full bg-white object-contain" />
+            <img src="/w2w-fitness-rehab-logo.webp" alt="W2W Fitness & Rehab logo" className="h-14 w-14 rounded-full bg-white object-contain" />
             <div>
               <p className="font-display text-xl font-bold text-white">W2W Fitness &amp; Rehab</p>
               <p className="text-xs text-brand-300">{BUSINESS.tagline}</p>

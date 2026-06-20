@@ -34,7 +34,7 @@ export default function Navbar() {
     >
       <nav className="container-page flex h-16 items-center justify-between md:h-20">
         <Link to="/" className="flex items-center gap-3" onClick={() => setOpen(false)}>
-          <img src="/logo.jpg" alt="W2W Fitness & Rehab logo" className="h-12 w-12 rounded-full object-contain md:h-14 md:w-14" />
+          <img src="/w2w-fitness-rehab-logo.webp" alt="W2W Fitness & Rehab logo" className="h-12 w-12 rounded-full object-contain md:h-14 md:w-14" />
           <div className="leading-tight">
             <p className="font-display text-lg font-bold text-brand-700 md:text-xl">W2W</p>
             <p className="-mt-1 text-[11px] font-medium tracking-wide text-slate-500">Fitness &amp; Rehab</p>

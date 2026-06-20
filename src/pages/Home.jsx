@@ -63,8 +63,8 @@ export default function Home() {
               {/* the moving circle — logo fills the circle */}
               <div className="absolute inset-0 flex animate-float items-center justify-center overflow-hidden rounded-full bg-white p-2 shadow-soft">
                 <img
-                  src="/logo.jpg"
-                  alt="W2W Fitness & Rehab"
+                  src="/w2w-fitness-rehab-logo.webp"
+                  alt="W2W Fitness & Rehab logo"
                   className="h-full w-full rounded-full object-contain"
                 />
               </div>

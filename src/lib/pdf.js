@@ -25,7 +25,7 @@ let _logoCache = null
 async function loadLogo() {
   if (_logoCache) return _logoCache
   try {
-    const res = await fetch('/logo.jpg')
+    const res = await fetch('/w2w-fitness-rehab-logo.jpg')
     const blob = await res.blob()
     _logoCache = await new Promise((resolve) => {
       const r = new FileReader()

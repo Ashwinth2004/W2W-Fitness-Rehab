@@ -57,7 +57,7 @@ function AdminShell() {
   const SidebarContent = (
     <div className="flex h-full flex-col">
       <Link to="/admin" className="flex items-center gap-3 px-5 py-5" onClick={go('/admin')}>
-        <img src="/logo.jpg" alt="W2W" className="h-11 w-11 rounded-full bg-white object-contain" />
+        <img src="/w2w-fitness-rehab-logo.webp" alt="W2W Fitness & Rehab logo" className="h-11 w-11 rounded-full bg-white object-contain" />
         <div className="leading-tight">
           <p className="font-display font-bold text-white">W2W Admin</p>
           <p className="text-[11px] text-brand-300">Fitness &amp; Rehab</p>
@@ -118,7 +118,7 @@ function AdminShell() {
             <Menu size={24} />
           </button>
           <div className="flex items-center gap-2">
-            <img src="/logo.jpg" alt="W2W" className="h-9 w-9 rounded-full object-contain" />
+            <img src="/w2w-fitness-rehab-logo.webp" alt="W2W Fitness & Rehab logo" className="h-9 w-9 rounded-full object-contain" />
             <span className="font-bold text-brand-700">W2W Admin</span>
           </div>
           <button onClick={() => guard(handleLogout)} className="rounded-lg p-2 text-slate-500" aria-label="Sign out">

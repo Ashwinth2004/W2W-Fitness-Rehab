@@ -32,7 +32,7 @@ export default function AdminLogin() {
     <div className="grid min-h-screen place-items-center bg-gradient-to-br from-brand-50 via-white to-brand-100 p-4">
       <div className="w-full max-w-md">
         <Link to="/" className="mb-6 flex flex-col items-center">
-          <img src="/logo.jpg" alt="W2W" className="h-20 w-20 rounded-full bg-white object-contain shadow-soft" />
+          <img src="/w2w-fitness-rehab-logo.webp" alt="W2W Fitness & Rehab logo" className="h-20 w-20 rounded-full bg-white object-contain shadow-soft" />
           <p className="mt-3 font-display text-xl font-bold text-brand-700">W2W Admin</p>
         </Link>
         <div className="card p-7 md:p-8">
