@@ -71,7 +71,11 @@ export default function Footer() {
       <div className="border-t border-white/10">
         <div className="container-page flex flex-col items-center justify-between gap-2 py-5 text-xs text-brand-300 sm:flex-row">
           <p>© {new Date().getFullYear()} W2W Fitness &amp; Rehab. All Rights Reserved.</p>
-          <p>Mylapore, Chennai · Way To Wellness</p>
+          <div className="flex items-center gap-3">
+            <Link to="/privacy" className="hover:text-white">Privacy Policy</Link>
+            <span aria-hidden="true">·</span>
+            <span>Mylapore, Chennai · Way To Wellness</span>
+          </div>
         </div>
       </div>
     </footer>
