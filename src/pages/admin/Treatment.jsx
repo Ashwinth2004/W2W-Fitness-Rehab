@@ -1,23 +1,23 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { Stethoscope, Search, UserPlus, Loader2, Save, ArrowRight, Plus, CheckCircle2 } from 'lucide-react'
-import { watchClients, watchTherapists, createTherapist, watchTreatments, addTreatment } from '../../lib/firestore'
+import { Stethoscope, Search, Loader2, Save, ArrowRight, Plus, CheckCircle2 } from 'lucide-react'
+import { watchClients, watchTreatments, addTreatment } from '../../lib/firestore'
 import { CLINICAL_SECTIONS, CLINICAL_KEYS } from '../../lib/assessmentSchema'
-import { FOUNDERS } from '../../lib/constants'
 import { todayISO, fmtDate } from '../../lib/format'
 import DateField from '../../components/DateField'
 import AssessmentField from '../../components/AssessmentField'
+import TherapistSelect from '../../components/TherapistSelect'
+import AdminPageHeader from '../../components/AdminPageHeader'
+import { useUnsaved } from '../../context/UnsavedContext'
 
 const blank = () => Object.fromEntries(CLINICAL_KEYS.map((k) => [k, '']))
 
 export default function Treatment() {
   const [clients, setClients] = useState([])
-  const [therapists, setTherapists] = useState([])
   const [params, setParams] = useSearchParams()
   const navigate = useNavigate()
 
   useEffect(() => watchClients(setClients), [])
-  useEffect(() => watchTherapists(setTherapists), [])
 
   const clientId = params.get('client') || ''
   const client = useMemo(() => clients.find((c) => c.id === clientId) || null, [clients, clientId])
@@ -26,17 +26,24 @@ export default function Treatment() {
   if (!clients.length) return <div className="grid place-items-center py-20 text-slate-400"><Loader2 className="animate-spin" /></div>
   if (!client) return <ClientPicker clients={clients} note="That patient could not be found — pick again." onPick={(id) => setParams({ client: id })} onNew={() => navigate('/admin/clients?new=1')} />
 
-  return <TreatmentForm key={client.id} client={client} therapists={therapists} onChangeClient={() => setParams({})} navigate={navigate} />
+  return <TreatmentForm key={client.id} client={client} onChangeClient={() => setParams({})} navigate={navigate} />
 }
 
 function ClientPicker({ clients, onPick, onNew, note }) {
   const [q, setQ] = useState('')
+  const [active, setActive] = useState(0)
   const matches = q
     ? clients.filter((c) => [c.name, c.phone, c.clientId, c.email].filter(Boolean).join(' ').toLowerCase().includes(q.toLowerCase())).slice(0, 8)
     : []
+  function onKey(e) {
+    if (!matches.length) return
+    if (e.key === 'ArrowDown') { e.preventDefault(); setActive((i) => Math.min(matches.length - 1, i + 1)) }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); setActive((i) => Math.max(0, i - 1)) }
+    else if (e.key === 'Enter') { e.preventDefault(); if (matches[active]) onPick(matches[active].id) }
+  }
   return (
     <div className="space-y-5">
-      <h1 className="text-2xl font-bold md:text-3xl">Treatment</h1>
+      <AdminPageHeader title="Treatment" />
       <div className="card max-w-xl space-y-4 p-6">
         <div className="flex items-center gap-3">
           <div className="grid h-11 w-11 place-items-center rounded-xl bg-brand-50 text-brand-600"><Stethoscope size={22} /></div>
@@ -48,13 +55,13 @@ function ClientPicker({ clients, onPick, onNew, note }) {
         {note && <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-700">{note}</p>}
         <div className="relative">
           <Search className="pointer-events-none absolute left-3 top-3 text-slate-400" size={16} />
-          <input className="input pl-9" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search by name, phone or ID…" autoFocus />
+          <input className="input pl-9" value={q} onChange={(e) => { setQ(e.target.value); setActive(0) }} onKeyDown={onKey} placeholder="Search by name, phone or ID…" autoFocus />
         </div>
         {matches.length > 0 && (
           <ul className="divide-y divide-slate-100 overflow-hidden rounded-xl border border-slate-200">
-            {matches.map((c) => (
+            {matches.map((c, i) => (
               <li key={c.id}>
-                <button onClick={() => onPick(c.id)} className="flex w-full items-center justify-between px-4 py-3 text-left hover:bg-brand-50">
+                <button onClick={() => onPick(c.id)} onMouseEnter={() => setActive(i)} className={`flex w-full items-center justify-between px-4 py-3 text-left hover:bg-brand-50 ${active === i ? 'bg-brand-50' : ''}`}>
                   <span className="font-medium text-slate-800">{c.name}</span>
                   <span className="text-xs text-slate-500">{c.clientId} · {c.phone}</span>
                 </button>
@@ -68,42 +75,43 @@ function ClientPicker({ clients, onPick, onNew, note }) {
   )
 }
 
-function TreatmentForm({ client, therapists, onChangeClient, navigate }) {
+function TreatmentForm({ client, onChangeClient, navigate }) {
   const [treatments, setTreatments] = useState([])
   const [form, setForm] = useState(blank)
   const [date, setDate] = useState(todayISO())
   const [nextSession, setNextSession] = useState('')
   const [therapist, setTherapist] = useState(client.therapist || '')
-  const [adding, setAdding] = useState('')
   const [consent, setConsent] = useState(false)
   const [busy, setBusy] = useState(false)
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState('')
+  const [therapistInvalid, setTherapistInvalid] = useState(false)
+  const { setDirty } = useUnsaved()
 
   useEffect(() => watchTreatments(client.id, setTreatments), [client.id])
+  useEffect(() => () => setDirty(false), [setDirty])
 
   const last = treatments[0] || null
   // Default the handler to the client's last therapist if none chosen yet.
   useEffect(() => { setTherapist((t) => t || last?.therapist || '') }, [last])
 
-  const names = Array.from(new Set([...FOUNDERS.map((f) => f.name), ...therapists.map((t) => t.name)]))
-  const set = (k) => (val) => setForm((f) => ({ ...f, [k]: val }))
-
-  async function addTherapist() {
-    const n = adding.trim()
-    if (!n) return
-    await createTherapist(n)
-    setTherapist(n); setAdding('')
-  }
+  const set = (k) => (val) => { setForm((f) => ({ ...f, [k]: val })); setDirty(true) }
+  const touch = () => setDirty(true)
 
   async function save(e) {
     e.preventDefault(); setError('')
-    if (!therapist) return setError('Please choose who is handling this patient.')
+    if (!therapist) {
+      setTherapistInvalid(true)
+      setError('Please choose who is handling this patient.')
+      requestAnimationFrame(() => document.getElementById('treat-therapist')?.scrollIntoView({ behavior: 'smooth', block: 'center' }))
+      return
+    }
     setBusy(true)
     try {
       const data = { date: date || todayISO(), therapist, nextSession: nextSession || '', consent }
       CLINICAL_KEYS.forEach((k) => { const v = form[k]; data[k] = typeof v === 'string' ? v.trim() : v })
       await addTreatment(client.id, data)
+      setDirty(false)
       setSaved(true)
     } catch (err) {
       console.error('save treatment failed:', err)
@@ -115,7 +123,7 @@ function TreatmentForm({ client, therapists, onChangeClient, navigate }) {
   if (saved) {
     return (
       <div className="space-y-5">
-        <h1 className="text-2xl font-bold md:text-3xl">Treatment</h1>
+        <AdminPageHeader title="Treatment" />
         <div className="card mx-auto max-w-lg p-8 text-center">
           <CheckCircle2 className="mx-auto text-green-500" size={48} />
           <h2 className="mt-3 text-xl font-bold">Treatment saved</h2>
@@ -132,15 +140,14 @@ function TreatmentForm({ client, therapists, onChangeClient, navigate }) {
 
   return (
     <form onSubmit={save} className="space-y-5">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-bold md:text-3xl">Treatment</h1>
+      <AdminPageHeader title="Treatment">
         <Link to={`/admin/clients/${client.id}`} className="text-sm font-medium text-brand-600 hover:underline">Open patient page →</Link>
-      </div>
+      </AdminPageHeader>
 
       <div className="card space-y-4 p-5 md:p-6">
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-brand-50 p-4">
           <div>
-            <p className="font-semibold text-slate-900">{client.name}</p>
+            <p className="text-lg font-bold text-slate-900">{client.name}</p>
             <p className="text-sm text-slate-500">{client.clientId} · {client.phone}</p>
           </div>
           <button type="button" onClick={onChangeClient} className="btn-ghost px-3 py-1.5 text-sm">Change patient</button>
@@ -148,23 +155,16 @@ function TreatmentForm({ client, therapists, onChangeClient, navigate }) {
 
         <div className="grid gap-3 md:grid-cols-2">
           <div>
-            <label className="label text-xs">Treatment given by (Physiotherapist) *</label>
-            <select className="input" value={therapist} onChange={(e) => setTherapist(e.target.value)}>
-              <option value="">— Select therapist —</option>
-              {names.map((n) => <option key={n} value={n}>{n}</option>)}
-            </select>
-            <div className="mt-2 flex gap-2">
-              <input className="input" value={adding} onChange={(e) => setAdding(e.target.value)} placeholder="Add another therapist…" />
-              <button type="button" onClick={addTherapist} className="btn-outline shrink-0"><UserPlus size={15} /> Add</button>
-            </div>
+            <label className="label text-sm">Treatment given by (Physiotherapist) *</label>
+            <TherapistSelect id="treat-therapist" invalid={therapistInvalid} value={therapist} onChange={(v) => { setTherapist(v); touch(); setTherapistInvalid(false) }} />
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <div><label className="label text-xs">Session date</label><DateField value={date} onChange={setDate} max={todayISO()} /></div>
-            <div><label className="label text-xs">Next session date</label><DateField value={nextSession} onChange={setNextSession} /></div>
+            <div><label className="label text-sm">Session date</label><DateField value={date} onChange={(iso) => { setDate(iso); touch() }} max={todayISO()} /></div>
+            <div><label className="label text-sm">Next session date</label><DateField value={nextSession} onChange={(iso) => { setNextSession(iso); touch() }} /></div>
           </div>
         </div>
         {last && (
-          <p className="text-xs text-slate-400">
+          <p className="text-sm text-slate-400">
             Previous session: {fmtDate(last.date)}{last.therapist ? ` · ${last.therapist}` : ''} — its values show faintly below; press Tab in a field to keep them.
           </p>
         )}
@@ -172,23 +172,24 @@ function TreatmentForm({ client, therapists, onChangeClient, navigate }) {
 
       {CLINICAL_SECTIONS.map((s) => (
         <fieldset key={s.title} className="card p-5">
-          <legend className="px-2 text-sm font-bold text-brand-700">{s.title}</legend>
+          <legend className="px-2 text-base font-bold text-brand-700">{s.title}</legend>
           <div className={`grid gap-3 ${s.cols1 ? '' : 'sm:grid-cols-2'}`}>
             {s.fields.map((f) => (
-              <AssessmentField key={f.k} f={f} value={form[f.k]} ghost={last ? String(last[f.k] ?? '') : ''} onChange={set(f.k)} />
+              <AssessmentField key={f.k} f={f} value={form[f.k]} ghost={last ? String(last[f.k] ?? '') : ''} onChange={set(f.k)} big />
             ))}
           </div>
         </fieldset>
       ))}
 
-      <div className="card p-5 text-xs leading-relaxed text-slate-600">
+      <div className="card p-5 text-sm leading-relaxed text-slate-600">
+        <h3 className="mb-2 text-base font-bold uppercase tracking-wide text-slate-900">Declaration</h3>
         <p>
           Physiotherapy involves physical evaluation and treatment by qualified therapists at Way to Wellness. During
           treatment it may be necessary to expose and touch the area being treated; the patient may decline any part at
           any time. Every effort is made to preserve modesty and keep the patient comfortable.
         </p>
         <label className="mt-3 flex items-start gap-2 font-medium text-slate-700">
-          <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} className="mt-0.5 h-4 w-4 rounded border-slate-300 text-brand-600" />
+          <input type="checkbox" checked={consent} onChange={(e) => { setConsent(e.target.checked); touch() }} className="mt-0.5 h-4 w-4 rounded border-slate-300 text-brand-600" />
           The procedure was explained and the patient consents to the assessment &amp; treatment.
         </label>
       </div>

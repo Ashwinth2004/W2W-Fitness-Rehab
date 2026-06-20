@@ -40,15 +40,31 @@ export async function deleteEnquiry(id) {
 }
 
 // ---------- Availability + Appointments ------------------------------------
+// Each time slot allows up to SLOT_LIMIT concurrent appointments. The
+// `availability/{date}.times` list holds one entry per booking, so a slot
+// booked twice appears twice. A slot is "unavailable" only once it is full.
+const SLOT_LIMIT = 2
+
+function fullTimes(times) {
+  const counts = {}
+  for (const t of times) counts[t] = (counts[t] || 0) + 1
+  return Object.keys(counts).filter((t) => counts[t] >= SLOT_LIMIT)
+}
+
+function removeOne(arr, val) {
+  const i = arr.indexOf(val)
+  return i === -1 ? arr : [...arr.slice(0, i), ...arr.slice(i + 1)]
+}
+
 export async function getBookedTimes(date) {
   const snap = await getDoc(doc(db, 'availability', date))
-  return snap.exists() ? snap.data().times || [] : []
+  return snap.exists() ? fullTimes(snap.data().times || []) : []
 }
 
 export function watchBookedTimes(date, cb) {
   return onSnapshot(
     doc(db, 'availability', date),
-    (snap) => cb(snap.exists() ? snap.data().times || [] : []),
+    (snap) => cb(snap.exists() ? fullTimes(snap.data().times || []) : []),
     (err) => {
       // Don't hang the UI if the read is denied (e.g. rules not published yet).
       console.warn('availability read failed:', err?.code || err)
@@ -67,7 +83,7 @@ export async function bookAppointment({ date, time, ...rest }) {
   await runTransaction(db, async (tx) => {
     const availSnap = await tx.get(availRef)
     const times = availSnap.exists() ? availSnap.data().times || [] : []
-    if (times.includes(time)) throw new Error('SLOT_TAKEN')
+    if (times.filter((t) => t === time).length >= SLOT_LIMIT) throw new Error('SLOT_TAKEN')
     tx.set(availRef, { times: [...times, time] }, { merge: true })
     tx.set(apptRef, {
       date, time, ...rest,
@@ -107,7 +123,8 @@ export async function freeSlot(date, time) {
   const ref = doc(db, 'availability', date)
   const snap = await getDoc(ref)
   if (!snap.exists()) return
-  const times = (snap.data().times || []).filter((t) => t !== time)
+  // Free a single booking of this slot (other patient in the slot keeps theirs).
+  const times = removeOne(snap.data().times || [], time)
   await setDoc(ref, { times }, { merge: true })
 }
 
@@ -119,6 +136,11 @@ export async function cancelAppointment(appt) {
 // Admin free-text remarks/notes on an appointment.
 export async function setAppointmentRemarks(id, remarks) {
   return updateDoc(doc(db, 'appointments', id), { remarks })
+}
+
+// Edit an appointment's entered details (name, phone, email, service…).
+export async function updateAppointment(id, data) {
+  return updateDoc(doc(db, 'appointments', id), data)
 }
 
 /**
@@ -134,15 +156,14 @@ export async function rescheduleAppointment(appt, newDate, newTime) {
   await runTransaction(db, async (tx) => {
     const oldSnap = await tx.get(oldRef)
     const newSnap = sameDate ? oldSnap : await tx.get(newRef)
-    const oldTimes = (oldSnap.exists() ? oldSnap.data().times || [] : []).filter((t) => t !== appt.time)
+    const oldTimes = removeOne(oldSnap.exists() ? oldSnap.data().times || [] : [], appt.time)
     if (sameDate) {
-      const times = oldTimes.includes(newTime) ? oldTimes : [...oldTimes, newTime]
-      tx.set(oldRef, { times }, { merge: true })
+      // Admin override — place the client in the new slot even if it's full.
+      tx.set(oldRef, { times: [...oldTimes, newTime] }, { merge: true })
     } else {
       tx.set(oldRef, { times: oldTimes }, { merge: true })
       const base = newSnap.exists() ? newSnap.data().times || [] : []
-      const times = base.includes(newTime) ? base : [...base, newTime]
-      tx.set(newRef, { times }, { merge: true })
+      tx.set(newRef, { times: [...base, newTime] }, { merge: true })
     }
     tx.update(apptRef, { date: newDate, time: newTime, status: 'confirmed' })
   })
@@ -456,6 +477,10 @@ export async function createTherapist(name) {
   return addDoc(collection(db, 'therapists'), { name: name.trim(), createdAt: serverTimestamp() })
 }
 
+export async function updateTherapist(id, name) {
+  return updateDoc(doc(db, 'therapists', id), { name: name.trim() })
+}
+
 export async function deleteTherapist(id) {
   return deleteDoc(doc(db, 'therapists', id))
 }
@@ -487,6 +512,10 @@ export async function getAccountingInRange(start, end) {
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }))
 }
 
+export async function updateAccountingEntry(id, data) {
+  return updateDoc(doc(db, 'accounting', id), data)
+}
+
 export async function deleteAccountingEntry(id) {
   return deleteDoc(doc(db, 'accounting', id))
 }
@@ -511,6 +540,10 @@ export async function getExpensesInRange(start, end) {
   )
   const snap = await getDocs(q)
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+}
+
+export async function updateExpense(id, data) {
+  return updateDoc(doc(db, 'expenses', id), data)
 }
 
 export async function deleteExpense(id) {

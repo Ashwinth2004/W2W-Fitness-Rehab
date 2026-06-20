@@ -9,11 +9,16 @@ import {
 } from '../../lib/firestore'
 import ContactActions from '../../components/ContactActions'
 import AdminFilter from '../../components/AdminFilter'
+import AdminPageHeader from '../../components/AdminPageHeader'
 import { fmtDate, matchesDateFilter } from '../../lib/format'
 
+// Sensible defaults for the common case — the admin can backspace and change
+// any of these per workshop.
 const EMPTY = {
-  title: '', description: '', date: '', startTime: '', endTime: '', venue: '', mapUrl: '',
-  fee: '', slots: '', upiId: '', paymentNumber: '', status: 'draft',
+  title: '', description: '', date: '', startTime: '', endTime: '',
+  venue: 'Balaiah Avenue, Mylapore',
+  mapUrl: 'https://maps.app.goo.gl/r15LukodqtmcwqKk9',
+  fee: '500', slots: '', upiId: '', paymentNumber: '7200043621', status: 'draft',
 }
 
 // 12-hour time picker → value like "10:00 AM".
@@ -42,7 +47,7 @@ export default function Workshops() {
   const [tab, setTab] = useState('workshops')
   return (
     <div className="space-y-5">
-      <h1 className="text-2xl font-bold md:text-3xl">W2W Workshop</h1>
+      <AdminPageHeader title="W2W Workshop" />
       <div className="flex flex-wrap gap-2">
         {[
           { id: 'workshops', label: 'Workshops', icon: GraduationCap },
@@ -166,10 +171,17 @@ function WorkshopManager() {
         <div><label className="label text-xs">Details / Description</label><textarea className="input min-h-[90px]" value={form.description} onChange={set('description')} placeholder="What the workshop covers, who it's for, notes…" /></div>
         <div className="grid gap-3 sm:grid-cols-2">
           <div><label className="label text-xs">Date</label><input type="date" className="input" value={form.date} onChange={set('date')} /></div>
-          <div>
-            <label className="label text-xs">Time (start – end)</label>
-            <div className="grid grid-cols-2 gap-2">
+        </div>
+        <div>
+          <label className="label text-xs">Time (start – end)</label>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+            <div className="flex items-center gap-1.5">
+              <span className="w-9 shrink-0 text-xs font-medium text-slate-400">Start</span>
               <Time12 value={form.startTime} onChange={(v) => setForm((f) => ({ ...f, startTime: v }))} />
+            </div>
+            <span className="hidden font-semibold text-slate-400 sm:inline">–</span>
+            <div className="flex items-center gap-1.5">
+              <span className="w-9 shrink-0 text-xs font-medium text-slate-400">End</span>
               <Time12 value={form.endTime} onChange={(v) => setForm((f) => ({ ...f, endTime: v }))} />
             </div>
           </div>

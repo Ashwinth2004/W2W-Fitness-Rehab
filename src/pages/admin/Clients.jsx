@@ -6,6 +6,7 @@ import { fmtDate, matchesDateFilter } from '../../lib/format'
 import ContactActions from '../../components/ContactActions'
 import AdminFilter from '../../components/AdminFilter'
 import ClientForm from '../../components/ClientForm'
+import AdminPageHeader from '../../components/AdminPageHeader'
 
 export default function Clients() {
   const [clients, setClients] = useState([])
@@ -36,17 +37,16 @@ export default function Clients() {
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-bold md:text-3xl">Clients / Patients</h1>
+      <AdminPageHeader title="Clients / Patients">
         <button onClick={() => { setShowForm((v) => !v); if (searchParams.get('new')) setSearchParams({}) }} className="btn-primary">
           {showForm ? <X size={18} /> : <Plus size={18} />} {showForm ? 'Close' : 'New Client'}
         </button>
-      </div>
+      </AdminPageHeader>
 
       {showForm && (
         <ClientForm
           clients={clients}
-          onCreated={(id) => { setShowForm(false); navigate(`/admin/treatment?client=${id}`) }}
+          onCreated={(id, dest) => { setShowForm(false); navigate(dest === 'treatment' ? `/admin/treatment?client=${id}` : `/admin/clients/${id}`) }}
           onClose={() => { setShowForm(false); if (searchParams.get('new')) setSearchParams({}) }}
         />
       )}

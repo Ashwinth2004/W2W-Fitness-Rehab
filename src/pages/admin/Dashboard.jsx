@@ -5,6 +5,7 @@ import { watchEnquiries, watchAppointments, watchClients, setEnquiryStatus } fro
 import { fmt12h, fmtDate, todayISO } from '../../lib/format'
 import ContactActions from '../../components/ContactActions'
 import StatusBadge from '../../components/StatusBadge'
+import AdminPageHeader from '../../components/AdminPageHeader'
 
 export default function Dashboard() {
   const [enquiries, setEnquiries] = useState([])
@@ -39,10 +40,7 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-slate-900 md:text-3xl">Dashboard</h1>
-        <p className="text-sm text-slate-500">{fmtDate(new Date())}</p>
-      </div>
+      <AdminPageHeader title="Dashboard" subtitle={fmtDate(new Date())} />
 
       {/* Stat cards */}
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">

@@ -2,20 +2,20 @@ import { useEffect, useState } from 'react'
 import { Link, useParams, useNavigate } from 'react-router-dom'
 import {
   ArrowLeft, BadgeCheck, FileDown, Pencil, Trash2, Plus, Save, X, Loader2,
-  NotebookPen, Stethoscope, User, Calendar, Send, UserPlus, IndianRupee, MapPin,
+  NotebookPen, Stethoscope, User, Calendar, Send, IndianRupee, MapPin,
   CalendarClock, Activity,
 } from 'lucide-react'
 import {
   getClient, updateClient, deleteClient, watchClientNotes, addClientNote, deleteClientNote,
-  watchTreatments, deleteTreatment, getClientNotesOnce,
-  watchTherapists, createTherapist, addAccountingEntry,
+  watchTreatments, deleteTreatment, getClientNotesOnce, addAccountingEntry,
 } from '../../lib/firestore'
 import { fmtDate, todayISO } from '../../lib/format'
-import { SERVICE_OPTIONS, FOUNDERS } from '../../lib/constants'
+import { SERVICE_OPTIONS } from '../../lib/constants'
 import { onlyDigits } from '../../lib/validate'
 import ContactActions from '../../components/ContactActions'
 import DateField from '../../components/DateField'
 import PhoneField from '../../components/PhoneField'
+import TherapistSelect from '../../components/TherapistSelect'
 import { generateClientReport } from '../../lib/pdf'
 
 const SESSION_GROUPS = [
@@ -26,6 +26,7 @@ const SESSION_GROUPS = [
   ['Assessment & plan', [['opinion', 'Opinion'], ['treatmentOptions', 'Treatment options'], ['expectedRecovery', 'Expected recovery'], ['treatmentPlan', 'Treatment plan'], ['followUp', 'Follow up']]],
 ]
 const ACTIVITY = [['walking', 'Walking / steps'], ['exercise', 'Exercise'], ['deskWork', 'Desk work'], ['sleep', 'Sleep'], ['hydration', 'Hydration']]
+const REG_FIELDS = [['email', 'Email'], ['occupation', 'Occupation / Sports'], ['height', 'Height (cm)'], ['weight', 'Weight (kg)'], ['handDominance', 'Hand dominance'], ['referredBy', 'Referred by']]
 
 export default function ClientDetail() {
   const { id } = useParams()
@@ -58,6 +59,7 @@ export default function ClientDetail() {
   }
 
   const activity = ACTIVITY.filter(([k]) => client[k])
+  const reg = REG_FIELDS.filter(([k]) => client[k])
 
   return (
     <div className="space-y-6">
@@ -95,6 +97,21 @@ export default function ClientDetail() {
         </div>
         {client.address && <p className="mt-3 flex items-center gap-1.5 text-sm text-slate-500"><MapPin size={14} className="shrink-0" /> {client.address}</p>}
       </div>
+
+      {/* Registration details — every field entered at intake */}
+      {reg.length > 0 && (
+        <div className="card p-5 md:p-6">
+          <h3 className="mb-4 text-base font-bold text-slate-900">Registration Details</h3>
+          <dl className="grid gap-x-6 gap-y-4 sm:grid-cols-2 lg:grid-cols-3">
+            {reg.map(([k, label]) => (
+              <div key={k}>
+                <dt className="text-xs font-medium uppercase tracking-wide text-slate-400">{label}</dt>
+                <dd className="mt-0.5 text-sm text-slate-800">{client[k]}</dd>
+              </div>
+            ))}
+          </dl>
+        </div>
+      )}
 
       {/* Complaint + history (basic details) */}
       <div className="grid gap-6 lg:grid-cols-2">
@@ -242,10 +259,8 @@ function NotesSection({ clientId, notes }) {
 const PAY_MODES = ['Cash', 'UPI', 'Card', 'Bank transfer', 'Other']
 
 function ReportModal({ client, treatments, onClose }) {
-  const [therapists, setTherapists] = useState([])
   const [sessionId, setSessionId] = useState(treatments[0]?.id || '')
   const [therapist, setTherapist] = useState('')
-  const [adding, setAdding] = useState('')
   const [chargeDate, setChargeDate] = useState(todayISO())
   const [amount, setAmount] = useState('')
   const [paid, setPaid] = useState('')
@@ -255,8 +270,6 @@ function ReportModal({ client, treatments, onClose }) {
   const [recorded, setRecorded] = useState(false)
   const [msg, setMsg] = useState('')
 
-  useEffect(() => watchTherapists(setTherapists), [])
-
   const session = treatments.find((t) => t.id === sessionId) || null
   // Default the therapist + charge date to the selected session.
   useEffect(() => {
@@ -264,16 +277,8 @@ function ReportModal({ client, treatments, onClose }) {
     if (session?.date) setChargeDate(session.date)
   }, [sessionId]) // eslint-disable-line
 
-  const names = Array.from(new Set([...FOUNDERS.map((f) => f.name), ...therapists.map((t) => t.name)]))
   const balance = Math.max(0, (Number(amount) || 0) - (Number(paid) || 0))
   const money = (set) => (e) => set(onlyDigits(e.target.value).slice(0, 7))
-
-  async function addTherapist() {
-    const n = adding.trim()
-    if (!n) return
-    await createTherapist(n)
-    setTherapist(n); setAdding('')
-  }
 
   async function go(action) {
     setBusy(action); setMsg('')
@@ -329,14 +334,7 @@ function ReportModal({ client, treatments, onClose }) {
         {/* Therapist */}
         <div>
           <label className="label text-xs">Treatment given by (Physiotherapist)</label>
-          <select className="input" value={therapist} onChange={(e) => setTherapist(e.target.value)}>
-            <option value="">— Select therapist —</option>
-            {names.map((n) => <option key={n} value={n}>{n}</option>)}
-          </select>
-          <div className="mt-2 flex gap-2">
-            <input className="input" value={adding} onChange={(e) => setAdding(e.target.value)} placeholder="Add another therapist…" />
-            <button type="button" onClick={addTherapist} className="btn-outline shrink-0"><UserPlus size={15} /> Add</button>
-          </div>
+          <TherapistSelect value={therapist} onChange={setTherapist} />
         </div>
 
         {/* Billing */}

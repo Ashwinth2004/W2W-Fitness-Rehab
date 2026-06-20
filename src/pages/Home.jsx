@@ -12,7 +12,7 @@ import Seo from '../components/Seo'
 const STATS = [
   { value: '10+', label: 'Years Experience', icon: Award },
   { value: '100+', label: 'Students Trained', icon: Users },
-  { value: '9–12 & 4–8', label: 'Mon–Sat · Sun closed', icon: Activity },
+  { value: 'Mon – Sat', label: '9 AM–12 PM & 4–8 PM', icon: Activity },
   { value: '5.0', label: 'Client Rating', icon: Star },
 ]
 

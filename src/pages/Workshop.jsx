@@ -13,7 +13,7 @@ import { isValidMobile } from '../lib/validate'
 import { fmtDate } from '../lib/format'
 import Seo from '../components/Seo'
 
-const QUALIFICATIONS = ['BPT', 'MPT', 'Intern', 'Others']
+const QUALIFICATIONS = ['BPT', 'MPT', 'Intern', 'Student', 'Others']
 const isValidEmail = (s) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(s).trim())
 
 export default function Workshop() {
@@ -159,17 +159,23 @@ function RegistrationForm({ workshop }) {
     email: '', fullName: '', phone: '', qualification: '', reason: '', attendedBefore: '', available: false,
   })
   const [error, setError] = useState('')
-  const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }))
+  const [bad, setBad] = useState('')
+  const set = (k) => (e) => { setForm((f) => ({ ...f, [k]: e.target.value })); setBad('') }
+
+  function fail(field, msg) {
+    setBad(field); setError(msg)
+    requestAnimationFrame(() => document.getElementById(`wf-${field}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }))
+  }
 
   function next(e) {
     e.preventDefault()
-    setError('')
-    if (!isValidEmail(form.email)) return setError('Please enter a valid email id.')
-    if (!form.fullName.trim()) return setError('Please enter your full name.')
-    if (!isValidMobile(form.phone)) return setError('Enter a valid 10-digit mobile number.')
-    if (!form.qualification) return setError('Please select your qualification.')
-    if (!form.attendedBefore) return setError('Please answer whether you’ve attended a workshop before.')
-    if (!form.available) return setError('Please confirm your availability on the workshop date.')
+    setError(''); setBad('')
+    if (!isValidEmail(form.email)) return fail('email', 'Please enter a valid email id.')
+    if (!form.fullName.trim()) return fail('fullName', 'Please enter your full name.')
+    if (!isValidMobile(form.phone)) return fail('phone', 'Enter a valid 10-digit mobile number.')
+    if (!form.qualification) return fail('qualification', 'Please select your qualification.')
+    if (!form.attendedBefore) return fail('attendedBefore', 'Please answer whether you’ve attended a workshop before.')
+    if (!form.available) return fail('available', 'Please confirm your availability on the workshop date.')
     setStep('pay')
   }
 
@@ -183,24 +189,24 @@ function RegistrationForm({ workshop }) {
 
       <div>
         <label className="label">Email id *</label>
-        <input className="input" type="email" value={form.email} onChange={set('email')} placeholder="you@email.com" required />
+        <input id="wf-email" className={`input ${bad === 'email' ? '!border-red-400 ring-2 ring-red-200' : ''}`} type="email" value={form.email} onChange={set('email')} placeholder="you@email.com" required />
       </div>
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
           <label className="label">Full Name *</label>
-          <input className="input" value={form.fullName} onChange={set('fullName')} placeholder="Your name" required />
+          <input id="wf-fullName" className={`input ${bad === 'fullName' ? '!border-red-400 ring-2 ring-red-200' : ''}`} value={form.fullName} onChange={set('fullName')} placeholder="Your name" required />
         </div>
         <div>
           <label className="label">Phone Number *</label>
-          <PhoneField value={form.phone} onChange={(v) => setForm((f) => ({ ...f, phone: v }))} required />
+          <div id="wf-phone"><PhoneField value={form.phone} onChange={(v) => { setForm((f) => ({ ...f, phone: v })); setBad('') }} required invalid={bad === 'phone'} /></div>
         </div>
       </div>
 
       <div>
         <label className="label">Qualification *</label>
-        <div className="flex flex-wrap gap-2">
+        <div id="wf-qualification" className={`flex flex-wrap gap-2 ${bad === 'qualification' ? 'rounded-xl p-1 ring-2 ring-red-200' : ''}`}>
           {QUALIFICATIONS.map((q) => (
-            <button type="button" key={q} onClick={() => setForm((f) => ({ ...f, qualification: q }))}
+            <button type="button" key={q} onClick={() => { setForm((f) => ({ ...f, qualification: q })); setBad('') }}
               className={`rounded-full px-4 py-2 text-sm font-medium transition ${form.qualification === q ? 'bg-brand-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
               {q}
             </button>
@@ -215,9 +221,9 @@ function RegistrationForm({ workshop }) {
 
       <div>
         <label className="label">Have you attended any related workshop before? *</label>
-        <div className="flex gap-2">
+        <div id="wf-attendedBefore" className={`flex gap-2 ${bad === 'attendedBefore' ? 'rounded-xl p-1 ring-2 ring-red-200' : ''}`}>
           {['Yes', 'No'].map((v) => (
-            <button type="button" key={v} onClick={() => setForm((f) => ({ ...f, attendedBefore: v }))}
+            <button type="button" key={v} onClick={() => { setForm((f) => ({ ...f, attendedBefore: v })); setBad('') }}
               className={`rounded-full px-5 py-2 text-sm font-medium transition ${form.attendedBefore === v ? 'bg-brand-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
               {v}
             </button>
@@ -225,8 +231,8 @@ function RegistrationForm({ workshop }) {
         </div>
       </div>
 
-      <label className="flex items-start gap-3 rounded-xl bg-slate-50 p-4 text-sm text-slate-700">
-        <input type="checkbox" checked={form.available} onChange={(e) => setForm((f) => ({ ...f, available: e.target.checked }))} className="mt-0.5 h-4 w-4 rounded border-slate-300 text-brand-600" />
+      <label id="wf-available" className={`flex items-start gap-3 rounded-xl bg-slate-50 p-4 text-sm text-slate-700 ${bad === 'available' ? 'ring-2 ring-red-200' : ''}`}>
+        <input type="checkbox" checked={form.available} onChange={(e) => { setForm((f) => ({ ...f, available: e.target.checked })); setBad('') }} className="mt-0.5 h-4 w-4 rounded border-slate-300 text-brand-600" />
         <span>I confirm my availability on {workshop.date ? fmtDate(workshop.date) : 'the workshop date'}. *</span>
       </label>
 

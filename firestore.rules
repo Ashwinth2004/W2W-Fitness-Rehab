@@ -3,15 +3,27 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     // ---- Admin identity ----------------------------------------------------
-    // Pinned to the clinic admin's Firebase Auth account (uid). A custom claim
-    // {admin: true} also grants access, so more admins can be added later via
-    // the Admin SDK without editing these rules. (Do NOT loosen this to
-    // "request.auth != null" — that lets ANY signed-up user read patient PII.)
-    function isAdmin() {
+    // Two admin Firebase Auth accounts (by uid):
+    //   admin@w2w.in  (FULL_ADMIN_UID)  — full access to everything.
+    //   admin2@w2w.in (uid below)       — LIMITED: the first five modules only
+    //                                     (Enquiries, Appointments, Clients,
+    //                                     Treatment + Dashboard). It must NOT
+    //                                     reach Accounting, Blogs or Workshop
+    //                                     data — enforced here, not just in the
+    //                                     UI.
+    // A custom claim {admin: true} grants full access (for Admin-SDK additions).
+    // (Do NOT loosen isAdmin() to "request.auth != null" — that would let ANY
+    // signed-up user read patient PII.)
+    function isFullAdmin() {
       return request.auth != null && (
-        request.auth.uid == 'ZP5dBxEpcENZjeFMjEzFBxmL6PN2'
+        request.auth.uid == 'dPoj1JEQ57TSFYaniLPsB0rAjFu2'
         || request.auth.token.admin == true
       );
+    }
+    // Any admin (full or limited) — for the shared, first-five-module data.
+    function isAdmin() {
+      return isFullAdmin() || (request.auth != null
+        && request.auth.uid == 'jB0005vbkwOQiqNQBrm2Ikk6u3B3');
     }
 
     // ---- Validation helpers (for public, unauthenticated writes) -----------
@@ -72,48 +84,52 @@ service cloud.firestore {
       }
     }
 
-    // Testimonials, blog & reels: public read, admin manages.
+    // Testimonials, blog & reels: public read; managed in the Blogs/content
+    // module → full admin only.
     match /testimonials/{id} {
       allow read: if true;
-      allow write: if isAdmin();
+      allow write: if isFullAdmin();
     }
     match /posts/{id} {
       allow read: if true;
-      allow write: if isAdmin();
+      allow write: if isFullAdmin();
     }
     match /reels/{id} {
       allow read: if true;
-      allow write: if isAdmin();
+      allow write: if isFullAdmin();
     }
 
-    // Workshops: public read (to show open registrations), admin manages.
+    // Workshops: public read (to show open registrations); Workshop module is
+    // full admin only.
     match /workshops/{id} {
       allow read: if true;
-      allow write: if isAdmin();
+      allow write: if isFullAdmin();
     }
 
     // Public seat counter (no PII) — confirmed seats. Public reads it to show
-    // remaining seats; only the admin writes it (on approve/reject).
+    // remaining seats; only the full admin writes it (on approve/reject).
     match /workshopStats/{id} {
       allow read: if true;
-      allow write: if isAdmin();
+      allow write: if isFullAdmin();
     }
 
-    // Workshop registrations contain PII — public create (validated); admin reads.
+    // Workshop registrations contain PII — public create (validated); only the
+    // full admin (Workshop module) reads/manages them.
     match /workshopRegistrations/{id} {
-      allow create: if isAdmin() || (
+      allow create: if isFullAdmin() || (
         data().size() <= 8 && data().status == 'pending'
         && reqStr('fullName', 120)
         && optStr('phone', 20) && optStr('email', 200)
         && optStr('workshopId', 80) && optStr('workshopTitle', 200)
       );
-      allow read, update, delete: if isAdmin();
+      allow read, update, delete: if isFullAdmin();
     }
 
-    // Therapists, accounting (patient charges) and expenses — admin only.
+    // Therapists — shared (Treatment module needs them) → any admin.
     match /therapists/{id} { allow read, write: if isAdmin(); }
-    match /accounting/{id} { allow read, write: if isAdmin(); }
-    match /expenses/{id} { allow read, write: if isAdmin(); }
-    match /expenseCategories/{id} { allow read, write: if isAdmin(); }
+    // Accounting (patient charges) and expenses — Accounting module → full admin only.
+    match /accounting/{id} { allow read, write: if isFullAdmin(); }
+    match /expenses/{id} { allow read, write: if isFullAdmin(); }
+    match /expenseCategories/{id} { allow read, write: if isFullAdmin(); }
   }
 }

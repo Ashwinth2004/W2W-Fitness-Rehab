@@ -1,10 +1,9 @@
 import { createContext, useContext, useEffect, useState } from 'react'
 import { onAuthStateChanged, signInWithEmailAndPassword, signOut } from 'firebase/auth'
 import { auth } from '../firebase'
+import { roleForEmail } from '../lib/roles'
 
 const AuthContext = createContext(null)
-
-const ADMIN_EMAIL = (import.meta.env.VITE_ADMIN_EMAIL || '').toLowerCase().trim()
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
@@ -17,14 +16,16 @@ export function AuthProvider({ children }) {
     })
   }, [])
 
-  // Only the configured admin email counts as admin. If VITE_ADMIN_EMAIL is
-  // left blank, any successfully authenticated Firebase user is treated as the
-  // admin (single-user setup).
-  const isAdmin = Boolean(user) && (!ADMIN_EMAIL || user.email?.toLowerCase() === ADMIN_EMAIL)
+  // Admins are exactly the accounts listed in roles.js (admin1 = full,
+  // admin2 = limited). Any other signed-in account has no dashboard access.
+  const knownRole = roleForEmail(user?.email)
+  const isAdmin = Boolean(user) && knownRole !== null
+  const role = knownRole || 'limited'
 
   const value = {
     user,
     isAdmin,
+    role,
     loading,
     login: (email, password) => signInWithEmailAndPassword(auth, email, password),
     logout: () => signOut(auth),

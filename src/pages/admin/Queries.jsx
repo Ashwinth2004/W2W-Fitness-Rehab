@@ -5,6 +5,7 @@ import { fmtDateTime, matchesDateFilter } from '../../lib/format'
 import ContactActions from '../../components/ContactActions'
 import StatusBadge from '../../components/StatusBadge'
 import AdminFilter from '../../components/AdminFilter'
+import AdminPageHeader from '../../components/AdminPageHeader'
 
 export default function Queries() {
   const [items, setItems] = useState([])
@@ -23,8 +24,7 @@ export default function Queries() {
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-bold md:text-3xl">Enquiries</h1>
+      <AdminPageHeader title="Enquiries">
         <div className="flex items-center gap-2">
           {['all', 'new', 'read'].map((f) => (
             <button
@@ -38,7 +38,7 @@ export default function Queries() {
             </button>
           ))}
         </div>
-      </div>
+      </AdminPageHeader>
 
       <div className="relative">
         <Search className="pointer-events-none absolute left-3 top-3 text-slate-400" size={18} />

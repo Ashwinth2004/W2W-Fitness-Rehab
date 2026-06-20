@@ -36,11 +36,18 @@ export const todayISO = () => format(new Date(), 'yyyy-MM-dd')
 // Normalise any date-like value to 'yyyy-MM-dd' (for filtering).
 export const isoOf = (value) => { const d = toDate(value); return d ? format(d, 'yyyy-MM-dd') : '' }
 
-// Tests an item's date against a { day:'yyyy-MM-dd', month:'yyyy-MM' } filter.
+// Tests an item's date against a filter.
+// Shape: { day:'yyyy-MM-dd', month:'MM' (01–12), year:'yyyy' } — any combo.
 export function matchesDateFilter(value, filter) {
-  if (!filter || (!filter.day && !filter.month)) return true
+  if (!filter) return true
+  // Back-compat: month previously came as 'yyyy-MM'.
+  let { day, month, year } = filter
+  if (month && month.includes('-')) { const [y, m] = month.split('-'); year = year || y; month = m }
+  if (!day && !month && !year) return true
   const iso = isoOf(value)
   if (!iso) return false
-  if (filter.day) return iso === filter.day
-  return iso.slice(0, 7) === filter.month
+  if (day) return iso === day
+  if (year && iso.slice(0, 4) !== year) return false
+  if (month && iso.slice(5, 7) !== month) return false
+  return true
 }

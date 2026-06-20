@@ -4,7 +4,7 @@ import {
 } from 'lucide-react'
 import {
   watchAppointments, addAppointmentByAdmin, setAppointmentStatus, cancelAppointment,
-  rescheduleAppointment, setAppointmentRemarks, getBookedTimes,
+  rescheduleAppointment, setAppointmentRemarks, updateAppointment, getBookedTimes,
 } from '../../lib/firestore'
 import { fmt12h, fmtDate, todayISO, matchesDateFilter } from '../../lib/format'
 import { SERVICE_OPTIONS, SLOT_TIMES } from '../../lib/constants'
@@ -15,6 +15,7 @@ import PhoneField from '../../components/PhoneField'
 import ContactActions from '../../components/ContactActions'
 import StatusBadge from '../../components/StatusBadge'
 import AdminFilter from '../../components/AdminFilter'
+import AdminPageHeader from '../../components/AdminPageHeader'
 
 // Ready-to-send WhatsApp confirmation for an appointment.
 const apptWhatsApp = (a) =>
@@ -29,18 +30,20 @@ export default function Appointments() {
   const [showForm, setShowForm] = useState(false)
   const [reschedule, setReschedule] = useState(null) // appt being rescheduled
   const [remarkOf, setRemarkOf] = useState(null) // appt whose remark is being edited
+  const [editOf, setEditOf] = useState(null) // appt whose details are being edited
   const [filter, setFilter] = useState({ day: '', month: '' })
 
   useEffect(() => watchAppointments(setItems), [])
 
   const today = todayISO()
   const groups = useMemo(() => {
-    const active = items.filter((a) => a.status !== 'cancelled')
+    // Cancelled / visited appointments stay visible — their status badge and
+    // action buttons reflect the state instead of removing the row.
     return {
-      today: active.filter((a) => a.date === today).sort((a, b) => a.time.localeCompare(b.time)),
-      upcoming: active.filter((a) => a.date > today).sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time)),
+      today: items.filter((a) => a.date === today).sort((a, b) => a.time.localeCompare(b.time)),
+      upcoming: items.filter((a) => a.date > today).sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time)),
       past: items.filter((a) => a.date < today).sort((a, b) => (b.date + b.time).localeCompare(a.date + a.time)),
-      all: items.sort((a, b) => (b.date + b.time).localeCompare(a.date + a.time)),
+      all: [...items].sort((a, b) => (b.date + b.time).localeCompare(a.date + a.time)),
     }
   }, [items, today])
 
@@ -54,12 +57,11 @@ export default function Appointments() {
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-bold md:text-3xl">Appointments</h1>
+      <AdminPageHeader title="Appointments">
         <button onClick={() => setShowForm((v) => !v)} className="btn-primary">
           {showForm ? <X size={18} /> : <Plus size={18} />} {showForm ? 'Close' : 'Add Appointment'}
         </button>
-      </div>
+      </AdminPageHeader>
 
       {showForm && <AddAppointmentForm onDone={() => setShowForm(false)} />}
 
@@ -112,7 +114,7 @@ export default function Appointments() {
                   <td className="px-4 py-3 text-slate-600">{a.service}</td>
                   <td className="px-4 py-3"><StatusBadge status={a.status} /></td>
                   <td className="px-4 py-3"><RemarkCell appt={a} onEdit={() => setRemarkOf(a)} /></td>
-                  <td className="px-4 py-3"><RowActions appt={a} onReschedule={setReschedule} /></td>
+                  <td className="px-4 py-3"><RowActions appt={a} onReschedule={setReschedule} onEdit={setEditOf} /></td>
                 </tr>
               ))}
             </tbody>
@@ -133,7 +135,7 @@ export default function Appointments() {
                 <div className="mt-2"><RemarkCell appt={a} onEdit={() => setRemarkOf(a)} /></div>
                 <div className="mt-3 flex items-center justify-between">
                   <ContactActions phone={a.phone} size="sm" message={apptWhatsApp(a)} />
-                  <RowActions appt={a} onReschedule={setReschedule} />
+                  <RowActions appt={a} onReschedule={setReschedule} onEdit={setEditOf} />
                 </div>
               </li>
             ))}
@@ -143,6 +145,7 @@ export default function Appointments() {
 
       {reschedule && <RescheduleModal appt={reschedule} onClose={() => setReschedule(null)} />}
       {remarkOf && <RemarkModal appt={remarkOf} onClose={() => setRemarkOf(null)} />}
+      {editOf && <EditApptModal appt={editOf} onClose={() => setEditOf(null)} />}
     </div>
   )
 }
@@ -167,29 +170,53 @@ function RemarkCell({ appt, onEdit }) {
   )
 }
 
-function RowActions({ appt, onReschedule }) {
-  if (appt.status === 'cancelled') return <span className="text-xs text-slate-400">—</span>
-  const active = appt.status !== 'completed'
+function RowActions({ appt, onReschedule, onEdit }) {
+  const visited = appt.status === 'completed'
+  const cancelled = appt.status === 'cancelled'
+
+  // Tick toggles "visited"; X toggles "cancelled". Neither removes the row —
+  // the active state is shown by a filled, highlighted button.
+  const toggleVisited = () => setAppointmentStatus(appt.id, visited ? 'confirmed' : 'completed')
+  const toggleCancelled = () => {
+    if (cancelled) {
+      if (window.confirm('Restore this appointment? The time slot will be re-booked.')) rescheduleAppointment(appt, appt.date, appt.time)
+    } else if (window.confirm('Mark this appointment as cancelled and free the slot?')) {
+      cancelAppointment(appt)
+    }
+  }
+
   return (
     <div className="flex items-center justify-end gap-1">
-      {active && (
-        <button
-          onClick={() => window.confirm('Do you want to reschedule this appointment?') && onReschedule(appt)}
-          title="Reschedule"
-          className="grid h-8 w-8 place-items-center rounded-lg text-brand-600 hover:bg-brand-50"
-        >
-          <CalendarClock size={17} />
-        </button>
-      )}
-      {active && (
-        <button onClick={() => setAppointmentStatus(appt.id, 'completed')} title="Mark completed" className="grid h-8 w-8 place-items-center rounded-lg text-emerald-600 hover:bg-emerald-50">
-          <Check size={17} />
-        </button>
-      )}
       <button
-        onClick={() => window.confirm('Cancel this appointment and free the slot?') && cancelAppointment(appt)}
-        title="Cancel"
-        className="grid h-8 w-8 place-items-center rounded-lg text-red-500 hover:bg-red-50"
+        onClick={() => onEdit(appt)}
+        title="Edit details"
+        className="grid h-8 w-8 place-items-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-brand-600"
+      >
+        <Pencil size={16} />
+      </button>
+      <button
+        onClick={() => !cancelled && window.confirm('Do you want to reschedule this appointment?') && onReschedule(appt)}
+        disabled={cancelled}
+        title={cancelled ? 'Reschedule (restore first)' : 'Reschedule'}
+        className="grid h-8 w-8 place-items-center rounded-lg text-brand-600 hover:bg-brand-50 disabled:cursor-not-allowed disabled:text-slate-300 disabled:hover:bg-transparent"
+      >
+        <CalendarClock size={17} />
+      </button>
+      <button
+        onClick={toggleVisited}
+        title={visited ? 'Visited ✓ — click to undo' : 'Mark as visited'}
+        className={`grid h-8 w-8 place-items-center rounded-lg transition ${
+          visited ? 'bg-emerald-600 text-white shadow-sm hover:bg-emerald-700' : 'text-emerald-600 hover:bg-emerald-50'
+        }`}
+      >
+        <Check size={17} />
+      </button>
+      <button
+        onClick={toggleCancelled}
+        title={cancelled ? 'Cancelled — click to restore' : 'Mark as cancelled'}
+        className={`grid h-8 w-8 place-items-center rounded-lg transition ${
+          cancelled ? 'bg-red-600 text-white shadow-sm hover:bg-red-700' : 'text-red-500 hover:bg-red-50'
+        }`}
       >
         <X size={17} />
       </button>
@@ -218,6 +245,48 @@ function Modal({ title, onClose, wide, children }) {
         {children}
       </div>
     </div>
+  )
+}
+
+// ---- Edit appointment details ---------------------------------------------
+function EditApptModal({ appt, onClose }) {
+  const [name, setName] = useState(appt.name || '')
+  const [phone, setPhone] = useState(appt.phone || '')
+  const [email, setEmail] = useState(appt.email || '')
+  const [service, setService] = useState(appt.service || SERVICE_OPTIONS[0])
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+
+  async function save(e) {
+    e.preventDefault()
+    setError('')
+    if (!name.trim()) return setError('Name is required.')
+    if (!isValidMobile(phone)) return setError('Enter a valid 10-digit mobile number.')
+    setBusy(true)
+    try {
+      await updateAppointment(appt.id, { name: name.trim(), phone: phone.trim(), email: email.trim(), service })
+      onClose()
+    } catch {
+      setError('Could not save. Please try again.')
+      setBusy(false)
+    }
+  }
+
+  return (
+    <Modal title="Edit appointment details" onClose={onClose}>
+      <form onSubmit={save} className="space-y-4">
+        <div className="rounded-xl bg-slate-50 p-3 text-sm text-slate-500">{fmtDate(appt.date)} · {fmt12h(appt.time)}</div>
+        <div><label className="label">Full Name *</label><input className="input" value={name} onChange={(e) => setName(e.target.value)} autoFocus /></div>
+        <div><label className="label">Phone / Mobile *</label><PhoneField value={phone} onChange={setPhone} /></div>
+        <div><label className="label">Email</label><input className="input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@email.com" /></div>
+        <div><label className="label">Service</label><select className="input" value={service} onChange={(e) => setService(e.target.value)}>{SERVICE_OPTIONS.map((s) => <option key={s}>{s}</option>)}</select></div>
+        {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}
+        <div className="flex justify-end gap-2">
+          <button type="button" onClick={onClose} className="btn-ghost">Cancel</button>
+          <button disabled={busy} className="btn-primary">{busy ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />} Save changes</button>
+        </div>
+      </form>
+    </Modal>
   )
 }
 

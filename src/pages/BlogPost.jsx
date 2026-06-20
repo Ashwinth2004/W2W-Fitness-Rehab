@@ -4,7 +4,6 @@ import { ArrowLeft, CalendarDays } from 'lucide-react'
 import { getPostBySlug } from '../lib/firestore'
 import { fmtDate } from '../lib/format'
 import { useBooking } from '../context/BookingContext'
-import Markdown from '../components/Markdown'
 
 const SEED_BODY = {
   'prevent-running-injuries':
@@ -58,7 +57,7 @@ export default function BlogPost() {
         )}
       </header>
 
-      <Markdown className="mt-8 text-[1.05rem] text-slate-700">{post.body}</Markdown>
+      <div className="mt-8 whitespace-pre-line text-[1.05rem] leading-relaxed text-slate-700">{post.body}</div>
 
       <div className="mt-12 rounded-2xl bg-brand-50 p-6 text-center">
         <p className="font-semibold text-slate-900">Have a concern we can help with?</p>

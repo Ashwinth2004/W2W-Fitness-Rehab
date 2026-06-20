@@ -1,46 +1,53 @@
 import { X } from 'lucide-react'
-import { format, subMonths } from 'date-fns'
 import DateField from './DateField'
 
-// Last 18 months as { value:'yyyy-MM', label:'June 2026' } for a clean dropdown
-// (replaces the browser's native month input, which shows an ugly "----" state).
-const MONTHS = Array.from({ length: 18 }, (_, i) => {
-  const d = subMonths(new Date(), i)
-  return { value: format(d, 'yyyy-MM'), label: format(d, 'MMMM yyyy') }
-})
+const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
+const pad2 = (n) => String(n).padStart(2, '0')
+const CUR_YEAR = new Date().getFullYear()
+// Current year back 8 years — easy access to previous years.
+const YEARS = Array.from({ length: 9 }, (_, i) => String(CUR_YEAR - i))
 
 /**
- * Reusable date + month filter for admin list pages.
- * filter shape: { day: 'yyyy-mm-dd', month: 'yyyy-mm' } (use one at a time).
+ * Reusable date filter for admin list pages — a specific day, or a month and/or
+ * year. filter shape: { day:'yyyy-MM-dd', month:'MM', year:'yyyy' }.
  * Pair with matchesDateFilter() from lib/format to filter the list.
  */
 export default function AdminFilter({ filter, setFilter }) {
-  const active = filter.day || filter.month
+  const active = filter.day || filter.month || filter.year
   return (
     <div className="flex flex-wrap items-end gap-3">
       <div>
         <label className="label text-xs">Filter by date</label>
         <div className="w-44">
-          <DateField value={filter.day} onChange={(iso) => setFilter({ day: iso, month: '' })} />
+          <DateField value={filter.day} onChange={(iso) => setFilter({ day: iso, month: '', year: '' })} />
         </div>
       </div>
       <div>
-        <label className="label text-xs">Filter by month</label>
+        <label className="label text-xs">Month</label>
         <select
-          className="input h-[42px] w-44"
-          value={filter.month}
-          onChange={(e) => setFilter({ day: '', month: e.target.value })}
+          className="input h-[42px] w-40"
+          value={filter.month || ''}
+          onChange={(e) => setFilter({ day: '', month: e.target.value, year: filter.year || (e.target.value ? String(CUR_YEAR) : '') })}
         >
           <option value="">All months</option>
-          {MONTHS.map((m) => (
-            <option key={m.value} value={m.value}>{m.label}</option>
-          ))}
+          {MONTH_NAMES.map((m, i) => <option key={m} value={pad2(i + 1)}>{m}</option>)}
+        </select>
+      </div>
+      <div>
+        <label className="label text-xs">Year</label>
+        <select
+          className="input h-[42px] w-32"
+          value={filter.year || ''}
+          onChange={(e) => setFilter({ day: '', month: filter.month || '', year: e.target.value })}
+        >
+          <option value="">All years</option>
+          {YEARS.map((y) => <option key={y} value={y}>{y}</option>)}
         </select>
       </div>
       {active && (
         <button
           type="button"
-          onClick={() => setFilter({ day: '', month: '' })}
+          onClick={() => setFilter({ day: '', month: '', year: '' })}
           className="btn-ghost h-[42px] px-3 text-sm"
         >
           <X size={15} /> Clear

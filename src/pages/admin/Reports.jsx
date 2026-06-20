@@ -7,6 +7,7 @@ import {
 import { generateMonthlyReport, generateIncomeReport, generateExpensesReport } from '../../lib/pdf'
 import { fmtDate, isoOf, todayISO } from '../../lib/format'
 import DateField from '../../components/DateField'
+import AdminPageHeader from '../../components/AdminPageHeader'
 
 const monthKey = (d) => format(d, 'yyyy-MM')
 
@@ -70,7 +71,7 @@ export default function Reports() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold md:text-3xl">Reports</h1>
+      <AdminPageHeader title="Reports" />
 
       {/* Period selector */}
       <div className="card max-w-2xl space-y-4 p-6">
