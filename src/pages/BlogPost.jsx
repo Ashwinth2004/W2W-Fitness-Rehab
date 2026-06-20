@@ -4,6 +4,8 @@ import { ArrowLeft, CalendarDays } from 'lucide-react'
 import { getPostBySlug } from '../lib/firestore'
 import { fmtDate } from '../lib/format'
 import { useBooking } from '../context/BookingContext'
+import { SITE_URL, BUSINESS } from '../lib/constants'
+import Seo from '../components/Seo'
 
 const SEED_BODY = {
   'prevent-running-injuries':
@@ -29,10 +31,37 @@ export default function BlogPost() {
       .catch(() => setPost(SEED_BODY[slug] ? { slug, title: titleFromSlug(slug), body: SEED_BODY[slug] } : null))
   }, [slug])
 
+  // BlogPosting structured data for rich results (added when the post loads).
+  useEffect(() => {
+    if (!post) return
+    const desc = post.excerpt || String(post.body || '').replace(/\s+/g, ' ').slice(0, 200)
+    const created = post.createdAt?.seconds ? post.createdAt.seconds * 1000 : post.createdAt
+    const ld = {
+      '@context': 'https://schema.org',
+      '@type': 'BlogPosting',
+      headline: post.title,
+      description: desc,
+      image: `${SITE_URL}/w2w-fitness-rehab-logo.jpg`,
+      author: { '@type': 'Organization', name: BUSINESS.name },
+      publisher: {
+        '@type': 'Organization',
+        name: BUSINESS.name,
+        logo: { '@type': 'ImageObject', url: `${SITE_URL}/w2w-fitness-rehab-logo.jpg` },
+      },
+      mainEntityOfPage: `${SITE_URL}/blog/${post.slug || slug}`,
+      ...(created ? { datePublished: new Date(created).toISOString() } : {}),
+    }
+    let el = document.getElementById('article-jsonld')
+    if (!el) { el = document.createElement('script'); el.type = 'application/ld+json'; el.id = 'article-jsonld'; document.head.appendChild(el) }
+    el.textContent = JSON.stringify(ld)
+    return () => { document.getElementById('article-jsonld')?.remove() }
+  }, [post, slug])
+
   if (post === undefined) return <div className="container-page py-24 text-center text-slate-400">Loading…</div>
   if (post === null)
     return (
       <div className="container-page py-24 text-center">
+        <Seo title="Article not found" noindex path={`/blog/${slug}`} />
         <h1 className="text-2xl font-bold">Article not found</h1>
         <Link to="/blog" className="btn-outline mt-6">Back to blog</Link>
       </div>
@@ -40,6 +69,11 @@ export default function BlogPost() {
 
   return (
     <article className="container-page max-w-3xl py-14 md:py-20">
+      <Seo
+        title={post.title}
+        description={post.excerpt || String(post.body || '').replace(/\s+/g, ' ').slice(0, 155)}
+        path={`/blog/${post.slug || slug}`}
+      />
       <Link to="/blog" className="inline-flex items-center gap-1 text-sm font-medium text-brand-600 hover:gap-2">
         <ArrowLeft size={16} /> All articles
       </Link>

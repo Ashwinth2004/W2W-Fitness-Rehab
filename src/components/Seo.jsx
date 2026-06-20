@@ -18,9 +18,11 @@ function upsert(tag, key, keyVal, attr, value) {
 
 /**
  * Per-page SEO for this SPA — sets a unique <title>, description, canonical
- * URL and Open Graph title/description/url on route change. Renders nothing.
+ * URL, Open Graph + Twitter tags, an optional per-page image, and a robots
+ * directive (use noindex for 404s / private views) on route change. Renders
+ * nothing.
  */
-export default function Seo({ title, description, path = '/' }) {
+export default function Seo({ title, description, path = '/', image, noindex = false }) {
   useEffect(() => {
     const fullTitle = title ? `${title} | W2W Fitness & Rehab` : DEFAULT_TITLE
     const desc = description || DEFAULT_DESC
@@ -31,8 +33,20 @@ export default function Seo({ title, description, path = '/' }) {
     upsert('meta', 'property', 'og:title', 'content', fullTitle)
     upsert('meta', 'property', 'og:description', 'content', desc)
     upsert('meta', 'property', 'og:url', 'content', url)
+    upsert('meta', 'name', 'twitter:title', 'content', fullTitle)
+    upsert('meta', 'name', 'twitter:description', 'content', desc)
     upsert('link', 'rel', 'canonical', 'href', url)
-  }, [title, description, path])
+
+    if (image) {
+      const abs = image.startsWith('http') ? image : SITE_URL + image
+      upsert('meta', 'property', 'og:image', 'content', abs)
+      upsert('meta', 'name', 'twitter:image', 'content', abs)
+    }
+
+    // Reset to index,follow on real pages so navigating away from a noindex
+    // (e.g. 404) page restores indexability.
+    upsert('meta', 'name', 'robots', 'content', noindex ? 'noindex, follow' : 'index, follow')
+  }, [title, description, path, image, noindex])
 
   return null
 }
