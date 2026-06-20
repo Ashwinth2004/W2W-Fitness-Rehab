@@ -16,6 +16,7 @@ import ContactActions from '../../components/ContactActions'
 import StatusBadge from '../../components/StatusBadge'
 import AdminFilter from '../../components/AdminFilter'
 import AdminPageHeader from '../../components/AdminPageHeader'
+import { useUnsaved } from '../../context/UnsavedContext'
 
 // Ready-to-send WhatsApp confirmation for an appointment.
 const apptWhatsApp = (a) =>
@@ -423,7 +424,10 @@ function AddAppointmentForm({ onDone }) {
   const [form, setForm] = useState({ name: '', phone: '', service: SERVICE_OPTIONS[0], date: '', time: '', notes: '' })
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
-  const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }))
+  const { setDirty } = useUnsaved()
+  const set = (k) => (e) => { setForm((f) => ({ ...f, [k]: e.target.value })); setDirty(true) }
+
+  useEffect(() => () => setDirty(false), [setDirty])
 
   async function submit(e) {
     e.preventDefault()
@@ -435,6 +439,7 @@ function AddAppointmentForm({ onDone }) {
     setBusy(true)
     try {
       await addAppointmentByAdmin(form)
+      setDirty(false)
       onDone()
     } catch (err) {
       setError(err.message === 'SLOT_TAKEN' ? 'That slot is already booked.' : 'Could not save. Try again.')
@@ -446,7 +451,7 @@ function AddAppointmentForm({ onDone }) {
     <form onSubmit={submit} className="card animate-fade-in space-y-4 p-5">
       <div className="grid gap-4 sm:grid-cols-2">
         <div><label className="label">Client Name *</label><input className="input" value={form.name} onChange={set('name')} required /></div>
-        <div><label className="label">Phone *</label><PhoneField value={form.phone} onChange={(v) => setForm((f) => ({ ...f, phone: v }))} required /></div>
+        <div><label className="label">Phone *</label><PhoneField value={form.phone} onChange={(v) => { setForm((f) => ({ ...f, phone: v })); setDirty(true) }} required /></div>
       </div>
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
@@ -455,13 +460,13 @@ function AddAppointmentForm({ onDone }) {
         </div>
         <div>
           <label className="label">Date * <span className="font-normal text-slate-400">(DD-MM-YYYY)</span></label>
-          <DateField value={form.date} onChange={(iso) => setForm((f) => ({ ...f, date: iso, time: '' }))} min={todayISO()} blockSunday />
+          <DateField value={form.date} onChange={(iso) => { setForm((f) => ({ ...f, date: iso, time: '' })); setDirty(true) }} min={todayISO()} blockSunday />
         </div>
       </div>
       {form.date && (
         <div>
           <label className="label">Time Slot *</label>
-          <SlotPicker date={form.date} value={form.time} onChange={(t) => setForm((f) => ({ ...f, time: t }))} />
+          <SlotPicker date={form.date} value={form.time} onChange={(t) => { setForm((f) => ({ ...f, time: t })); setDirty(true) }} />
         </div>
       )}
       <div><label className="label">Notes</label><input className="input" value={form.notes} onChange={set('notes')} placeholder="Optional" /></div>

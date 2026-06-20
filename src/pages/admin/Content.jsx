@@ -3,6 +3,7 @@ import { Trash2, Plus, Eye, EyeOff, Loader2 } from 'lucide-react'
 import { watchPosts, createPost, updatePost, deletePost } from '../../lib/firestore'
 import { fmtDate } from '../../lib/format'
 import AdminPageHeader from '../../components/AdminPageHeader'
+import { useUnsaved } from '../../context/UnsavedContext'
 
 export default function Content() {
   return (
@@ -19,9 +20,11 @@ function BlogManager() {
   const [posts, setPosts] = useState([])
   const [form, setForm] = useState({ title: '', excerpt: '', body: '' })
   const [busy, setBusy] = useState(false)
-  const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }))
+  const { setDirty } = useUnsaved()
+  const set = (k) => (e) => { setForm((f) => ({ ...f, [k]: e.target.value })); setDirty(true) }
 
   useEffect(() => watchPosts(setPosts), [])
+  useEffect(() => () => setDirty(false), [setDirty])
 
   async function add(e) {
     e.preventDefault()
@@ -35,6 +38,7 @@ function BlogManager() {
       published: true,
     })
     setForm({ title: '', excerpt: '', body: '' })
+    setDirty(false)
     setBusy(false)
   }
 

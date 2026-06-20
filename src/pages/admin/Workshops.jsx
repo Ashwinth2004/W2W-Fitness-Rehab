@@ -11,6 +11,7 @@ import ContactActions from '../../components/ContactActions'
 import AdminFilter from '../../components/AdminFilter'
 import AdminPageHeader from '../../components/AdminPageHeader'
 import { fmtDate, matchesDateFilter } from '../../lib/format'
+import { useUnsaved } from '../../context/UnsavedContext'
 
 // Sensible defaults for the common case — the admin can backspace and change
 // any of these per workshop.
@@ -84,14 +85,17 @@ function WorkshopManager() {
   const [editingId, setEditingId] = useState(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
-  const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }))
+  const { setDirty } = useUnsaved()
+  const set = (k) => (e) => { setForm((f) => ({ ...f, [k]: e.target.value })); setDirty(true) }
 
   useEffect(() => watchWorkshops(setItems), [])
+  useEffect(() => () => setDirty(false), [setDirty])
 
   function resetForm() {
     setForm(EMPTY)
     setEditingId(null)
     setError('')
+    setDirty(false)
   }
 
   function validate() {
@@ -177,12 +181,12 @@ function WorkshopManager() {
           <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
             <div className="flex items-center gap-1.5">
               <span className="w-9 shrink-0 text-xs font-medium text-slate-400">Start</span>
-              <Time12 value={form.startTime} onChange={(v) => setForm((f) => ({ ...f, startTime: v }))} />
+              <Time12 value={form.startTime} onChange={(v) => { setForm((f) => ({ ...f, startTime: v })); setDirty(true) }} />
             </div>
             <span className="hidden font-semibold text-slate-400 sm:inline">–</span>
             <div className="flex items-center gap-1.5">
               <span className="w-9 shrink-0 text-xs font-medium text-slate-400">End</span>
-              <Time12 value={form.endTime} onChange={(v) => setForm((f) => ({ ...f, endTime: v }))} />
+              <Time12 value={form.endTime} onChange={(v) => { setForm((f) => ({ ...f, endTime: v })); setDirty(true) }} />
             </div>
           </div>
         </div>

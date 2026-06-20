@@ -11,6 +11,7 @@ import DateField from '../../components/DateField'
 import AdminFilter from '../../components/AdminFilter'
 import AdminPageHeader from '../../components/AdminPageHeader'
 import TherapistSelect from '../../components/TherapistSelect'
+import { useUnsaved } from '../../context/UnsavedContext'
 
 const inr = (n) => 'Rs. ' + Number(n || 0).toLocaleString('en-IN')
 const PAY_MODES = ['Cash', 'UPI', 'Card', 'Bank transfer', 'Other']
@@ -133,8 +134,10 @@ function IncomeForm({ clients, editing, onDone }) {
     ? { date: editing.date || todayISO(), clientName: editing.clientName || '', clientId: editing.clientId || '', service: editing.service || '', therapist: editing.therapist || '', amount: String(editing.amount ?? ''), paid: String(editing.paid ?? ''), mode: editing.mode || 'Cash' }
     : { date: todayISO(), clientName: '', clientId: '', service: '', therapist: '', amount: '', paid: '', mode: 'Cash' })
   const [active, setActive] = useState(0)
-  const set = (k) => (e) => setF((s) => ({ ...s, [k]: e.target.value }))
+  const { setDirty } = useUnsaved()
+  const set = (k) => (e) => { setF((s) => ({ ...s, [k]: e.target.value })); setDirty(true) }
   const balance = Math.max(0, (Number(f.amount) || 0) - (Number(f.paid) || 0))
+  useEffect(() => () => setDirty(false), [setDirty])
 
   const matches = f.clientName && !f.clientId
     ? clients.filter((c) => [c.name, c.phone, c.clientId].filter(Boolean).join(' ').toLowerCase().includes(f.clientName.toLowerCase())).slice(0, 6)
@@ -142,6 +145,7 @@ function IncomeForm({ clients, editing, onDone }) {
 
   function pickClient(c) {
     setF((s) => ({ ...s, clientName: c.name, clientId: c.clientId || '', service: c.service || s.service, therapist: c.therapist || s.therapist }))
+    setDirty(true)
   }
   function clientKey(e) {
     if (!matches.length) return
@@ -159,19 +163,20 @@ function IncomeForm({ clients, editing, onDone }) {
     }
     if (editing) await updateAccountingEntry(editing.id, data)
     else await addAccountingEntry(data)
+    setDirty(false)
     onDone()
   }
 
   return (
     <form onSubmit={save} className="card grid gap-3 p-5 sm:grid-cols-2 lg:grid-cols-4">
-      <div><label className="label text-xs">Date</label><DateField value={f.date} onChange={(iso) => setF((s) => ({ ...s, date: iso }))} max={todayISO()} /></div>
+      <div><label className="label text-xs">Date</label><DateField value={f.date} onChange={(iso) => { setF((s) => ({ ...s, date: iso })); setDirty(true) }} max={todayISO()} /></div>
 
       <div className="relative">
         <label className="label text-xs">Client (search name / number) *</label>
         <input
           className="input"
           value={f.clientName}
-          onChange={(e) => { setF((s) => ({ ...s, clientName: e.target.value, clientId: '' })); setActive(0) }}
+          onChange={(e) => { setF((s) => ({ ...s, clientName: e.target.value, clientId: '' })); setActive(0); setDirty(true) }}
           onKeyDown={clientKey}
           placeholder="Search or type a name…"
         />
@@ -194,11 +199,11 @@ function IncomeForm({ clients, editing, onDone }) {
 
       <div>
         <label className="label text-xs">Therapist</label>
-        <TherapistSelect value={f.therapist} onChange={(v) => setF((s) => ({ ...s, therapist: v }))} />
+        <TherapistSelect value={f.therapist} onChange={(v) => { setF((s) => ({ ...s, therapist: v })); setDirty(true) }} />
       </div>
 
-      <div><label className="label text-xs">Amount charged (Rs.)</label><input className="input" inputMode="numeric" value={f.amount} onChange={money((v) => setF((s) => ({ ...s, amount: v })))} placeholder="0" /></div>
-      <div><label className="label text-xs">Amount paid (Rs.)</label><input className="input" inputMode="numeric" value={f.paid} onChange={money((v) => setF((s) => ({ ...s, paid: v })))} placeholder="0" /></div>
+      <div><label className="label text-xs">Amount charged (Rs.)</label><input className="input" inputMode="numeric" value={f.amount} onChange={money((v) => { setF((s) => ({ ...s, amount: v })); setDirty(true) })} placeholder="0" /></div>
+      <div><label className="label text-xs">Amount paid (Rs.)</label><input className="input" inputMode="numeric" value={f.paid} onChange={money((v) => { setF((s) => ({ ...s, paid: v })); setDirty(true) })} placeholder="0" /></div>
       <div><label className="label text-xs">Mode</label><select className="input" value={f.mode} onChange={set('mode')}>{PAY_MODES.map((m) => <option key={m}>{m}</option>)}</select></div>
       <div className="flex items-end gap-2">
         <button className="btn-primary w-full"><Save size={16} /> {editing ? 'Update' : 'Save'} (Due {inr(balance)})</button>
@@ -217,9 +222,11 @@ function Expenses() {
   const [adding, setAdding] = useState(false)
   const [newCat, setNewCat] = useState('')
   const [editId, setEditId] = useState(null)
+  const { setDirty } = useUnsaved()
 
   useEffect(() => watchExpenses(setRows), [])
   useEffect(() => watchExpenseCategories(setCats), [])
+  useEffect(() => () => setDirty(false), [setDirty])
 
   const list = rows.filter((r) => matchesDateFilter(r.date, filter))
   const total = list.reduce((s, r) => s + Number(r.amount || 0), 0)
@@ -232,7 +239,7 @@ function Expenses() {
     setF((s) => ({ ...s, name: n })); setNewCat(''); setAdding(false)
   }
 
-  function reset() { setF({ date: todayISO(), name: '', amount: '', note: '' }); setEditId(null); setAdding(false) }
+  function reset() { setF({ date: todayISO(), name: '', amount: '', note: '' }); setEditId(null); setAdding(false); setDirty(false) }
   function startEdit(r) { setF({ date: r.date || todayISO(), name: r.name || '', amount: String(r.amount ?? ''), note: r.note || '' }); setEditId(r.id); setAdding(false) }
 
   async function save(e) {
@@ -253,19 +260,19 @@ function Expenses() {
       </div>
 
       <form onSubmit={save} className="card grid gap-3 p-5 sm:grid-cols-2 lg:grid-cols-5">
-        <div><label className="label text-xs">Date</label><DateField value={f.date} onChange={(iso) => setF((s) => ({ ...s, date: iso }))} max={todayISO()} /></div>
+        <div><label className="label text-xs">Date</label><DateField value={f.date} onChange={(iso) => { setF((s) => ({ ...s, date: iso })); setDirty(true) }} max={todayISO()} /></div>
         <div>
           <label className="label text-xs">Expense name *</label>
           {adding ? (
             <div className="flex gap-1.5">
-              <input className="input" autoFocus value={newCat} onChange={(e) => setNewCat(e.target.value)} placeholder="New expense name…" onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); saveNewCat() } }} />
+              <input className="input" autoFocus value={newCat} onChange={(e) => { setNewCat(e.target.value); setDirty(true) }} placeholder="New expense name…" onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); saveNewCat() } }} />
               <button type="button" onClick={saveNewCat} className="btn-primary shrink-0 px-3"><Plus size={15} /></button>
             </div>
           ) : (
             <select
               className="input"
               value={f.name}
-              onChange={(e) => { if (e.target.value === '__add__') { setAdding(true); return } setF((s) => ({ ...s, name: e.target.value })) }}
+              onChange={(e) => { if (e.target.value === '__add__') { setAdding(true); return } setF((s) => ({ ...s, name: e.target.value })); setDirty(true) }}
             >
               <option value="">— Select expense —</option>
               {catNames.map((n) => <option key={n} value={n}>{n}</option>)}
@@ -274,8 +281,8 @@ function Expenses() {
             </select>
           )}
         </div>
-        <div><label className="label text-xs">Amount (Rs.) *</label><input className="input" inputMode="numeric" value={f.amount} onChange={money((v) => setF((s) => ({ ...s, amount: v })))} placeholder="0" /></div>
-        <div><label className="label text-xs">Note</label><input className="input" value={f.note} onChange={(e) => setF((s) => ({ ...s, note: e.target.value }))} placeholder="Optional" /></div>
+        <div><label className="label text-xs">Amount (Rs.) *</label><input className="input" inputMode="numeric" value={f.amount} onChange={money((v) => { setF((s) => ({ ...s, amount: v })); setDirty(true) })} placeholder="0" /></div>
+        <div><label className="label text-xs">Note</label><input className="input" value={f.note} onChange={(e) => { setF((s) => ({ ...s, note: e.target.value })); setDirty(true) }} placeholder="Optional" /></div>
         <div className="flex items-end gap-2">
           <button className="btn-primary w-full">{editId ? <Save size={16} /> : <Plus size={16} />} {editId ? 'Save changes' : 'Add expense'}</button>
           {editId && <button type="button" onClick={reset} className="btn-ghost shrink-0">Cancel</button>}
