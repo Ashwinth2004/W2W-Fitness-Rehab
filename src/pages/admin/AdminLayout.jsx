@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { NavLink, Outlet, useNavigate, useLocation, Link } from 'react-router-dom'
 import {
   LayoutDashboard, Inbox, CalendarDays, Users, FileText, Newspaper,
-  GraduationCap, LogOut, Menu, X, ExternalLink, Wallet, Stethoscope,
+  GraduationCap, LogOut, Menu, X, ExternalLink, Wallet, Stethoscope, Download,
 } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import { UnsavedProvider, useUnsaved } from '../../context/UnsavedContext'
@@ -29,6 +29,32 @@ export default function AdminLayout() {
   )
 }
 
+// "Install app" button — shown only when the browser fires beforeinstallprompt
+// (i.e. on the admin pages where the manifest is injected). Hidden once installed
+// or when the browser offers no prompt (e.g. iOS uses Share → Add to Home Screen).
+function InstallAppButton() {
+  const [deferred, setDeferred] = useState(null)
+  useEffect(() => {
+    const onPrompt = (e) => { e.preventDefault(); setDeferred(e) }
+    const onInstalled = () => setDeferred(null)
+    window.addEventListener('beforeinstallprompt', onPrompt)
+    window.addEventListener('appinstalled', onInstalled)
+    return () => {
+      window.removeEventListener('beforeinstallprompt', onPrompt)
+      window.removeEventListener('appinstalled', onInstalled)
+    }
+  }, [])
+  if (!deferred) return null
+  return (
+    <button
+      onClick={async () => { deferred.prompt(); try { await deferred.userChoice } catch (_) {} setDeferred(null) }}
+      className="mb-1 flex w-full items-center gap-3 rounded-xl bg-white/10 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-white/20"
+    >
+      <Download size={18} /> Install app
+    </button>
+  )
+}
+
 function AdminShell() {
   const { logout, user, role } = useAuth()
   const { guard } = useUnsaved()
@@ -39,6 +65,25 @@ function AdminShell() {
 
   // Live count of unread enquiries → red "NEW" badge on the Enquiries item.
   useEffect(() => watchEnquiries((list) => setNewEnq(list.filter((e) => e.status === 'new').length)), [])
+
+  // Make the app installable ONLY inside the admin area: the manifest + PWA meta
+  // tags exist only while this layout is mounted (a signed-in admin on /admin),
+  // so the public site never shows an "Install app" prompt.
+  useEffect(() => {
+    const specs = [
+      ['link', { rel: 'manifest', href: '/manifest.webmanifest' }],
+      ['meta', { name: 'mobile-web-app-capable', content: 'yes' }],
+      ['meta', { name: 'apple-mobile-web-app-capable', content: 'yes' }],
+      ['meta', { name: 'apple-mobile-web-app-title', content: 'W2W Admin' }],
+    ]
+    const els = specs.map(([tag, attrs]) => {
+      const el = document.createElement(tag)
+      Object.entries(attrs).forEach(([k, v]) => el.setAttribute(k, v))
+      document.head.appendChild(el)
+      return el
+    })
+    return () => els.forEach((el) => el.remove())
+  }, [])
 
   // Limited admins only see/open the first five modules.
   const visibleNav = nav.filter((n) => canAccessPath(role, n.to))
@@ -87,6 +132,7 @@ function AdminShell() {
         ))}
       </nav>
       <div className="border-t border-white/10 p-3">
+        <InstallAppButton />
         <a href="/" target="_blank" rel="noreferrer" className="flex items-center gap-3 rounded-xl px-4 py-2.5 text-sm text-brand-100 hover:bg-white/10 hover:text-white">
           <ExternalLink size={18} /> View Website
         </a>
