@@ -7,7 +7,7 @@ import { WhatsAppIcon } from '../components/BrandIcons'
 import PhoneField from '../components/PhoneField'
 import { getOpenWorkshop, watchWorkshopSeats, registerForWorkshop } from '../lib/firestore'
 import {
-  BUSINESS, whatsappLink, workshopWhatsappMessage,
+  BUSINESS, upiLink, upiQrImage, whatsappLink, workshopWhatsappMessage,
 } from '../lib/constants'
 import { isValidMobile } from '../lib/validate'
 import { fmtDate } from '../lib/format'
@@ -260,6 +260,10 @@ function PaymentStep({ workshop, form, onBack, onConfirmed }) {
 
   const amount = workshop.fee
   const payNumber = workshop.paymentNumber || BUSINESS.whatsapp.replace(/^91/, '')
+  // QR is generated from the workshop's UPI id, so scanning it pays that exact
+  // VPA (e.g. vyapar.169653437474@hdfcbank) in any UPI app, with the amount.
+  const upiPay = upiLink({ upiId: workshop.upiId, name: BUSINESS.name, amount, note: `${workshop.title} registration` })
+  const qr = upiPay ? upiQrImage(upiPay, 240) : ''
 
   function copyUpi() {
     if (!workshop.upiId) return
@@ -294,7 +298,14 @@ function PaymentStep({ workshop, form, onBack, onConfirmed }) {
       <p className="text-center text-sm text-slate-600 md:text-left">Pay {amount != null && amount !== '' ? <strong>₹{amount}</strong> : 'the workshop fee'} via UPI, then mark it as paid and confirm.</p>
 
       <div className="rounded-2xl bg-brand-50 p-5">
-        <p className="text-center text-sm font-semibold text-slate-700">Pay using any UPI app — GPay, PhonePe, Paytm, BHIM</p>
+        {qr ? (
+          <div className="flex flex-col items-center">
+            <img src={qr} alt="Scan to pay the workshop fee via UPI to W2W Fitness & Rehab" className="h-48 w-48 rounded-xl bg-white p-2 shadow-sm" />
+            <p className="mt-2 text-center text-xs text-slate-500">Scan with any UPI app — GPay, PhonePe, Paytm, BHIM</p>
+          </div>
+        ) : (
+          <p className="text-center text-sm font-semibold text-slate-700">Pay using any UPI app — GPay, PhonePe, Paytm, BHIM</p>
+        )}
         {workshop.upiId && (
           <div className="mt-3 flex items-center justify-between gap-2 rounded-xl bg-white px-3 py-2 text-sm">
             <span className="truncate"><span className="text-slate-400">UPI ID:</span> <span className="font-semibold text-slate-800">{workshop.upiId}</span></span>
