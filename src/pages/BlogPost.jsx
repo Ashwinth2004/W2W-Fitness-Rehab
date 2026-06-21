@@ -68,7 +68,7 @@ export default function BlogPost() {
     )
 
   return (
-    <article className="container-page max-w-3xl py-14 md:py-20">
+    <article className="container-page py-14 md:py-20">
       <Seo
         title={post.title}
         description={post.excerpt || String(post.body || '').replace(/\s+/g, ' ').slice(0, 155)}

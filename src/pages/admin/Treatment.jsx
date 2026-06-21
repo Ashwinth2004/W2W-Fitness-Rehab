@@ -78,7 +78,7 @@ function ClientPicker({ clients, onPick, onNew, note }) {
 // Read-only snapshot of the patient's registration details, so the therapist
 // has the full picture before starting the session.
 const SUMMARY_FACTS = [
-  ['age', 'Age'], ['gender', 'Gender'], ['occupation', 'Occupation / Sports'],
+  ['age', 'Age'], ['gender', 'Gender'], ['email', 'Email'], ['occupation', 'Occupation / Sports'],
   ['height', 'Height (cm)'], ['weight', 'Weight (kg)'], ['handDominance', 'Hand dominance'],
   ['service', 'Primary service'], ['referredBy', 'Referred by'],
 ]
@@ -89,37 +89,46 @@ const SUMMARY_NOTES = [
 function PatientSummary({ client }) {
   const facts = SUMMARY_FACTS.filter(([k]) => client[k])
   const notes = SUMMARY_NOTES.filter(([k]) => client[k])
-  if (!facts.length && !notes.length && !client.address) return null
+  const hasAny = facts.length > 0 || notes.length > 0 || client.address
   return (
-    <details open className="rounded-xl border border-slate-100 p-4">
-      <summary className="cursor-pointer text-sm font-bold text-brand-700">Patient details</summary>
-      {facts.length > 0 && (
-        <dl className="mt-3 grid gap-x-6 gap-y-3 sm:grid-cols-2 lg:grid-cols-3">
-          {facts.map(([k, label]) => (
-            <div key={k}>
-              <dt className="text-xs font-medium uppercase tracking-wide text-slate-400">{label}</dt>
-              <dd className="mt-0.5 text-sm text-slate-800">{String(client[k])}</dd>
-            </div>
-          ))}
-          {client.address && (
-            <div className="sm:col-span-2 lg:col-span-3">
-              <dt className="text-xs font-medium uppercase tracking-wide text-slate-400">Address</dt>
-              <dd className="mt-0.5 text-sm text-slate-800">{client.address}</dd>
+    <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-4">
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-sm font-bold text-brand-700">Patient details</p>
+        <Link to={`/admin/clients/${client.id}`} className="text-xs font-semibold text-brand-600 hover:underline">Full profile →</Link>
+      </div>
+      {!hasAny ? (
+        <p className="mt-2 text-sm text-slate-400">No extra registration details yet — add them on the patient page.</p>
+      ) : (
+        <>
+          {(facts.length > 0 || client.address) && (
+            <dl className="mt-3 grid gap-x-6 gap-y-3 sm:grid-cols-2 lg:grid-cols-3">
+              {facts.map(([k, label]) => (
+                <div key={k}>
+                  <dt className="text-xs font-medium uppercase tracking-wide text-slate-400">{label}</dt>
+                  <dd className="mt-0.5 break-words text-sm text-slate-800">{String(client[k])}</dd>
+                </div>
+              ))}
+              {client.address && (
+                <div className="sm:col-span-2 lg:col-span-3">
+                  <dt className="text-xs font-medium uppercase tracking-wide text-slate-400">Address</dt>
+                  <dd className="mt-0.5 text-sm text-slate-800">{client.address}</dd>
+                </div>
+              )}
+            </dl>
+          )}
+          {notes.length > 0 && (
+            <div className="mt-4 grid gap-3 border-t border-slate-100 pt-3 sm:grid-cols-2">
+              {notes.map(([k, label]) => (
+                <div key={k}>
+                  <p className="text-xs font-medium uppercase tracking-wide text-slate-400">{label}</p>
+                  <p className="mt-0.5 whitespace-pre-line text-sm text-slate-700">{client[k]}</p>
+                </div>
+              ))}
             </div>
           )}
-        </dl>
+        </>
       )}
-      {notes.length > 0 && (
-        <div className="mt-4 grid gap-3 border-t border-slate-100 pt-3 sm:grid-cols-2">
-          {notes.map(([k, label]) => (
-            <div key={k}>
-              <p className="text-xs font-medium uppercase tracking-wide text-slate-400">{label}</p>
-              <p className="mt-0.5 whitespace-pre-line text-sm text-slate-700">{client[k]}</p>
-            </div>
-          ))}
-        </div>
-      )}
-    </details>
+    </div>
   )
 }
 
@@ -189,7 +198,7 @@ function TreatmentForm({ client, onChangeClient, navigate }) {
   return (
     <form onSubmit={save} className="space-y-5">
       <AdminPageHeader title="Treatment">
-        <Link to={`/admin/clients/${client.id}`} className="text-sm font-medium text-brand-600 hover:underline">Open patient page →</Link>
+        <button type="button" onClick={() => guard(() => navigate(`/admin/clients/${client.id}`))} className="text-sm font-medium text-brand-600 hover:underline">Open patient page →</button>
       </AdminPageHeader>
 
       <div className="card space-y-4 p-5 md:p-6">
@@ -246,7 +255,7 @@ function TreatmentForm({ client, onChangeClient, navigate }) {
 
       {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}
       <div className="flex justify-end gap-2">
-        <button type="button" onClick={() => navigate('/admin/clients')} className="btn-ghost">Cancel</button>
+        <button type="button" onClick={() => guard(() => navigate('/admin/clients'))} className="btn-ghost">Cancel</button>
         <button type="submit" disabled={busy} className="btn-primary">{busy ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />} Save treatment</button>
       </div>
     </form>
