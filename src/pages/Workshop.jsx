@@ -93,10 +93,9 @@ function OpenWorkshop({ workshop, seats }) {
   const remaining = slots ? Math.max(0, slots - seats) : null
   const full = slots > 0 && seats >= slots
 
-  const details = [
+  const stats = [
     workshop.date && { icon: CalendarDays, label: 'Date', value: fmtDate(workshop.date) },
     workshop.time && { icon: Clock, label: 'Time', value: workshop.time },
-    (workshop.venue || workshop.mapUrl) && { icon: MapPin, label: 'Location', value: workshop.venue || 'View location on Google Maps', href: workshop.mapUrl },
     workshop.fee != null && workshop.fee !== '' && { icon: IndianRupee, label: 'Fee', value: `₹${workshop.fee}` },
     slots > 0 && { icon: Users, label: 'Seats', value: remaining != null ? `${remaining} of ${slots} left` : `${slots} only` },
   ].filter(Boolean)
@@ -112,21 +111,40 @@ function OpenWorkshop({ workshop, seats }) {
             {workshop.description && (
               <p className="mt-3 whitespace-pre-line break-words [overflow-wrap:anywhere] text-slate-600">{workshop.description}</p>
             )}
-            <ul className="mt-6 space-y-4 md:space-y-3">
-              {details.map((d) => (
-                <li key={d.label} className="flex flex-col items-center gap-1.5 text-center text-slate-700 md:flex-row md:gap-3 md:text-left">
-                  <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-brand-50 text-brand-600">
-                    <d.icon size={18} />
-                  </span>
-                  <span>
-                    <span className="block text-xs uppercase tracking-wide text-slate-400">{d.label}</span>
-                    {d.href ? (
-                      <a href={d.href} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 font-medium text-brand-700 hover:underline">{d.value} <ExternalLink size={13} /></a>
-                    ) : d.value}
-                  </span>
-                </li>
-              ))}
-            </ul>
+            <div className="mt-6 space-y-3">
+              {stats.length > 0 && (
+                <div className="grid grid-cols-2 gap-3">
+                  {stats.map((d) => (
+                    <div key={d.label} className="flex flex-col items-center gap-2 rounded-2xl border border-slate-100 bg-brand-50/50 p-4 text-center">
+                      <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-white text-brand-600 shadow-sm">
+                        <d.icon size={20} />
+                      </span>
+                      <span className="text-[11px] font-medium uppercase tracking-wide text-slate-400">{d.label}</span>
+                      <span className="text-sm font-bold leading-snug text-slate-800">{d.value}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {(workshop.venue || workshop.mapUrl) && (
+                workshop.mapUrl ? (
+                  <a href={workshop.mapUrl} target="_blank" rel="noreferrer" className="flex items-center gap-3 rounded-2xl border border-slate-100 bg-brand-50/50 p-4 text-left transition hover:border-brand-200 hover:bg-brand-50">
+                    <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-white text-brand-600 shadow-sm"><MapPin size={20} /></span>
+                    <span className="min-w-0">
+                      <span className="block text-[11px] font-medium uppercase tracking-wide text-slate-400">Location</span>
+                      <span className="inline-flex items-center gap-1 font-semibold text-brand-700">{workshop.venue || 'View on Google Maps'} <ExternalLink size={14} className="shrink-0" /></span>
+                    </span>
+                  </a>
+                ) : (
+                  <div className="flex items-center gap-3 rounded-2xl border border-slate-100 bg-brand-50/50 p-4 text-left">
+                    <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-white text-brand-600 shadow-sm"><MapPin size={20} /></span>
+                    <span className="min-w-0">
+                      <span className="block text-[11px] font-medium uppercase tracking-wide text-slate-400">Location</span>
+                      <span className="font-semibold text-slate-800">{workshop.venue}</span>
+                    </span>
+                  </div>
+                )
+              )}
+            </div>
             <div className="mt-6 rounded-xl bg-amber-50 p-4 text-sm text-amber-800">
               <p className="flex items-center justify-center gap-2 font-semibold md:justify-start"><AlertCircle size={16} /> Important</p>
               <p className="mt-1">A slot is booked only after the admin verifies your payment. Payment once done is non-refundable.</p>
