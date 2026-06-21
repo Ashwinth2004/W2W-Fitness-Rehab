@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { Stethoscope, Search, Loader2, Save, ArrowRight, Plus, CheckCircle2 } from 'lucide-react'
+import { Stethoscope, Search, Loader2, Save, ArrowRight, Plus, CheckCircle2, BadgeCheck } from 'lucide-react'
 import { watchClients, watchTreatments, addTreatment } from '../../lib/firestore'
 import { CLINICAL_SECTIONS, CLINICAL_KEYS } from '../../lib/assessmentSchema'
 import { todayISO, fmtDate } from '../../lib/format'
 import DateField from '../../components/DateField'
 import AssessmentField from '../../components/AssessmentField'
 import TherapistSelect from '../../components/TherapistSelect'
+import ContactActions from '../../components/ContactActions'
 import AdminPageHeader from '../../components/AdminPageHeader'
 import { useUnsaved } from '../../context/UnsavedContext'
 
@@ -31,46 +32,73 @@ export default function Treatment() {
 
 function ClientPicker({ clients, onPick, onNew, note }) {
   const [q, setQ] = useState('')
-  const [active, setActive] = useState(0)
-  const matches = q
-    ? clients.filter((c) => [c.name, c.phone, c.clientId, c.email].filter(Boolean).join(' ').toLowerCase().includes(q.toLowerCase())).slice(0, 8)
-    : []
-  function onKey(e) {
-    if (!matches.length) return
-    if (e.key === 'ArrowDown') { e.preventDefault(); setActive((i) => Math.min(matches.length - 1, i + 1)) }
-    else if (e.key === 'ArrowUp') { e.preventDefault(); setActive((i) => Math.max(0, i - 1)) }
-    else if (e.key === 'Enter') { e.preventDefault(); if (matches[active]) onPick(matches[active].id) }
-  }
+  const filtered = q
+    ? clients.filter((c) => [c.name, c.phone, c.clientId, c.email].filter(Boolean).join(' ').toLowerCase().includes(q.toLowerCase()))
+    : clients
+
   return (
     <div className="space-y-5">
       <AdminPageHeader title="Treatment" />
-      <div className="card max-w-xl space-y-4 p-6">
+      <div className="card space-y-4 p-6">
         <div className="flex items-center gap-3">
-          <div className="grid h-11 w-11 place-items-center rounded-xl bg-brand-50 text-brand-600"><Stethoscope size={22} /></div>
+          <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-brand-50 text-brand-600"><Stethoscope size={22} /></div>
           <div>
             <h2 className="font-bold text-slate-900">Choose a patient</h2>
-            <p className="text-sm text-slate-500">Search an existing patient, or create a new one.</p>
+            <p className="text-sm text-slate-500">Tap a patient below to start their treatment, or create a new one.</p>
           </div>
         </div>
         {note && <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-700">{note}</p>}
-        <div className="relative">
-          <Search className="pointer-events-none absolute left-3 top-3 text-slate-400" size={16} />
-          <input className="input pl-9" value={q} onChange={(e) => { setQ(e.target.value); setActive(0) }} onKeyDown={onKey} placeholder="Search by name, phone or ID…" autoFocus />
+        <div className="flex flex-col gap-3 sm:flex-row">
+          <div className="relative flex-1">
+            <Search className="pointer-events-none absolute left-3 top-3 text-slate-400" size={16} />
+            <input
+              className="input pl-9"
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter' && filtered[0]) { e.preventDefault(); onPick(filtered[0].id) } }}
+              placeholder="Search by name, phone or ID…"
+              autoFocus
+            />
+          </div>
+          <button onClick={onNew} className="btn-outline shrink-0"><Plus size={16} /> Create new patient</button>
         </div>
-        {matches.length > 0 && (
-          <ul className="divide-y divide-slate-100 overflow-hidden rounded-xl border border-slate-200">
-            {matches.map((c, i) => (
-              <li key={c.id}>
-                <button onClick={() => onPick(c.id)} onMouseEnter={() => setActive(i)} className={`flex w-full items-center justify-between px-4 py-3 text-left hover:bg-brand-50 ${active === i ? 'bg-brand-50' : ''}`}>
-                  <span className="font-medium text-slate-800">{c.name}</span>
-                  <span className="text-xs text-slate-500">{c.clientId} · {c.phone}</span>
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
-        <button onClick={onNew} className="btn-outline w-full"><Plus size={16} /> Create new patient</button>
       </div>
+
+      {/* Patient cards — same as the Clients page; tap one to begin treatment. */}
+      {clients.length === 0 ? (
+        <p className="card py-12 text-center text-sm text-slate-400">No patients yet. Create your first patient above.</p>
+      ) : filtered.length === 0 ? (
+        <p className="card py-12 text-center text-sm text-slate-400">No patients match “{q}”.</p>
+      ) : (
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          {filtered.map((c) => (
+            <div
+              key={c.id}
+              role="button"
+              tabIndex={0}
+              onClick={() => onPick(c.id)}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onPick(c.id) } }}
+              className="card cursor-pointer p-5 transition hover:shadow-soft hover:ring-1 hover:ring-brand-200"
+            >
+              <div className="flex items-start justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-brand-100 font-bold text-brand-700">
+                    {c.name?.[0]?.toUpperCase() || '?'}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="truncate font-semibold text-slate-900">{c.name}</p>
+                    <p className="flex items-center gap-1 text-xs font-medium text-brand-600"><BadgeCheck size={13} /> {c.clientId}</p>
+                  </div>
+                </div>
+              </div>
+              <div className="mt-4 flex items-center justify-between">
+                <p className="text-xs text-slate-500">Since {fmtDate(c.createdAt)}</p>
+                <div onClick={(e) => e.stopPropagation()}><ContactActions phone={c.phone} size="sm" /></div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
