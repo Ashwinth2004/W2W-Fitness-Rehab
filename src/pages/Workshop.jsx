@@ -109,9 +109,9 @@ function OpenWorkshop({ workshop, seats }) {
             {workshop.description && (
               <p className="mt-3 whitespace-pre-line break-words [overflow-wrap:anywhere] text-slate-600">{workshop.description}</p>
             )}
-            <ul className="mt-6 inline-block space-y-3 text-left md:block">
+            <ul className="mt-6 space-y-3">
               {details.map((d) => (
-                <li key={d.label} className="flex items-center gap-3 text-slate-700">
+                <li key={d.label} className="flex items-center justify-center gap-3 text-slate-700 md:justify-start">
                   <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-brand-50 text-brand-600">
                     <d.icon size={18} />
                   </span>
