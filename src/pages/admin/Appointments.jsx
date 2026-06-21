@@ -1,13 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
-  CalendarDays, Plus, Check, X, Loader2, CalendarClock, MessageSquarePlus, Pencil,
+  CalendarDays, Plus, Check, X, Loader2, CalendarClock, MessageSquarePlus, Pencil, Copy,
 } from 'lucide-react'
 import {
   watchAppointments, addAppointmentByAdmin, setAppointmentStatus, cancelAppointment,
   rescheduleAppointment, setAppointmentRemarks, updateAppointment, getBookedTimes,
 } from '../../lib/firestore'
 import { fmt12h, fmtDate, todayISO, matchesDateFilter } from '../../lib/format'
-import { SERVICE_OPTIONS, SLOT_TIMES } from '../../lib/constants'
+import { SERVICE_OPTIONS, SLOT_TIMES, BUSINESS } from '../../lib/constants'
 import { isValidMobile } from '../../lib/validate'
 import SlotPicker, { formatSlot } from '../../components/SlotPicker'
 import DateField from '../../components/DateField'
@@ -62,11 +62,12 @@ export default function Appointments() {
         <button onClick={() => setShowForm((v) => !v)} className="btn-primary">
           {showForm ? <X size={18} /> : <Plus size={18} />} {showForm ? 'Close' : 'Add Appointment'}
         </button>
+        <ShareBookingLink />
       </AdminPageHeader>
 
       {showForm && <AddAppointmentForm onDone={() => setShowForm(false)} />}
 
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap justify-center gap-2 md:justify-start">
         {tabs.map((t) => (
           <button
             key={t.id}
@@ -148,6 +149,24 @@ export default function Appointments() {
       {remarkOf && <RemarkModal appt={remarkOf} onClose={() => setRemarkOf(null)} />}
       {editOf && <EditApptModal appt={editOf} onClose={() => setEditOf(null)} />}
     </div>
+  )
+}
+
+// Copies the public booking page link (with a short message) so the admin can
+// share it on WhatsApp / SMS for clients to self-book.
+function ShareBookingLink() {
+  const [copied, setCopied] = useState(false)
+  const copy = () => {
+    const link = `${BUSINESS.website}/appointment`
+    const msg = `Book your appointment at ${BUSINESS.name}:\n${link}`
+    navigator.clipboard?.writeText(msg)
+      .then(() => { setCopied(true); setTimeout(() => setCopied(false), 1500) })
+      .catch(() => {})
+  }
+  return (
+    <button onClick={copy} className="btn-outline" title="Copy the public booking link to share with clients">
+      {copied ? <><Check size={18} /> Copied</> : <><Copy size={18} /> Copy booking link</>}
+    </button>
   )
 }
 

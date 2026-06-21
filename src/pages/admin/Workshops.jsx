@@ -52,7 +52,7 @@ export default function Workshops() {
   return (
     <div className="space-y-5">
       <AdminPageHeader title="W2W Workshop" />
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap justify-center gap-2 md:justify-start">
         {[
           { id: 'workshops', label: 'Workshops', icon: GraduationCap },
           { id: 'registrations', label: 'Registrations', icon: ClipboardList },

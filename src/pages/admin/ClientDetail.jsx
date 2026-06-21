@@ -80,7 +80,7 @@ export default function ClientDetail() {
               <div className="mt-2"><ContactActions phone={client.phone} showNumber /></div>
             </div>
           </div>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap justify-center gap-2 md:justify-start">
             <Link to={`/admin/treatment?client=${id}`} className="btn-outline"><Stethoscope size={16} /> New Treatment</Link>
             <button onClick={() => setReporting(true)} className="btn-primary"><FileDown size={18} /> Generate Report</button>
             <button onClick={() => setEditing(true)} className="btn-ghost"><Pencil size={16} /> Update Registration</button>

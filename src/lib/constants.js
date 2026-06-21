@@ -157,7 +157,7 @@ export const INSTAGRAM_FEED_EMBED = '' // e.g. 'https://lightwidget.com/widgets/
 // reel inline via Instagram's embed, with a fallback link to open it on IG.
 // Used as a fallback until the admin curates reels in Firestore.
 export const REELS = [
-  { url: 'https://www.instagram.com/p/DZzoig_iRLS/', thumbnail: '/reels/w2w-success-story.webp', caption: 'A W2W Fitness & Rehab success story' },
+  { url: 'https://www.instagram.com/p/DZzoig_iRLS/', thumbnail: '/reels/w2w-physiotherapy-patient-success-story-mylapore.webp', caption: 'A W2W Fitness & Rehab success story' },
   { url: 'https://www.instagram.com/reel/DZr4htuCBSS/', thumbnail: '/reels/knee-pain-clinical-reasoning.webp', caption: 'Why did my knee pain return? — the clinical reasoning' },
   { url: 'https://www.instagram.com/reel/DTyAqiakt8i/', thumbnail: '/reels/way-to-wellness-2-years.webp', caption: 'Way to Wellness turns two' },
   { url: 'https://www.instagram.com/reel/DRQ_H-nkp_E/', thumbnail: '/reels/physiotherapy-clinical-reasoning.webp', caption: 'When the prescription already decides the treatment…' },
@@ -239,7 +239,7 @@ export function workshopShareMessage(workshop) {
   lines.push('')
   lines.push('📞 Register now:')
   lines.push(`${BUSINESS.website}/workshop`)
-  if (workshop.paymentNumber) lines.push(`📲 ${workshop.paymentNumber}`)
+  if (workshop.paymentNumber) { lines.push(''); lines.push(`📲 ${workshop.paymentNumber}`) }
   lines.push('')
   lines.push('See you there! 🚀')
   return lines.join('\n')

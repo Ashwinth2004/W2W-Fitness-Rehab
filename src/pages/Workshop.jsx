@@ -255,7 +255,7 @@ function PaymentStep({ workshop, form, onBack, onConfirmed }) {
   const upiPay = upiLink({ upiId: workshop.upiId, name: BUSINESS.name, amount, note: `${workshop.title} registration` })
   // W2W's official HDFC SmartHub (Vyapar) merchant QR — works with GPay, PhonePe,
   // Paytm, BHIM and any UPI app.
-  const qr = '/workshop-upi-qr.webp'
+  const qr = '/w2w-fitness-rehab-workshop-upi-payment-qr.webp'
 
   function copyUpi() {
     if (!workshop.upiId) return

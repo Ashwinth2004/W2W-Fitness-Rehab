@@ -88,7 +88,7 @@ export default function Reports() {
           </div>
         </div>
 
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap justify-center gap-2 md:justify-start">
           {[['month', 'Month'], ['range', 'Date range'], ['day', 'Single date']].map(([id, lbl]) => (
             <button key={id} onClick={() => setMode(id)} className={`rounded-full px-4 py-1.5 text-sm font-medium transition ${mode === id ? 'bg-brand-600 text-white' : 'bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50'}`}>{lbl}</button>
           ))}

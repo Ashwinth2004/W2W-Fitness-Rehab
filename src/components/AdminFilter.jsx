@@ -15,7 +15,7 @@ const YEARS = Array.from({ length: 9 }, (_, i) => String(CUR_YEAR - i))
 export default function AdminFilter({ filter, setFilter }) {
   const active = filter.day || filter.month || filter.year
   return (
-    <div className="flex flex-wrap items-end gap-3">
+    <div className="flex flex-wrap items-end justify-center gap-3 md:justify-start">
       <div>
         <label className="label text-xs">Filter by date</label>
         <div className="w-44">

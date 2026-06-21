@@ -30,7 +30,7 @@ export default function Accounting() {
   return (
     <div className="space-y-5">
       <AdminPageHeader title="Accounting" />
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap justify-center gap-2 md:justify-start">
         {[
           { id: 'income', label: 'Patient Charges', icon: TrendingUp },
           { id: 'expenses', label: 'Expenses', icon: TrendingDown },
@@ -86,7 +86,7 @@ function Income() {
         <Stat label="Balance due" value={inr(due)} tone={due > 0 ? 'red' : 'emerald'} />
       </div>
 
-      <div className="card flex flex-wrap items-end justify-between gap-3 p-4">
+      <div className="card flex flex-wrap items-end justify-center gap-3 p-4 md:justify-between">
         <AdminFilter filter={filter} setFilter={setFilter} />
         <button onClick={() => { setEditRow(null); setOpen((v) => !v) }} className="btn-ghost px-3 py-1.5 text-sm">{open ? <X size={16} /> : <Plus size={16} />} {open ? 'Close' : 'Add charge'}</button>
       </div>
