@@ -156,7 +156,7 @@ export default function ClientDetail() {
 
 function Fact({ icon: Icon, label, value }) {
   return (
-    <div className="flex items-center gap-3">
+    <div className="flex items-center justify-center gap-3 text-center md:justify-start md:text-left">
       <div className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-brand-50 text-brand-600"><Icon size={18} /></div>
       <div className="min-w-0"><p className="text-xs text-slate-400">{label}</p><p className="truncate font-medium text-slate-800">{value}</p></div>
     </div>

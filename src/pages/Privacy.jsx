@@ -114,9 +114,9 @@ export default function Privacy() {
       <Section title="Contact us">
         <p>For any privacy questions or requests, reach us at:</p>
         <ul className="space-y-2">
-          <li className="flex items-start gap-2"><MapPin size={18} className="mt-0.5 shrink-0 text-brand-500" /> {BUSINESS.address}</li>
-          <li><a href={`mailto:${BUSINESS.email}`} className="flex items-center gap-2 font-medium text-brand-700 hover:underline"><Mail size={18} className="text-brand-500" /> {BUSINESS.email}</a></li>
-          <li><a href={telLink()} className="flex items-center gap-2 font-medium text-brand-700 hover:underline"><Phone size={18} className="text-brand-500" /> {BUSINESS.phoneDisplay}</a></li>
+          <li className="flex items-start justify-center gap-2 md:justify-start"><MapPin size={18} className="mt-0.5 shrink-0 text-brand-500" /> {BUSINESS.address}</li>
+          <li><a href={`mailto:${BUSINESS.email}`} className="flex items-center justify-center gap-2 font-medium text-brand-700 hover:underline md:justify-start"><Mail size={18} className="text-brand-500" /> {BUSINESS.email}</a></li>
+          <li><a href={telLink()} className="flex items-center justify-center gap-2 font-medium text-brand-700 hover:underline md:justify-start"><Phone size={18} className="text-brand-500" /> {BUSINESS.phoneDisplay}</a></li>
         </ul>
       </Section>
 
