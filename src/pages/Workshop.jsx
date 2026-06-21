@@ -7,7 +7,7 @@ import { WhatsAppIcon } from '../components/BrandIcons'
 import PhoneField from '../components/PhoneField'
 import { getOpenWorkshop, watchWorkshopSeats, registerForWorkshop } from '../lib/firestore'
 import {
-  BUSINESS, upiLink, whatsappLink, workshopWhatsappMessage,
+  BUSINESS, whatsappLink, workshopWhatsappMessage,
 } from '../lib/constants'
 import { isValidMobile } from '../lib/validate'
 import { fmtDate } from '../lib/format'
@@ -109,9 +109,9 @@ function OpenWorkshop({ workshop, seats }) {
             {workshop.description && (
               <p className="mt-3 whitespace-pre-line break-words [overflow-wrap:anywhere] text-slate-600">{workshop.description}</p>
             )}
-            <ul className="mt-6 space-y-3">
+            <ul className="mt-6 inline-block space-y-3 text-left md:block">
               {details.map((d) => (
-                <li key={d.label} className="flex items-center justify-center gap-3 text-slate-700 md:justify-start">
+                <li key={d.label} className="flex items-center gap-3 text-slate-700">
                   <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-brand-50 text-brand-600">
                     <d.icon size={18} />
                   </span>
@@ -252,10 +252,6 @@ function PaymentStep({ workshop, form, onBack, onConfirmed }) {
 
   const amount = workshop.fee
   const payNumber = workshop.paymentNumber || BUSINESS.whatsapp.replace(/^91/, '')
-  const upiPay = upiLink({ upiId: workshop.upiId, name: BUSINESS.name, amount, note: `${workshop.title} registration` })
-  // W2W's official HDFC SmartHub (Vyapar) merchant QR — works with GPay, PhonePe,
-  // Paytm, BHIM and any UPI app.
-  const qr = '/w2w-fitness-rehab-workshop-upi-payment-qr.webp'
 
   function copyUpi() {
     if (!workshop.upiId) return
@@ -290,29 +286,25 @@ function PaymentStep({ workshop, form, onBack, onConfirmed }) {
       <p className="text-center text-sm text-slate-600 md:text-left">Pay {amount != null && amount !== '' ? <strong>₹{amount}</strong> : 'the workshop fee'} via UPI, then mark it as paid and confirm.</p>
 
       <div className="rounded-2xl bg-brand-50 p-5">
-        <div className="flex flex-col items-center">
-          <img src={qr} alt="Scan to pay via UPI (GPay / PhonePe / Paytm / BHIM)" className="h-52 w-52 rounded-xl bg-white p-2 shadow-sm" />
-          <p className="mt-2 text-xs text-slate-500">Scan with any UPI app — GPay, PhonePe, Paytm, BHIM</p>
-          {workshop.upiId && upiPay && (
-            <a href={upiPay} className="btn-primary mt-3 w-full text-sm">Open UPI app to pay</a>
-          )}
-        </div>
+        <p className="text-center text-sm font-semibold text-slate-700">Pay using any UPI app — GPay, PhonePe, Paytm, BHIM</p>
         {workshop.upiId && (
-          <div className="mt-4 flex items-center justify-between gap-2 rounded-xl bg-white px-3 py-2 text-sm">
+          <div className="mt-3 flex items-center justify-between gap-2 rounded-xl bg-white px-3 py-2 text-sm">
             <span className="truncate"><span className="text-slate-400">UPI ID:</span> <span className="font-semibold text-slate-800">{workshop.upiId}</span></span>
             <button type="button" onClick={copyUpi} className="inline-flex shrink-0 items-center gap-1 rounded-lg bg-brand-50 px-2.5 py-1.5 text-xs font-semibold text-brand-700 hover:bg-brand-100">
               {copied ? <><Check size={14} /> Copied</> : <><Copy size={14} /> Copy</>}
             </button>
           </div>
         )}
-        <p className="mt-3 text-center text-sm text-slate-700">Payment mobile number: <span className="font-semibold">{payNumber}</span></p>
+        <p className="mt-3 flex items-center justify-between gap-2 rounded-xl bg-white px-3 py-2 text-sm">
+          <span><span className="text-slate-400">Payment mobile number:</span> <span className="font-semibold text-slate-800">{payNumber}</span></span>
+        </p>
       </div>
 
       {/* What to do note */}
       <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
         <p className="font-semibold">How confirmation works</p>
         <ol className="mt-2 list-decimal space-y-1 pl-5">
-          <li>Pay the fee using the UPI ID / QR above.</li>
+          <li>Pay the fee to the UPI ID / payment mobile number above.</li>
           <li>Tick “I have paid” and click <strong>Confirm registration</strong> below.</li>
           <li>Message us on WhatsApp with your <strong>name</strong> &amp; the <strong>app you paid through</strong> (GPay/PhonePe/Paytm…).</li>
           <li>Your seat is <strong>booked only after the admin verifies your payment</strong> and approves it.</li>

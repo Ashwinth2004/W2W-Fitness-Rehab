@@ -421,7 +421,7 @@ function AdminSlotGrid({ date, value, onChange, currentAppt }) {
             type="button"
             disabled={past}
             onClick={() => onChange(t)}
-            className={`rounded-xl border px-2 py-2 text-center text-sm font-medium leading-tight transition ${
+            className={`flex min-h-[3.25rem] flex-col items-center justify-center rounded-xl border px-2 py-1.5 text-center text-sm font-medium leading-tight transition ${
               selected
                 ? 'border-brand-600 bg-brand-600 text-white shadow'
                 : past
