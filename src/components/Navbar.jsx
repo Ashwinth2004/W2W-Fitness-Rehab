@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Link, NavLink } from 'react-router-dom'
 import { Menu, X, CalendarCheck } from 'lucide-react'
-import { useBooking } from '../context/BookingContext'
 
 const links = [
   { to: '/', label: 'Home', end: true },
@@ -17,7 +16,6 @@ const links = [
 export default function Navbar() {
   const [open, setOpen] = useState(false)
   const [scrolled, setScrolled] = useState(false)
-  const { openBooking } = useBooking()
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 12)
@@ -57,9 +55,9 @@ export default function Navbar() {
               {l.label}
             </NavLink>
           ))}
-          <button onClick={() => openBooking()} className="btn-primary ml-2">
+          <Link to="/appointment" className="btn-primary ml-2">
             <CalendarCheck size={18} /> Book Appointment
-          </button>
+          </Link>
         </div>
 
         {/* Mobile toggle */}
@@ -91,15 +89,13 @@ export default function Navbar() {
                 {l.label}
               </NavLink>
             ))}
-            <button
-              onClick={() => {
-                setOpen(false)
-                openBooking()
-              }}
+            <Link
+              to="/appointment"
+              onClick={() => setOpen(false)}
               className="btn-primary mt-2 w-full"
             >
               <CalendarCheck size={18} /> Book Appointment
-            </button>
+            </Link>
           </div>
         </div>
       )}

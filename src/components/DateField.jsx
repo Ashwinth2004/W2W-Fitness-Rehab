@@ -86,10 +86,14 @@ export default function DateField({ value, onChange, min, max, blockSunday = fal
   }
 
   function handleText(e) {
+    const deleting = e.nativeEvent?.inputType?.startsWith('delete')
     const digits = e.target.value.replace(/\D/g, '').slice(0, 8)
     let out = digits
     if (digits.length > 4) out = `${digits.slice(0, 2)}-${digits.slice(2, 4)}-${digits.slice(4)}`
     else if (digits.length > 2) out = `${digits.slice(0, 2)}-${digits.slice(2)}`
+    // Auto-add the "-" right after a complete day (DD-) and month (DD-MM-),
+    // so the user never types it. Skipped while deleting so backspace works.
+    if (!deleting && (digits.length === 2 || digits.length === 4)) out += '-'
     setText(out)
     setErr('')
     if (out.length < 10) { onChange(''); return }
