@@ -45,7 +45,7 @@ export default function Dashboard() {
       {/* Stat cards */}
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {stats.map((s) => (
-          <Link key={s.label} to={s.to} className="card flex items-center justify-center gap-4 p-5 text-center transition hover:shadow-soft md:justify-start md:text-left">
+          <Link key={s.label} to={s.to} className="card flex flex-col items-center justify-center gap-2 p-5 text-center transition hover:shadow-soft md:flex-row md:gap-4 md:text-left">
             <div className={`grid h-12 w-12 shrink-0 place-items-center rounded-xl ${s.color}`}>
               <s.icon size={22} />
             </div>
