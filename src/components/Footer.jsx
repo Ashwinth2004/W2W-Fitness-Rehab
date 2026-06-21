@@ -39,10 +39,10 @@ export default function Footer() {
 
         <div>
           <h4 className="mb-3 font-semibold text-white">Get in Touch</h4>
-          <ul className="space-y-3 text-sm">
-            <li className="flex justify-center gap-2 md:justify-start"><MapPin size={18} className="mt-0.5 shrink-0 text-brand-400" />{BUSINESS.address}</li>
-            <li><a href={telLink()} className="flex items-center justify-center gap-2 hover:text-white md:justify-start"><Phone size={18} className="text-brand-400" />{BUSINESS.phoneDisplay}</a></li>
-            <li><a href={`mailto:${BUSINESS.email}`} className="flex items-center justify-center gap-2 hover:text-white md:justify-start"><Mail size={18} className="text-brand-400" />{BUSINESS.email}</a></li>
+          <ul className="space-y-4 text-sm md:space-y-3">
+            <li className="flex flex-col items-center gap-1.5 text-center md:flex-row md:gap-2 md:text-left"><MapPin size={18} className="shrink-0 text-brand-400" />{BUSINESS.address}</li>
+            <li><a href={telLink()} className="flex flex-col items-center gap-1.5 text-center hover:text-white md:flex-row md:gap-2 md:text-left"><Phone size={18} className="text-brand-400" />{BUSINESS.phoneDisplay}</a></li>
+            <li><a href={`mailto:${BUSINESS.email}`} className="flex flex-col items-center gap-1.5 text-center hover:text-white md:flex-row md:gap-2 md:text-left"><Mail size={18} className="text-brand-400" />{BUSINESS.email}</a></li>
           </ul>
           <div className="mt-4 flex justify-center gap-3 md:justify-start">
             <a href={whatsappLink()} target="_blank" rel="noreferrer" className="grid h-10 w-10 place-items-center rounded-full bg-[#25D366] text-white transition hover:opacity-90" aria-label="WhatsApp"><WhatsAppIcon size={20} /></a>
@@ -52,10 +52,10 @@ export default function Footer() {
 
         <div>
           <h4 className="mb-3 font-semibold text-white">Opening Hours</h4>
-          <ul className="space-y-2 text-sm">
+          <ul className="space-y-4 text-sm md:space-y-2">
             {BUSINESS.hours.map((h) => (
-              <li key={h.day} className="flex items-start justify-center gap-2 text-left md:justify-start">
-                <Clock size={18} className="mt-0.5 shrink-0 text-brand-400" />
+              <li key={h.day} className="flex flex-col items-center gap-1.5 text-center md:flex-row md:items-start md:gap-2 md:text-left">
+                <Clock size={18} className="shrink-0 text-brand-400 md:mt-0.5" />
                 <span>
                   <span className="block font-medium text-white">{h.day}</span>
                   {h.time.split(' & ').map((t) => (
