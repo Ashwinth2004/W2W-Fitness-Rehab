@@ -103,7 +103,7 @@ function OpenWorkshop({ workshop, seats }) {
       <div className="container-page grid gap-10 lg:grid-cols-[minmax(0,1fr),minmax(0,1.2fr)]">
         {/* Details */}
         <div className="min-w-0 space-y-5">
-          <div className="card p-6 md:p-8">
+          <div className="card p-6 text-center md:p-8 md:text-left">
             <span className="badge bg-green-100 text-green-700">Registrations Open</span>
             <h2 className="mt-3 break-words [overflow-wrap:anywhere] text-2xl font-bold md:text-3xl">{workshop.title}</h2>
             {workshop.description && (
@@ -111,7 +111,7 @@ function OpenWorkshop({ workshop, seats }) {
             )}
             <ul className="mt-6 space-y-3">
               {details.map((d) => (
-                <li key={d.label} className="flex items-center gap-3 text-slate-700">
+                <li key={d.label} className="flex items-center justify-center gap-3 text-slate-700 md:justify-start">
                   <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-brand-50 text-brand-600">
                     <d.icon size={18} />
                   </span>
@@ -125,7 +125,7 @@ function OpenWorkshop({ workshop, seats }) {
               ))}
             </ul>
             <div className="mt-6 rounded-xl bg-amber-50 p-4 text-sm text-amber-800">
-              <p className="flex items-center gap-2 font-semibold"><AlertCircle size={16} /> Important</p>
+              <p className="flex items-center justify-center gap-2 font-semibold md:justify-start"><AlertCircle size={16} /> Important</p>
               <p className="mt-1">A slot is booked only after the admin verifies your payment. Payment once done is non-refundable.</p>
             </div>
           </div>
@@ -184,8 +184,8 @@ function RegistrationForm({ workshop }) {
 
   return (
     <form onSubmit={next} className="space-y-4">
-      <h3 className="text-xl font-bold">Register for this workshop</h3>
-      <p className="text-sm text-slate-500">Step 1 of 2 — your details. Fields marked * are required.</p>
+      <h3 className="text-center text-xl font-bold md:text-left">Register for this workshop</h3>
+      <p className="text-center text-sm text-slate-500 md:text-left">Step 1 of 2 — your details. Fields marked * are required.</p>
 
       <div>
         <label className="label">Email id *</label>
@@ -286,8 +286,8 @@ function PaymentStep({ workshop, form, onBack, onConfirmed }) {
   return (
     <div className="animate-fade-in space-y-4">
       <button onClick={onBack} className="inline-flex items-center gap-1 text-sm font-medium text-slate-500 hover:text-brand-600"><ArrowLeft size={15} /> Back</button>
-      <h3 className="text-xl font-bold">Step 2 of 2 — Payment</h3>
-      <p className="text-sm text-slate-600">Pay {amount != null && amount !== '' ? <strong>₹{amount}</strong> : 'the workshop fee'} via UPI, then mark it as paid and confirm.</p>
+      <h3 className="text-center text-xl font-bold md:text-left">Step 2 of 2 — Payment</h3>
+      <p className="text-center text-sm text-slate-600 md:text-left">Pay {amount != null && amount !== '' ? <strong>₹{amount}</strong> : 'the workshop fee'} via UPI, then mark it as paid and confirm.</p>
 
       <div className="rounded-2xl bg-brand-50 p-5">
         <div className="flex flex-col items-center">

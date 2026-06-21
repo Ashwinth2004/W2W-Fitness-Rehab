@@ -77,7 +77,7 @@ export default function Home() {
       <section className="border-y border-slate-100 bg-white">
         <div className="container-page grid grid-cols-2 gap-6 py-8 md:grid-cols-4">
           {STATS.map((s) => (
-            <div key={s.label} className="flex items-center gap-3">
+            <div key={s.label} className="flex items-center justify-center gap-3 md:justify-start">
               <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-brand-50 text-brand-600">
                 <s.icon size={22} />
               </div>
@@ -127,7 +127,7 @@ export default function Home() {
       {/* WHY US */}
       <section className="bg-brand-950 py-16 text-white md:py-24">
         <div className="container-page grid items-center gap-12 md:grid-cols-2">
-          <div>
+          <div className="text-center md:text-left">
             <span className="mb-2 inline-block text-sm font-semibold uppercase tracking-wider text-brand-400">Why W2W</span>
             <h2 className="text-3xl font-bold text-white md:text-4xl">Experience the W2W Difference</h2>
             <p className="mt-4 text-brand-100">
@@ -136,7 +136,7 @@ export default function Home() {
             </p>
             <ul className="mt-6 space-y-3">
               {WHY.map((w) => (
-                <li key={w} className="flex items-start gap-3 text-brand-50">
+                <li key={w} className="flex items-start justify-center gap-3 text-brand-50 md:justify-start">
                   <CheckCircle2 className="mt-0.5 shrink-0 text-brand-400" size={20} /> {w}
                 </li>
               ))}
@@ -152,8 +152,8 @@ export default function Home() {
               { icon: Award, t: 'Holistic Health', d: 'Strength, flexibility, pain relief & mental wellness.' },
               { icon: Users, t: 'Supportive Team', d: 'Expert trainers and a motivating community.' },
             ].map((c) => (
-              <div key={c.t} className="rounded-2xl bg-white/5 p-5 ring-1 ring-white/10">
-                <c.icon className="text-brand-400" size={26} />
+              <div key={c.t} className="rounded-2xl bg-white/5 p-5 text-center ring-1 ring-white/10 md:text-left">
+                <c.icon className="mx-auto text-brand-400 md:mx-0" size={26} />
                 <p className="mt-3 font-semibold">{c.t}</p>
                 <p className="mt-1 text-sm text-brand-200">{c.d}</p>
               </div>
@@ -178,7 +178,7 @@ export default function Home() {
                   loading="lazy"
                   className="h-72 w-full object-cover object-top sm:h-full"
                 />
-                <div className="p-6">
+                <div className="p-6 text-center sm:text-left">
                   <h3 className="text-xl font-bold">{f.name}</h3>
                   <p className="text-sm font-semibold text-brand-600">{f.role}</p>
                   <p className="mt-3 text-sm leading-relaxed text-slate-600">{f.bio}</p>

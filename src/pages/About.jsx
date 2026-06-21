@@ -27,8 +27,8 @@ export default function About() {
             { icon: Eye, t: 'Our Vision', d: 'To be Chennai’s most trusted destination for physiotherapy, rehabilitation and holistic fitness.' },
             { icon: Heart, t: 'Our Values', d: 'Empathy, expertise and results — every session is personalised, effective and genuinely caring.' },
           ].map((c) => (
-            <div key={c.t} className="card p-7">
-              <div className="grid h-14 w-14 place-items-center rounded-2xl bg-brand-50 text-brand-600">
+            <div key={c.t} className="card p-7 text-center md:text-left">
+              <div className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-brand-50 text-brand-600 md:mx-0">
                 <c.icon size={26} />
               </div>
               <h3 className="mt-4 text-xl font-bold">{c.t}</h3>
@@ -52,8 +52,8 @@ export default function About() {
           </div>
           <div className="mt-12 grid gap-6 md:grid-cols-2">
             {FOUNDERS.map((f) => (
-              <div key={f.name} className="card p-7">
-                <div className="flex items-center gap-5">
+              <div key={f.name} className="card p-7 text-center md:text-left">
+                <div className="flex flex-col items-center gap-4 md:flex-row md:gap-5">
                   {f.photo ? (
                     <img
                       src={f.photo}
@@ -73,7 +73,7 @@ export default function About() {
                 </div>
                 <p className="mt-4 text-sm leading-relaxed text-slate-600">{f.bio}</p>
                 {f.credentials?.length > 0 && (
-                  <div className="mt-4 flex flex-wrap gap-2">
+                  <div className="mt-4 flex flex-wrap justify-center gap-2 md:justify-start">
                     {f.credentials.map((c) => (
                       <span key={c} className="rounded-full bg-brand-50 px-3 py-1 text-xs font-semibold text-brand-700">{c}</span>
                     ))}
@@ -94,7 +94,7 @@ export default function About() {
           <div className="overflow-hidden rounded-3xl bg-brand-950 text-white">
             {/* Intro + certificate presentation photo */}
             <div className="grid items-stretch gap-8 p-8 md:grid-cols-2 md:gap-12 md:p-12">
-              <div>
+              <div className="text-center md:text-left">
                 <div className="mb-4 inline-grid h-16 w-16 place-items-center rounded-2xl bg-white/10">
                   <GraduationCap size={34} className="text-brand-300" />
                 </div>

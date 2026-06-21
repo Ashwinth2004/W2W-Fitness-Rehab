@@ -44,8 +44,8 @@ export default function Services() {
               </div>
 
               {/* Content — more room for text */}
-              <div className="p-6 md:p-9">
-                <div className="flex items-center gap-3">
+              <div className="p-6 text-center md:p-9 md:text-left">
+                <div className="flex flex-col items-center gap-3 sm:flex-row sm:justify-center md:justify-start">
                   <div className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-brand-50 text-brand-600">
                     <ServiceIcon name={s.icon} size={26} />
                   </div>
@@ -53,7 +53,7 @@ export default function Services() {
                 </div>
                 <p className="mt-4 font-semibold text-brand-700">{s.short}</p>
                 <p className="mt-2 text-sm leading-relaxed text-slate-600">{s.description}</p>
-                <ul className="mt-5 grid gap-2.5 sm:grid-cols-2">
+                <ul className="mt-5 grid gap-2.5 text-left sm:grid-cols-2">
                   {s.points.map((p) => (
                     <li key={p} className="flex items-start gap-2 rounded-xl bg-brand-50/70 px-3 py-2 text-sm font-medium text-slate-700">
                       <CheckCircle2 className="mt-0.5 shrink-0 text-brand-500" size={18} /> {p}

@@ -44,7 +44,7 @@ export default function Footer() {
             <li><a href={telLink()} className="flex items-center justify-center gap-2 hover:text-white md:justify-start"><Phone size={18} className="text-brand-400" />{BUSINESS.phoneDisplay}</a></li>
             <li><a href={`mailto:${BUSINESS.email}`} className="flex items-center justify-center gap-2 hover:text-white md:justify-start"><Mail size={18} className="text-brand-400" />{BUSINESS.email}</a></li>
           </ul>
-          <div className="mt-4 flex gap-3">
+          <div className="mt-4 flex justify-center gap-3 md:justify-start">
             <a href={whatsappLink()} target="_blank" rel="noreferrer" className="grid h-10 w-10 place-items-center rounded-full bg-[#25D366] text-white transition hover:opacity-90" aria-label="WhatsApp"><WhatsAppIcon size={20} /></a>
             <a href={BUSINESS.instagram} target="_blank" rel="noreferrer" className="grid h-10 w-10 place-items-center rounded-full bg-gradient-to-tr from-[#feda75] via-[#d62976] to-[#4f5bd5] text-white transition hover:opacity-90" aria-label="Instagram"><InstagramIcon size={20} /></a>
           </div>

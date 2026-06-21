@@ -26,21 +26,21 @@ export default function Contact() {
         <div className="container-page grid gap-10 lg:grid-cols-2">
           {/* Info */}
           <div className="space-y-6">
-            <div className="card p-6">
+            <div className="card p-6 text-center md:text-left">
               <h2 className="text-xl font-bold">Contact Information</h2>
               <ul className="mt-5 space-y-4 text-slate-700">
-                <li className="flex gap-3"><MapPin className="shrink-0 text-brand-600" /> {BUSINESS.address}</li>
-                <li><a href={telLink()} className="flex items-center gap-3 hover:text-brand-700"><Phone className="text-brand-600" /> {BUSINESS.phoneDisplay}</a></li>
-                <li><a href={`mailto:${BUSINESS.email}`} className="flex items-center gap-3 hover:text-brand-700"><Mail className="text-brand-600" /> {BUSINESS.email}</a></li>
+                <li className="flex justify-center gap-3 md:justify-start"><MapPin className="shrink-0 text-brand-600" /> {BUSINESS.address}</li>
+                <li><a href={telLink()} className="flex items-center justify-center gap-3 hover:text-brand-700 md:justify-start"><Phone className="text-brand-600" /> {BUSINESS.phoneDisplay}</a></li>
+                <li><a href={`mailto:${BUSINESS.email}`} className="flex items-center justify-center gap-3 hover:text-brand-700 md:justify-start"><Mail className="text-brand-600" /> {BUSINESS.email}</a></li>
               </ul>
-              <div className="mt-6 flex flex-wrap gap-3">
+              <div className="mt-6 flex flex-wrap justify-center gap-3 md:justify-start">
                 <a href={whatsappLink()} target="_blank" rel="noreferrer" className="btn-primary !bg-[#25D366] hover:!bg-[#1ebe5a]"><WhatsAppIcon size={18} /> WhatsApp</a>
                 <a href={BUSINESS.instagram} target="_blank" rel="noreferrer" className="btn-outline"><InstagramIcon size={18} /> Instagram</a>
               </div>
             </div>
 
-            <div className="card p-6">
-              <h3 className="flex items-center gap-2 text-lg font-bold"><Clock className="text-brand-600" size={20} /> Opening Hours</h3>
+            <div className="card p-6 text-center md:text-left">
+              <h3 className="flex items-center justify-center gap-2 text-lg font-bold md:justify-start"><Clock className="text-brand-600" size={20} /> Opening Hours</h3>
               <ul className="mt-4 space-y-2 text-slate-700">
                 {BUSINESS.hours.map((h) => (
                   <li key={h.day} className="flex justify-between border-b border-slate-100 pb-2 last:border-0">
@@ -62,7 +62,7 @@ export default function Contact() {
           </div>
 
           {/* Form */}
-          <div className="card h-fit p-6 md:p-8">
+          <div className="card h-fit p-6 text-center md:p-8 md:text-left">
             <h2 className="text-xl font-bold">Send us a message</h2>
             <p className="mt-1 text-sm text-slate-500">We’ll get back to you as soon as possible.</p>
             <div className="mt-6">

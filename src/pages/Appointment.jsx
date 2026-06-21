@@ -33,24 +33,24 @@ export default function Appointment() {
 
           {/* Info */}
           <aside className="order-1 min-w-0 space-y-4 lg:order-2">
-            <div className="card p-6">
+            <div className="card p-6 text-center lg:text-left">
               <h2 className="text-lg font-bold text-slate-900">Good to know</h2>
               <ul className="mt-4 space-y-4 text-sm text-slate-600">
-                <li className="flex items-start gap-3">
+                <li className="flex items-start justify-center gap-3 lg:justify-start">
                   <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-brand-50 text-brand-600"><Clock size={17} /></span>
                   <span>
                     <span className="block font-semibold text-slate-800">Opening hours</span>
                     {BUSINESS.hours[0].day} · {BUSINESS.hours[0].time}. {BUSINESS.hours[1].day}s closed.
                   </span>
                 </li>
-                <li className="flex items-start gap-3">
+                <li className="flex items-start justify-center gap-3 lg:justify-start">
                   <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-brand-50 text-brand-600"><MapPin size={17} /></span>
                   <span>
                     <span className="block font-semibold text-slate-800">Where</span>
                     {BUSINESS.address}
                   </span>
                 </li>
-                <li className="flex items-start gap-3">
+                <li className="flex items-start justify-center gap-3 lg:justify-start">
                   <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-brand-50 text-brand-600"><Phone size={17} /></span>
                   <span>
                     <span className="block font-semibold text-slate-800">Call / WhatsApp</span>

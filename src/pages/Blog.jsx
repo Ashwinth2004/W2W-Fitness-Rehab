@@ -50,8 +50,8 @@ export default function Blog() {
                   className="group flex flex-col overflow-hidden rounded-3xl border border-slate-100 bg-white shadow-sm transition hover:-translate-y-1 hover:border-brand-200 hover:shadow-soft"
                 >
                   <span className="h-1.5 w-full bg-gradient-to-r from-brand-400 to-brand-700" />
-                  <div className="flex flex-1 flex-col p-6 md:p-7">
-                    <div className="flex flex-wrap items-center gap-2 text-xs font-semibold">
+                  <div className="flex flex-1 flex-col p-6 text-center md:p-7 md:text-left">
+                    <div className="flex flex-wrap items-center justify-center gap-2 text-xs font-semibold md:justify-start">
                       <span className="rounded-full bg-brand-50 px-2.5 py-1 uppercase tracking-wide text-brand-700">
                         {p.createdAtText || 'Article'}
                       </span>
