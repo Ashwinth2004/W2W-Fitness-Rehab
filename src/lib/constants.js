@@ -245,15 +245,29 @@ export function workshopShareMessage(workshop) {
   return lines.join('\n')
 }
 
-// Accepts the full workshop object (preferred — includes date & time) or a bare
-// title string, plus the registrant's name.
+// The confirmation message a student sends on WhatsApp after registering (the
+// "Message us on WhatsApp" button). Clean, formatted layout — accepts the full
+// workshop object (preferred — includes date & time) or a bare title string.
 export function workshopWhatsappMessage(workshop, fullName) {
   const title = typeof workshop === 'string' ? workshop : workshop?.title || 'the workshop'
-  const when = []
+  const name = String(fullName || '').trim()
+  const lines = [
+    '✅ *Workshop Registration — Payment Done*',
+    '',
+    `Hi ${BUSINESS.name}! 👋`,
+    '',
+    'I’ve registered for your workshop and completed the payment. My details:',
+    '',
+  ]
+  if (name) lines.push(`🧑 *Name:* ${name}`)
+  lines.push(`🎓 *Workshop:* ${title}`)
   if (typeof workshop === 'object' && workshop) {
-    if (workshop.date) when.push(`Date: ${fmtDate(workshop.date)}`)
-    if (workshop.time) when.push(`Time: ${workshop.time}`)
+    if (workshop.date) lines.push(`📅 *Date:* ${fmtDate(workshop.date, 'EEEE, d MMMM yyyy')}`)
+    if (workshop.time) lines.push(`⏰ *Time:* ${workshop.time}`)
   }
-  const whenStr = when.length ? ` (${when.join(', ')})` : ''
-  return `Hi ${BUSINESS.name},\n\nI have registered for *${title}*${whenStr} under the name *${fullName || ''}* and completed the payment. Sharing my payment screenshot here to confirm my slot.`
+  lines.push('')
+  lines.push('I’m sharing my payment screenshot here to confirm my slot — please verify and confirm. 🙏')
+  lines.push('')
+  lines.push('Thank you!')
+  return lines.join('\n')
 }
