@@ -43,7 +43,7 @@ function PublicLayout({ children }) {
     <div className="flex min-h-screen flex-col">
       <AnnouncementBar />
       <Navbar />
-      <main className="flex-1">{children}</main>
+      <main className="flex-1 overflow-x-hidden">{children}</main>
       <Footer />
       <FloatingButtons />
       <BookingModal />

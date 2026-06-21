@@ -8,6 +8,7 @@ import {
   watchWorkshopRegistrations, approveRegistration, unapproveRegistration, deleteRegistration,
 } from '../../lib/firestore'
 import ContactActions from '../../components/ContactActions'
+import DateField from '../../components/DateField'
 import AdminFilter from '../../components/AdminFilter'
 import AdminPageHeader from '../../components/AdminPageHeader'
 import { fmtDate, matchesDateFilter } from '../../lib/format'
@@ -20,7 +21,7 @@ const EMPTY = {
   title: '', description: '', date: '', startTime: '', endTime: '',
   venue: 'Balaiah Avenue, Mylapore',
   mapUrl: 'https://maps.app.goo.gl/r15LukodqtmcwqKk9',
-  fee: '500', slots: '', upiId: '', paymentNumber: '7200043621', status: 'draft',
+  fee: '500', slots: '', upiId: 'vyapar.169653437474@hdfcbank', paymentNumber: '7200043621', status: 'draft',
   shareMessage: '',
 }
 
@@ -189,7 +190,7 @@ function WorkshopManager() {
         <div><label className="label text-xs">Workshop Name *</label><input className="input" value={form.title} onChange={set('title')} placeholder="Step Up – The Advanced Ankle Workshop" /></div>
         <div><label className="label text-xs">Details / Description</label><textarea className="input min-h-[90px]" value={form.description} onChange={set('description')} placeholder="What the workshop covers, who it's for, notes…" /></div>
         <div className="grid gap-3 sm:grid-cols-2">
-          <div><label className="label text-xs">Date</label><input type="date" className="input" value={form.date} onChange={set('date')} /></div>
+          <div><label className="label text-xs">Date</label><DateField value={form.date} onChange={(iso) => { setForm((f) => ({ ...f, date: iso })); setDirty(true) }} /></div>
         </div>
         <div>
           <label className="label text-xs">Time (start – end)</label>
@@ -215,7 +216,7 @@ function WorkshopManager() {
         </div>
         <div className="grid gap-3 sm:grid-cols-2">
           <div><label className="label text-xs">UPI ID (for payment QR)</label><input className="input" value={form.upiId} onChange={set('upiId')} placeholder="name@okhdfcbank" /></div>
-          <div><label className="label text-xs">Payment Number</label><input className="input" value={form.paymentNumber} onChange={set('paymentNumber')} placeholder="7200043621" /></div>
+          <div><label className="label text-xs">Payment mobile number</label><input className="input" value={form.paymentNumber} onChange={set('paymentNumber')} placeholder="7200043621" /></div>
         </div>
         <div>
           <div className="flex items-center justify-between">
@@ -279,7 +280,7 @@ function CopyShareButton({ workshop }) {
       title="Copy share message"
       className="inline-flex items-center gap-1 rounded-lg bg-brand-50 px-3 py-1.5 text-xs font-semibold text-brand-700 hover:bg-brand-100"
     >
-      {copied ? <><Check size={14} /> Copied</> : <><Copy size={14} /> Copy</>}
+      {copied ? <><Check size={14} /> Copied</> : <><Copy size={14} /> Copy to share</>}
     </button>
   )
 }

@@ -10,6 +10,11 @@ import DateField from '../../components/DateField'
 import AdminPageHeader from '../../components/AdminPageHeader'
 
 const monthKey = (d) => format(d, 'yyyy-MM')
+const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
+const pad2 = (n) => String(n).padStart(2, '0')
+const CUR_YEAR = new Date().getFullYear()
+// Current year back 8 years — easy access to previous years for historical reports.
+const YEARS = Array.from({ length: 9 }, (_, i) => String(CUR_YEAR - i))
 
 export default function Reports() {
   const [mode, setMode] = useState('month') // month | range | day
@@ -89,9 +94,25 @@ export default function Reports() {
           ))}
         </div>
 
-        {mode === 'month' && (
-          <div><label className="label">Month</label><input className="input max-w-xs" type="month" value={month} onChange={(e) => setMonth(e.target.value)} /></div>
-        )}
+        {mode === 'month' && (() => {
+          const [my, mm] = month.split('-')
+          return (
+            <div className="flex flex-wrap items-end gap-3">
+              <div>
+                <label className="label">Month</label>
+                <select className="input h-[42px] w-40" value={mm} onChange={(e) => setMonth(`${my}-${e.target.value}`)}>
+                  {MONTH_NAMES.map((m, i) => <option key={m} value={pad2(i + 1)}>{m}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="label">Year</label>
+                <select className="input h-[42px] w-32" value={my} onChange={(e) => setMonth(`${e.target.value}-${mm}`)}>
+                  {YEARS.map((y) => <option key={y} value={y}>{y}</option>)}
+                </select>
+              </div>
+            </div>
+          )
+        })()}
         {mode === 'range' && (
           <div className="grid gap-3 sm:grid-cols-2 sm:max-w-md">
             <div><label className="label">From</label><DateField value={from} onChange={setFrom} max={todayISO()} /></div>

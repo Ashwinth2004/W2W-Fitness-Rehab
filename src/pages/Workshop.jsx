@@ -7,7 +7,7 @@ import { WhatsAppIcon } from '../components/BrandIcons'
 import PhoneField from '../components/PhoneField'
 import { getOpenWorkshop, watchWorkshopSeats, registerForWorkshop } from '../lib/firestore'
 import {
-  BUSINESS, upiLink, upiQrImage, whatsappLink, workshopWhatsappMessage,
+  BUSINESS, upiLink, whatsappLink, workshopWhatsappMessage,
 } from '../lib/constants'
 import { isValidMobile } from '../lib/validate'
 import { fmtDate } from '../lib/format'
@@ -105,9 +105,9 @@ function OpenWorkshop({ workshop, seats }) {
         <div className="min-w-0 space-y-5">
           <div className="card p-6 md:p-8">
             <span className="badge bg-green-100 text-green-700">Registrations Open</span>
-            <h2 className="mt-3 break-words text-2xl font-bold md:text-3xl">{workshop.title}</h2>
+            <h2 className="mt-3 break-words [overflow-wrap:anywhere] text-2xl font-bold md:text-3xl">{workshop.title}</h2>
             {workshop.description && (
-              <p className="mt-3 whitespace-pre-line break-words text-slate-600">{workshop.description}</p>
+              <p className="mt-3 whitespace-pre-line break-words [overflow-wrap:anywhere] text-slate-600">{workshop.description}</p>
             )}
             <ul className="mt-6 space-y-3">
               {details.map((d) => (
@@ -253,7 +253,9 @@ function PaymentStep({ workshop, form, onBack, onConfirmed }) {
   const amount = workshop.fee
   const payNumber = workshop.paymentNumber || BUSINESS.whatsapp.replace(/^91/, '')
   const upiPay = upiLink({ upiId: workshop.upiId, name: BUSINESS.name, amount, note: `${workshop.title} registration` })
-  const qr = upiQrImage(upiPay, 220)
+  // W2W's official HDFC SmartHub (Vyapar) merchant QR — works with GPay, PhonePe,
+  // Paytm, BHIM and any UPI app.
+  const qr = '/workshop-upi-qr.png'
 
   function copyUpi() {
     if (!workshop.upiId) return
@@ -288,12 +290,13 @@ function PaymentStep({ workshop, form, onBack, onConfirmed }) {
       <p className="text-sm text-slate-600">Pay {amount != null && amount !== '' ? <strong>₹{amount}</strong> : 'the workshop fee'} via UPI, then mark it as paid and confirm.</p>
 
       <div className="rounded-2xl bg-brand-50 p-5">
-        {workshop.upiId && qr && (
-          <div className="flex flex-col items-center">
-            <img src={qr} alt="Scan to pay via UPI" className="h-44 w-44 rounded-xl bg-white p-2 shadow-sm" />
+        <div className="flex flex-col items-center">
+          <img src={qr} alt="Scan to pay via UPI (GPay / PhonePe / Paytm / BHIM)" className="h-52 w-52 rounded-xl bg-white p-2 shadow-sm" />
+          <p className="mt-2 text-xs text-slate-500">Scan with any UPI app — GPay, PhonePe, Paytm, BHIM</p>
+          {workshop.upiId && upiPay && (
             <a href={upiPay} className="btn-primary mt-3 w-full text-sm">Open UPI app to pay</a>
-          </div>
-        )}
+          )}
+        </div>
         {workshop.upiId && (
           <div className="mt-4 flex items-center justify-between gap-2 rounded-xl bg-white px-3 py-2 text-sm">
             <span className="truncate"><span className="text-slate-400">UPI ID:</span> <span className="font-semibold text-slate-800">{workshop.upiId}</span></span>
@@ -302,7 +305,7 @@ function PaymentStep({ workshop, form, onBack, onConfirmed }) {
             </button>
           </div>
         )}
-        <p className="mt-3 text-center text-sm text-slate-700">Payment number: <span className="font-semibold">{payNumber}</span></p>
+        <p className="mt-3 text-center text-sm text-slate-700">Payment mobile number: <span className="font-semibold">{payNumber}</span></p>
       </div>
 
       {/* What to do note */}

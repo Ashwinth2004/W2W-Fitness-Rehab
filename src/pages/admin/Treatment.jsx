@@ -75,6 +75,54 @@ function ClientPicker({ clients, onPick, onNew, note }) {
   )
 }
 
+// Read-only snapshot of the patient's registration details, so the therapist
+// has the full picture before starting the session.
+const SUMMARY_FACTS = [
+  ['age', 'Age'], ['gender', 'Gender'], ['occupation', 'Occupation / Sports'],
+  ['height', 'Height (cm)'], ['weight', 'Weight (kg)'], ['handDominance', 'Hand dominance'],
+  ['service', 'Primary service'], ['referredBy', 'Referred by'],
+]
+const SUMMARY_NOTES = [
+  ['complaint', 'Chief complaint / goal'], ['pastHistory', 'Past medical history'],
+  ['presentHistory', 'Present medical history'], ['mechanism', 'Mechanism of injury'],
+]
+function PatientSummary({ client }) {
+  const facts = SUMMARY_FACTS.filter(([k]) => client[k])
+  const notes = SUMMARY_NOTES.filter(([k]) => client[k])
+  if (!facts.length && !notes.length && !client.address) return null
+  return (
+    <details open className="rounded-xl border border-slate-100 p-4">
+      <summary className="cursor-pointer text-sm font-bold text-brand-700">Patient details</summary>
+      {facts.length > 0 && (
+        <dl className="mt-3 grid gap-x-6 gap-y-3 sm:grid-cols-2 lg:grid-cols-3">
+          {facts.map(([k, label]) => (
+            <div key={k}>
+              <dt className="text-xs font-medium uppercase tracking-wide text-slate-400">{label}</dt>
+              <dd className="mt-0.5 text-sm text-slate-800">{String(client[k])}</dd>
+            </div>
+          ))}
+          {client.address && (
+            <div className="sm:col-span-2 lg:col-span-3">
+              <dt className="text-xs font-medium uppercase tracking-wide text-slate-400">Address</dt>
+              <dd className="mt-0.5 text-sm text-slate-800">{client.address}</dd>
+            </div>
+          )}
+        </dl>
+      )}
+      {notes.length > 0 && (
+        <div className="mt-4 grid gap-3 border-t border-slate-100 pt-3 sm:grid-cols-2">
+          {notes.map(([k, label]) => (
+            <div key={k}>
+              <p className="text-xs font-medium uppercase tracking-wide text-slate-400">{label}</p>
+              <p className="mt-0.5 whitespace-pre-line text-sm text-slate-700">{client[k]}</p>
+            </div>
+          ))}
+        </div>
+      )}
+    </details>
+  )
+}
+
 function TreatmentForm({ client, onChangeClient, navigate }) {
   const [treatments, setTreatments] = useState([])
   const [form, setForm] = useState(blank)
@@ -86,7 +134,7 @@ function TreatmentForm({ client, onChangeClient, navigate }) {
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState('')
   const [therapistInvalid, setTherapistInvalid] = useState(false)
-  const { setDirty } = useUnsaved()
+  const { setDirty, guard } = useUnsaved()
 
   useEffect(() => watchTreatments(client.id, setTreatments), [client.id])
   useEffect(() => () => setDirty(false), [setDirty])
@@ -150,8 +198,10 @@ function TreatmentForm({ client, onChangeClient, navigate }) {
             <p className="text-lg font-bold text-slate-900">{client.name}</p>
             <p className="text-sm text-slate-500">{client.clientId} · {client.phone}</p>
           </div>
-          <button type="button" onClick={onChangeClient} className="btn-ghost px-3 py-1.5 text-sm">Change patient</button>
+          <button type="button" onClick={() => guard(onChangeClient)} className="btn-ghost px-3 py-1.5 text-sm">Change patient</button>
         </div>
+
+        <PatientSummary client={client} />
 
         <div className="grid gap-3 md:grid-cols-2">
           <div>

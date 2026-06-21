@@ -91,7 +91,7 @@ export default function BlogPost() {
         )}
       </header>
 
-      <div className="mt-8 whitespace-pre-line text-[1.05rem] leading-relaxed text-slate-700">{post.body}</div>
+      <div className="mt-8 whitespace-pre-line break-words [overflow-wrap:anywhere] text-[1.05rem] leading-relaxed text-slate-700">{post.body}</div>
 
       <div className="mt-12 rounded-2xl bg-brand-50 p-6 text-center">
         <p className="font-semibold text-slate-900">Have a concern we can help with?</p>

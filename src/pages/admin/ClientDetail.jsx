@@ -9,12 +9,12 @@ import {
   getClient, updateClient, deleteClient, watchClientNotes, addClientNote, deleteClientNote,
   watchTreatments, deleteTreatment, getClientNotesOnce, addAccountingEntry,
 } from '../../lib/firestore'
-import { fmtDate, todayISO } from '../../lib/format'
-import { SERVICE_OPTIONS } from '../../lib/constants'
-import { onlyDigits } from '../../lib/validate'
+import { fmtDate, fmtDateTime, todayISO } from '../../lib/format'
+import { onlyDigits, isValidMobile } from '../../lib/validate'
+import { BASIC_SECTIONS, BASIC_KEYS } from '../../lib/assessmentSchema'
 import ContactActions from '../../components/ContactActions'
 import DateField from '../../components/DateField'
-import PhoneField from '../../components/PhoneField'
+import AssessmentField from '../../components/AssessmentField'
 import TherapistSelect from '../../components/TherapistSelect'
 import { generateClientReport } from '../../lib/pdf'
 
@@ -83,7 +83,7 @@ export default function ClientDetail() {
           <div className="flex flex-wrap gap-2">
             <Link to={`/admin/treatment?client=${id}`} className="btn-outline"><Stethoscope size={16} /> New Treatment</Link>
             <button onClick={() => setReporting(true)} className="btn-primary"><FileDown size={18} /> Generate Report</button>
-            <button onClick={() => setEditing(true)} className="btn-ghost"><Pencil size={16} /> Edit</button>
+            <button onClick={() => setEditing(true)} className="btn-ghost"><Pencil size={16} /> Update Registration</button>
             <button onClick={handleDelete} className="btn-ghost text-red-500 hover:bg-red-50"><Trash2 size={16} /></button>
           </div>
         </div>
@@ -96,6 +96,10 @@ export default function ClientDetail() {
           <Fact icon={Stethoscope} label="Handled by" value={client.therapist || '—'} />
         </div>
         {client.address && <p className="mt-3 flex items-center gap-1.5 text-sm text-slate-500"><MapPin size={14} className="shrink-0" /> {client.address}</p>}
+        <p className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-slate-100 pt-3 text-xs text-slate-400">
+          <span className="inline-flex items-center gap-1"><Calendar size={12} /> First registered: <span className="font-medium text-slate-500">{fmtDate(client.registeredOn || client.createdAt)}</span></span>
+          {client.updatedAt && <span className="inline-flex items-center gap-1"><CalendarClock size={12} /> Last updated: <span className="font-medium text-slate-500">{fmtDateTime(client.updatedAt)}</span></span>}
+        </p>
       </div>
 
       {/* Registration details — every field entered at intake */}
@@ -144,7 +148,7 @@ export default function ClientDetail() {
       {/* Notes */}
       <NotesSection clientId={id} notes={notes} />
 
-      {editing && <EditClientModal client={client} onClose={() => setEditing(false)} onSaved={(d) => { setClient((c) => ({ ...c, ...d })); setEditing(false) }} />}
+      {editing && <EditClientModal client={client} onClose={() => setEditing(false)} onSaved={async () => { setClient(await getClient(id)); setEditing(false) }} />}
       {reporting && <ReportModal client={client} treatments={treatments} onClose={() => setReporting(false)} />}
     </div>
   )
@@ -265,6 +269,7 @@ function ReportModal({ client, treatments, onClose }) {
   const [amount, setAmount] = useState('')
   const [paid, setPaid] = useState('')
   const [mode, setMode] = useState('Cash')
+  const [withBilling, setWithBilling] = useState(true)
   const [record, setRecord] = useState(true)
   const [busy, setBusy] = useState('')
   const [recorded, setRecorded] = useState(false)
@@ -286,9 +291,9 @@ function ReportModal({ client, treatments, onClose }) {
       const notes = await getClientNotesOnce(client.id)
       // Merge the client's basics with the chosen session's clinical fields.
       const merged = { ...client, ...(session || {}), assessmentDate: session?.date || todayISO() }
-      const bill = { amount: Number(amount) || 0, paid: Number(paid) || 0, balance, mode }
+      const bill = withBilling ? { amount: Number(amount) || 0, paid: Number(paid) || 0, balance, mode } : null
       const res = await generateClientReport(merged, { notes, progress: [], therapist, bill, action })
-      if (record && !recorded && (bill.amount > 0 || bill.paid > 0)) {
+      if (withBilling && record && !recorded && (bill.amount > 0 || bill.paid > 0)) {
         await addAccountingEntry({
           date: chargeDate || todayISO(),
           clientId: client.clientId, clientDocId: client.id, clientName: client.name,
@@ -339,21 +344,30 @@ function ReportModal({ client, treatments, onClose }) {
 
         {/* Billing */}
         <div className="rounded-2xl border border-slate-100 p-4">
-          <p className="mb-3 flex items-center gap-1.5 text-sm font-bold text-brand-700"><IndianRupee size={15} /> Billing</p>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div><label className="label text-xs">Date</label><DateField value={chargeDate} onChange={setChargeDate} max={todayISO()} /></div>
-            <div><label className="label text-xs">Mode of payment</label><select className="input" value={mode} onChange={(e) => setMode(e.target.value)}>{PAY_MODES.map((m) => <option key={m}>{m}</option>)}</select></div>
-            <div><label className="label text-xs">Amount charged (Rs.)</label><input className="input" inputMode="numeric" value={amount} onChange={money(setAmount)} placeholder="0" /></div>
-            <div><label className="label text-xs">Amount paid (Rs.)</label><input className="input" inputMode="numeric" value={paid} onChange={money(setPaid)} placeholder="0" /></div>
-          </div>
-          <div className="mt-3 flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2 text-sm">
-            <span className="text-slate-500">Balance due</span>
-            <span className={`font-bold ${balance > 0 ? 'text-red-600' : 'text-emerald-600'}`}>Rs. {balance.toLocaleString('en-IN')}</span>
-          </div>
-          <label className="mt-3 flex items-center gap-2 text-xs font-medium text-slate-600">
-            <input type="checkbox" checked={record} onChange={(e) => setRecord(e.target.checked)} className="h-4 w-4 rounded border-slate-300 text-brand-600" />
-            Record this charge in Accounting {recorded && <span className="text-emerald-600">· saved</span>}
+          <label className="flex items-center gap-2 text-sm font-bold text-brand-700">
+            <input type="checkbox" checked={withBilling} onChange={(e) => setWithBilling(e.target.checked)} className="h-4 w-4 rounded border-slate-300 text-brand-600" />
+            <IndianRupee size={15} /> Include billing in report
           </label>
+          {withBilling ? (
+            <div className="mt-3">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div><label className="label text-xs">Date</label><DateField value={chargeDate} onChange={setChargeDate} max={todayISO()} /></div>
+                <div><label className="label text-xs">Mode of payment</label><select className="input" value={mode} onChange={(e) => setMode(e.target.value)}>{PAY_MODES.map((m) => <option key={m}>{m}</option>)}</select></div>
+                <div><label className="label text-xs">Amount charged (Rs.)</label><input className="input" inputMode="numeric" value={amount} onChange={money(setAmount)} placeholder="0" /></div>
+                <div><label className="label text-xs">Amount paid (Rs.)</label><input className="input" inputMode="numeric" value={paid} onChange={money(setPaid)} placeholder="0" /></div>
+              </div>
+              <div className="mt-3 flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2 text-sm">
+                <span className="text-slate-500">Balance due</span>
+                <span className={`font-bold ${balance > 0 ? 'text-red-600' : 'text-emerald-600'}`}>Rs. {balance.toLocaleString('en-IN')}</span>
+              </div>
+              <label className="mt-3 flex items-center gap-2 text-xs font-medium text-slate-600">
+                <input type="checkbox" checked={record} onChange={(e) => setRecord(e.target.checked)} className="h-4 w-4 rounded border-slate-300 text-brand-600" />
+                Record this charge in Accounting {recorded && <span className="text-emerald-600">· saved</span>}
+              </label>
+            </div>
+          ) : (
+            <p className="mt-2 text-xs text-slate-400">The report will be generated without any billing section.</p>
+          )}
         </div>
 
         {msg && <p className="rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-600">{msg}</p>}
@@ -368,47 +382,59 @@ function ReportModal({ client, treatments, onClose }) {
   )
 }
 
-// ---- Edit modal -----------------------------------------------------------
+// ---- Update registration modal --------------------------------------------
+// Edits ALL of the first-time registration fields (same schema as New Client),
+// so the admin can correct or complete any detail later.
 function EditClientModal({ client, onClose, onSaved }) {
-  const [form, setForm] = useState({ ...client })
+  const [form, setForm] = useState(() => {
+    const f = {}
+    BASIC_KEYS.forEach((k) => { f[k] = client[k] ?? '' })
+    return f
+  })
   const [busy, setBusy] = useState(false)
-  const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }))
+  const [error, setError] = useState('')
+  const set = (k) => (val) => { setForm((f) => ({ ...f, [k]: val })); setError('') }
 
   async function save(e) {
     e.preventDefault()
+    setError('')
+    if (!(form.name || '').trim()) { setError('Patient name is required.'); return }
+    if (!isValidMobile(form.phone || '')) { setError('Enter a valid 10-digit contact number.'); return }
     setBusy(true)
-    const data = {
-      name: form.name, phone: form.phone, email: form.email || '', age: form.age || '',
-      gender: form.gender || '', address: form.address || '', service: form.service || '',
-      complaint: form.complaint || '', pastHistory: form.pastHistory || '', presentHistory: form.presentHistory || '',
+    try {
+      const data = {}
+      BASIC_KEYS.forEach((k) => { const v = form[k]; data[k] = typeof v === 'string' ? v.trim() : v })
+      await updateClient(client.id, data) // also stamps updatedAt
+      onSaved(data)
+    } catch (err) {
+      console.error('update client failed:', err)
+      setError('Could not save. Please try again.')
+      setBusy(false)
     }
-    await updateClient(client.id, data)
-    onSaved(data)
   }
 
   return (
     <div className="fixed inset-0 z-[80] grid place-items-center bg-slate-900/50 p-4 backdrop-blur-sm">
-      <form onSubmit={save} className="max-h-[92vh] w-full max-w-2xl animate-pop-in space-y-4 overflow-y-auto rounded-3xl bg-white p-6 shadow-2xl">
+      <form onSubmit={save} className="max-h-[92vh] w-full max-w-2xl animate-pop-in space-y-5 overflow-y-auto rounded-3xl bg-white p-6 shadow-2xl">
         <div className="flex items-center justify-between">
-          <h2 className="text-xl font-bold">Edit Client</h2>
+          <div>
+            <h2 className="text-xl font-bold">Update Registration</h2>
+            <p className="text-sm text-slate-500">{client.name} · {client.clientId}</p>
+          </div>
           <button type="button" onClick={onClose} className="rounded-full p-1.5 text-slate-400 hover:bg-slate-100"><X size={22} /></button>
         </div>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div><label className="label">Name</label><input className="input" value={form.name || ''} onChange={set('name')} /></div>
-          <div><label className="label">Phone</label><PhoneField value={form.phone || ''} onChange={(v) => setForm((f) => ({ ...f, phone: v }))} /></div>
-          <div><label className="label">Email</label><input className="input" value={form.email || ''} onChange={set('email')} /></div>
-          <div className="grid grid-cols-2 gap-3">
-            <div><label className="label">Age</label><input className="input" value={form.age || ''} onChange={(e) => setForm((f) => ({ ...f, age: onlyDigits(e.target.value).slice(0, 3) }))} /></div>
-            <div><label className="label">Gender</label><select className="input" value={form.gender || ''} onChange={set('gender')}><option value="">—</option><option>Male</option><option>Female</option><option>Other</option></select></div>
-          </div>
-          <div><label className="label">Address</label><input className="input" value={form.address || ''} onChange={set('address')} /></div>
-          <div><label className="label">Primary Service</label><select className="input" value={form.service || ''} onChange={set('service')}>{SERVICE_OPTIONS.map((s) => <option key={s}>{s}</option>)}</select></div>
-        </div>
-        <div><label className="label">Chief Complaint / Goal</label><textarea className="input min-h-[60px]" value={form.complaint || ''} onChange={set('complaint')} /></div>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div><label className="label">Past Medical History</label><textarea className="input min-h-[70px]" value={form.pastHistory || ''} onChange={set('pastHistory')} /></div>
-          <div><label className="label">Present Medical History</label><textarea className="input min-h-[70px]" value={form.presentHistory || ''} onChange={set('presentHistory')} /></div>
-        </div>
+
+        {BASIC_SECTIONS.map((s) => (
+          <fieldset key={s.title} className="rounded-2xl border border-slate-100 p-4">
+            <legend className="px-2 text-sm font-bold text-brand-700">{s.title}</legend>
+            <div className={`grid gap-3 ${s.cols1 ? '' : 'sm:grid-cols-2'}`}>
+              {s.fields.map((f) => <AssessmentField key={f.k} f={f} value={form[f.k]} onChange={set(f.k)} />)}
+            </div>
+          </fieldset>
+        ))}
+
+        {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}
+
         <div className="flex justify-end gap-2">
           <button type="button" onClick={onClose} className="btn-ghost">Cancel</button>
           <button type="submit" disabled={busy} className="btn-primary">{busy ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />} Save Changes</button>
