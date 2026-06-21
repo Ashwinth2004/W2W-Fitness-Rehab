@@ -12,6 +12,16 @@
   h1, h2, h3, h4 {
     @apply font-display text-slate-900;
   }
+  /* No spinner arrows / scroll-to-change on number inputs anywhere. */
+  input[type='number']::-webkit-inner-spin-button,
+  input[type='number']::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  input[type='number'] {
+    -moz-appearance: textfield;
+    appearance: textfield;
+  }
 }
 
 @layer components {

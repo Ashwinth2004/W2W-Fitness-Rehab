@@ -1,11 +1,11 @@
 import { useState } from 'react'
 import { CalendarCheck, CheckCircle2, Loader2, Clock } from 'lucide-react'
-import SlotPicker, { formatTime } from './SlotPicker'
+import SlotPicker, { formatSlot } from './SlotPicker'
 import DateField from './DateField'
 import PhoneField from './PhoneField'
 import { bookAppointment } from '../lib/firestore'
 import { notifyClinic } from '../lib/email'
-import { BUSINESS } from '../lib/constants'
+import { BUSINESS, whatsappLink } from '../lib/constants'
 import { isValidMobile } from '../lib/validate'
 import { fmtDate } from '../lib/format'
 
@@ -61,7 +61,7 @@ export default function BookingForm({ preset = {}, onDone }) {
         email: form.email,
         service: form.service,
         date: form.date,
-        time: formatTime(form.time),
+        time: formatSlot(form.time),
         notes: form.notes,
       })
       setStatus('done')
@@ -84,13 +84,19 @@ export default function BookingForm({ preset = {}, onDone }) {
         <h3 className="text-xl font-bold text-slate-900">Appointment Confirmed!</h3>
         <p className="mt-2 text-slate-600">
           See you on <strong>{fmtDate(form.date)}</strong> at{' '}
-          <strong>{formatTime(form.time)}</strong>.
+          <strong>{formatSlot(form.time)}</strong>.
         </p>
         <p className="mt-1 text-sm text-slate-500">
           {form.name}, our team will reach you on {form.phone} if anything changes. A reminder will be sent the day before.
         </p>
+        <p className="mx-auto mt-4 max-w-sm rounded-xl bg-amber-50 px-4 py-2.5 text-sm font-semibold text-amber-800">
+          Kindly arrive 15 minutes prior to your appointment.
+        </p>
         <p className="mt-4 text-sm text-slate-500">
-          Questions? WhatsApp us at <span className="font-medium text-brand-700">{BUSINESS.whatsappDisplay}</span>.
+          Questions? WhatsApp us at{' '}
+          <a href={whatsappLink()} target="_blank" rel="noreferrer" className="font-semibold text-brand-700 hover:underline">
+            {BUSINESS.whatsappDisplay}
+          </a>.
         </p>
       </div>
     )

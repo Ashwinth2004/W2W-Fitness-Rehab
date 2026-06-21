@@ -9,7 +9,7 @@ import {
 import { fmt12h, fmtDate, todayISO, matchesDateFilter } from '../../lib/format'
 import { SERVICE_OPTIONS, SLOT_TIMES } from '../../lib/constants'
 import { isValidMobile } from '../../lib/validate'
-import SlotPicker, { formatTime } from '../../components/SlotPicker'
+import SlotPicker, { formatSlot } from '../../components/SlotPicker'
 import DateField from '../../components/DateField'
 import PhoneField from '../../components/PhoneField'
 import ContactActions from '../../components/ContactActions'
@@ -23,7 +23,7 @@ const apptWhatsApp = (a) =>
   `Hi ${a.name}, greetings from W2W Fitness & Rehab!\n\n` +
   `Thank you for booking with us. Your ${a.service || 'appointment'} is *confirmed* for ` +
   `${fmtDate(a.date)} at ${fmt12h(a.time)}.\n\n` +
-  `Please arrive 5–10 minutes early. To reschedule, just reply to this message.\n\n— Team W2W (Way to Wellness)`
+  `Kindly arrive 15 minutes prior to your appointment. To reschedule, just reply to this message.\n\n— Team W2W (Way to Wellness)`
 
 export default function Appointments() {
   const [items, setItems] = useState([])
@@ -386,14 +386,15 @@ function AdminSlotGrid({ date, value, onChange, currentAppt }) {
 
   const now = new Date()
   const isToday = date === now.toISOString().slice(0, 10)
+  const nowHM = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
   // the appointment's own current slot isn't "taken" (it's being moved)
   const taken = booked.filter((t) => !(currentAppt && currentAppt.date === date && t === currentAppt.time))
 
   return (
-    <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
       {SLOT_TIMES.map((t) => {
         const isBooked = taken.includes(t)
-        const past = isToday && Number(t.split(':')[0]) <= now.getHours()
+        const past = isToday && t <= nowHM
         const selected = value === t
         return (
           <button
@@ -411,7 +412,7 @@ function AdminSlotGrid({ date, value, onChange, currentAppt }) {
                 : 'border-slate-200 text-slate-700 hover:border-brand-400 hover:bg-brand-50'
             }`}
           >
-            {formatTime(t)}
+            {formatSlot(t)}
             {isBooked && !selected && <span className="block text-[10px] font-normal">Booked</span>}
           </button>
         )

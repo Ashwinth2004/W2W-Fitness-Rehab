@@ -122,7 +122,7 @@ function clientReminderHtml(a) {
           <p style="margin:4px 0"><strong>Date:</strong> ${esc(a.date)}</p>
           <p style="margin:4px 0"><strong>Time:</strong> ${esc(fmt12h(a.time))}</p>
         </div>
-        <p>Please arrive 5–10 minutes early. To reschedule, just reply or WhatsApp us.</p>
+        <p>Kindly arrive 15 minutes prior to your appointment. To reschedule, just reply or WhatsApp us.</p>
         <p style="color:#64748b;font-size:13px;margin-top:20px">No.5, Balaiah Avenue, Luz Road, Mylapore, Chennai – 600 004<br/>See you soon! — Team W2W</p>
       </div>
     </div>

@@ -58,7 +58,7 @@ export default function Navbar() {
             </NavLink>
           ))}
           <button onClick={() => openBooking()} className="btn-primary ml-2">
-            <CalendarCheck size={18} /> Book Now
+            <CalendarCheck size={18} /> Book Appointment
           </button>
         </div>
 

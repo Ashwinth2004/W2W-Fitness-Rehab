@@ -29,7 +29,7 @@ export default function AdminFilter({ filter, setFilter }) {
           value={filter.month || ''}
           onChange={(e) => setFilter({ day: '', month: e.target.value, year: filter.year || (e.target.value ? String(CUR_YEAR) : '') })}
         >
-          <option value="">All months</option>
+          <option value="">All</option>
           {MONTH_NAMES.map((m, i) => <option key={m} value={pad2(i + 1)}>{m}</option>)}
         </select>
       </div>
@@ -40,7 +40,7 @@ export default function AdminFilter({ filter, setFilter }) {
           value={filter.year || ''}
           onChange={(e) => setFilter({ day: '', month: filter.month || '', year: e.target.value })}
         >
-          <option value="">All years</option>
+          <option value="">All</option>
           {YEARS.map((y) => <option key={y} value={y}>{y}</option>)}
         </select>
       </div>

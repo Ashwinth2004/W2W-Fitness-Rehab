@@ -114,14 +114,28 @@ service cloud.firestore {
     }
 
     // Workshop registrations contain PII — public create (validated); only the
-    // full admin (Workshop module) reads/manages them.
+    // full admin (Workshop module) reads/manages them. Public create only; a
+    // repeat write to the same (deterministic) doc id is an update → denied,
+    // which enforces one registration per phone per workshop.
     match /workshopRegistrations/{id} {
       allow create: if isFullAdmin() || (
-        data().size() <= 8 && data().status == 'pending'
+        data().size() <= 14 && data().status == 'pending'
         && reqStr('fullName', 120)
         && optStr('phone', 20) && optStr('email', 200)
+        && optStr('qualification', 60) && optStr('reason', 3000)
+        && optStr('attendedBefore', 10) && optStr('paidVia', 60)
         && optStr('workshopId', 80) && optStr('workshopTitle', 200)
       );
+      allow read, update, delete: if isFullAdmin();
+    }
+
+    // Email-uniqueness guard for workshop registrations. Doc id is
+    // `{workshopId}__{email}`; the body is empty. Public can only CREATE (never
+    // update), so a second registration with the same email for the same
+    // workshop is denied — giving email uniqueness without exposing any PII for
+    // reads. Managed/cleared by the full admin only.
+    match /workshopRegEmails/{id} {
+      allow create: if isFullAdmin() || data().size() == 0;
       allow read, update, delete: if isFullAdmin();
     }
 

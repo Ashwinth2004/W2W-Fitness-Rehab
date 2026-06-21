@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { watchBookedTimes } from '../lib/firestore'
-import { SLOT_TIMES } from '../lib/constants'
+import { SLOT_TIMES, SLOT_MINUTES } from '../lib/constants'
 
 // Formats "14:00" -> "2:00 PM"
 export function formatTime(t) {
@@ -8,6 +8,23 @@ export function formatTime(t) {
   const period = h >= 12 ? 'PM' : 'AM'
   const hr = h % 12 === 0 ? 12 : h % 12
   return `${hr}:${String(m).padStart(2, '0')} ${period}`
+}
+
+// Adds minutes to a "HH:MM" string -> "HH:MM"
+function addMinutes(t, mins) {
+  const [h, m] = t.split(':').map(Number)
+  const total = h * 60 + m + mins
+  return `${String(Math.floor(total / 60) % 24).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`
+}
+
+// Formats a slot as its 30-min window, e.g. "09:00" -> "9:00 – 9:30 AM"
+export function formatSlot(t) {
+  const end = addMinutes(t, SLOT_MINUTES)
+  const startP = Number(t.split(':')[0]) >= 12 ? 'PM' : 'AM'
+  const endP = Number(end.split(':')[0]) >= 12 ? 'PM' : 'AM'
+  // Drop the period on the start time when both halves share it (cleaner label).
+  const start = startP === endP ? formatTime(t).replace(/ [AP]M$/, '') : formatTime(t)
+  return `${start} – ${formatTime(end)}`
 }
 
 export default function SlotPicker({ date, value, onChange }) {
@@ -35,16 +52,17 @@ export default function SlotPicker({ date, value, onChange }) {
   // Disable past times if the selected date is today.
   const now = new Date()
   const isToday = date === now.toISOString().slice(0, 10)
+  const nowHM = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
 
   return (
     <div>
       {loading ? (
         <p className="text-sm text-slate-400">Loading slots…</p>
       ) : (
-        <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
           {SLOT_TIMES.map((t) => {
             const isBooked = booked.includes(t)
-            const past = isToday && Number(t.split(':')[0]) <= now.getHours()
+            const past = isToday && t <= nowHM
             const disabled = isBooked || past
             const selected = value === t
             return (
@@ -61,7 +79,7 @@ export default function SlotPicker({ date, value, onChange }) {
                     : 'border-slate-200 text-slate-700 hover:border-brand-400 hover:bg-brand-50'
                 }`}
               >
-                {formatTime(t)}
+                {formatSlot(t)}
               </button>
             )
           })}

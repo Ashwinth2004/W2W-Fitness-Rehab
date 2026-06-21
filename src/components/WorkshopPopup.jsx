@@ -12,18 +12,21 @@ export default function WorkshopPopup() {
   const [workshop, setWorkshop] = useState(null)
   const [seats, setSeats] = useState(0)
   const [open, setOpen] = useState(false)
+  const [dismissed, setDismissed] = useState(false)
 
   useEffect(() => {
     const unsub = watchOpenWorkshop(setWorkshop)
     return () => unsub && unsub()
   }, [])
 
+  // Show shortly after an open workshop is detected — guaranteed within ~3s of
+  // landing, once per visit. (Dismissal is in-memory so a fresh visit / reload
+  // shows it again; we don't suppress it for the whole browser session.)
   useEffect(() => {
-    if (!workshop?.id) { setOpen(false); return }
-    if (sessionStorage.getItem(`w2w-wpopup-${workshop.id}`)) return
-    const t = setTimeout(() => setOpen(true), 1200)
+    if (!workshop?.id || dismissed) { setOpen(false); return }
+    const t = setTimeout(() => setOpen(true), 800)
     return () => clearTimeout(t)
-  }, [workshop?.id])
+  }, [workshop?.id, dismissed])
 
   useEffect(() => {
     if (!workshop?.id) return
@@ -35,7 +38,7 @@ export default function WorkshopPopup() {
   if (!open || !workshop || location.pathname === '/workshop') return null
 
   const close = () => {
-    sessionStorage.setItem(`w2w-wpopup-${workshop.id}`, '1')
+    setDismissed(true)
     setOpen(false)
   }
 

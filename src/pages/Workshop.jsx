@@ -93,7 +93,7 @@ function OpenWorkshop({ workshop, seats }) {
   const details = [
     workshop.date && { icon: CalendarDays, label: 'Date', value: fmtDate(workshop.date) },
     workshop.time && { icon: Clock, label: 'Time', value: workshop.time },
-    workshop.venue && { icon: MapPin, label: 'Location', value: workshop.venue, href: workshop.mapUrl },
+    (workshop.venue || workshop.mapUrl) && { icon: MapPin, label: 'Location', value: workshop.venue || 'View location on Google Maps', href: workshop.mapUrl },
     workshop.fee != null && workshop.fee !== '' && { icon: IndianRupee, label: 'Fee', value: `₹${workshop.fee}` },
     slots > 0 && { icon: Users, label: 'Seats', value: remaining != null ? `${remaining} of ${slots} left` : `${slots} only` },
   ].filter(Boolean)
@@ -272,7 +272,11 @@ function PaymentStep({ workshop, form, onBack, onConfirmed }) {
       onConfirmed()
     } catch (err) {
       console.error('register failed:', err)
-      setError('Could not submit. Please try again or WhatsApp us.')
+      if (err.message === 'DUPLICATE') {
+        setError('This phone number or email is already registered for this workshop. If you need help, please message us on WhatsApp.')
+      } else {
+        setError('Could not submit. Please try again or WhatsApp us.')
+      }
       setBusy(false)
     }
   }
@@ -332,7 +336,7 @@ function PaymentStep({ workshop, form, onBack, onConfirmed }) {
 }
 
 function Done({ fullName, workshop }) {
-  const waLink = whatsappLink(workshopWhatsappMessage(workshop.title, fullName))
+  const waLink = whatsappLink(workshopWhatsappMessage(workshop, fullName))
   return (
     <div className="animate-fade-in py-4 text-center">
       <CheckCircle2 className="mx-auto text-green-500" size={52} />

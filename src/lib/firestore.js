@@ -14,7 +14,7 @@
 import { db } from '../firebase'
 import {
   collection, doc, addDoc, setDoc, getDoc, getDocs, updateDoc, deleteDoc,
-  query, where, orderBy, serverTimestamp, runTransaction, onSnapshot,
+  query, where, orderBy, serverTimestamp, runTransaction, onSnapshot, writeBatch,
 } from 'firebase/firestore'
 
 // ---------- Enquiries -------------------------------------------------------
@@ -40,10 +40,10 @@ export async function deleteEnquiry(id) {
 }
 
 // ---------- Availability + Appointments ------------------------------------
-// Each time slot allows up to SLOT_LIMIT concurrent appointments. The
-// `availability/{date}.times` list holds one entry per booking, so a slot
-// booked twice appears twice. A slot is "unavailable" only once it is full.
-const SLOT_LIMIT = 2
+// Each 30-minute time slot allows only ONE appointment. The
+// `availability/{date}.times` list holds one entry per booking; a slot is
+// "unavailable" once it has been booked.
+const SLOT_LIMIT = 1
 
 function fullTimes(times) {
   const counts = {}
@@ -405,13 +405,36 @@ export function watchWorkshopSeats(workshopId, cb) {
 // must message the admin). A seat is only consumed once the admin APPROVES, so
 // there is no public counter write here. Reads are admin-only (PII).
 export async function registerForWorkshop(workshop, data) {
-  return addDoc(collection(db, 'workshopRegistrations'), {
+  const payload = {
     ...data,
     workshopId: workshop.id,
     workshopTitle: workshop.title,
     status: 'pending',
     createdAt: serverTimestamp(),
-  })
+  }
+  // One registration per phone AND per email, per workshop. We write atomically:
+  //   • the registration at a deterministic id `{workshopId}__{phone}`, and
+  //   • an empty "email guard" at `workshopRegEmails/{workshopId}__{email}`.
+  // Both collections allow public CREATE but not UPDATE (rules), so a repeat with
+  // the same phone OR the same email targets an existing doc → a denied update →
+  // the whole batch fails. We surface that as DUPLICATE for a friendly message.
+  const phone = String(data.phone || '').replace(/\D/g, '')
+  const email = String(data.email || '').toLowerCase().trim().replace(/\//g, '_')
+
+  const batch = writeBatch(db)
+  const regRef = phone
+    ? doc(db, 'workshopRegistrations', `${workshop.id}__${phone}`)
+    : doc(collection(db, 'workshopRegistrations'))
+  batch.set(regRef, payload)
+  if (email) batch.set(doc(db, 'workshopRegEmails', `${workshop.id}__${email}`), {})
+
+  try {
+    await batch.commit()
+  } catch (err) {
+    if (err?.code === 'permission-denied') throw new Error('DUPLICATE')
+    throw err
+  }
+  return regRef.id
 }
 
 export function watchWorkshopRegistrations(cb) {

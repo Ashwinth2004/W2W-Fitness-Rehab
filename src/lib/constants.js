@@ -1,6 +1,7 @@
 // ============================================================================
 //  Central business config. Edit here to update contact info everywhere.
 // ============================================================================
+import { fmtDate } from './format'
 
 export const BUSINESS = {
   name: 'W2W Fitness & Rehab',
@@ -156,6 +157,7 @@ export const INSTAGRAM_FEED_EMBED = '' // e.g. 'https://lightwidget.com/widgets/
 // reel inline via Instagram's embed, with a fallback link to open it on IG.
 // Used as a fallback until the admin curates reels in Firestore.
 export const REELS = [
+  { url: 'https://www.instagram.com/p/DZzoig_iRLS/', caption: 'A W2W Fitness & Rehab success story' },
   { url: 'https://www.instagram.com/reel/DZr4htuCBSS/', thumbnail: '/reels/knee-pain-clinical-reasoning.webp', caption: 'Why did my knee pain return? — the clinical reasoning' },
   { url: 'https://www.instagram.com/reel/DTyAqiakt8i/', thumbnail: '/reels/way-to-wellness-2-years.webp', caption: 'Way to Wellness turns two' },
   { url: 'https://www.instagram.com/reel/DRQ_H-nkp_E/', thumbnail: '/reels/physiotherapy-clinical-reasoning.webp', caption: 'When the prescription already decides the treatment…' },
@@ -165,14 +167,18 @@ export const REELS = [
 ]
 
 // Appointment slots, kept in sync with the opening hours (BUSINESS.hours):
-// Mon–Sat, morning 9:00 AM–12:00 PM and evening 4:00 PM–8:00 PM. One-hour
-// sessions; the last morning slot is 11→12 and the last evening slot 7→8 PM.
+// Mon–Sat, morning 9:00 AM–12:00 PM and evening 4:00 PM–8:00 PM. Each slot is a
+// 30-minute session (e.g. 9:00–9:30 AM); the last morning slot is 11:30→12 and
+// the last evening slot 7:30→8 PM. Only one appointment is allowed per slot.
 // Sundays are closed (the date picker blocks them). Appointments must be
 // booked before arrival.
 export const SLOT_TIMES = [
-  '09:00', '10:00', '11:00', // morning 9 AM – 12 PM
-  '16:00', '17:00', '18:00', '19:00', // evening 4 PM – 8 PM
+  '09:00', '09:30', '10:00', '10:30', '11:00', '11:30', // morning 9 AM – 12 PM
+  '16:00', '16:30', '17:00', '17:30', '18:00', '18:30', '19:00', '19:30', // evening 4 PM – 8 PM
 ]
+
+// Each appointment slot is 30 minutes long.
+export const SLOT_MINUTES = 30
 
 export const SERVICE_OPTIONS = SERVICES.map((s) => s.title)
 
@@ -214,6 +220,40 @@ export function upiQrImage(upiPayUrl, size = 220) {
   return `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(upiPayUrl)}`
 }
 
-export function workshopWhatsappMessage(workshopTitle, fullName) {
-  return `Hi ${BUSINESS.name},\n\nI have registered for *${workshopTitle}* under the name *${fullName || ''}* and completed the payment. Sharing my payment screenshot here to confirm my slot.`
+// Ready-to-share promotional message for a workshop (WhatsApp / Instagram /
+// broadcast). Auto-built from the workshop's fields; the admin can override it
+// with a custom `shareMessage`. Kept here so it stays in sync everywhere.
+export function workshopShareMessage(workshop) {
+  if (!workshop) return ''
+  const lines = []
+  lines.push(`🚨 ${workshop.title || 'W2W Workshop'} 🚀`)
+  if (workshop.description) { lines.push(''); lines.push(workshop.description) }
+  lines.push('')
+  if (workshop.date) lines.push(`📅 Date: ${fmtDate(workshop.date, 'EEEE, d MMMM yyyy')}`)
+  if (workshop.time) lines.push(`⏰ Time: ${workshop.time}`)
+  if (workshop.venue) lines.push(`📍 Location: ${workshop.venue}`)
+  if (workshop.mapUrl) lines.push(`🗺️ ${workshop.mapUrl}`)
+  lines.push('')
+  if (workshop.fee != null && workshop.fee !== '') lines.push(`💰 Fee: ₹${workshop.fee} only`)
+  if (workshop.slots) lines.push(`⚠️ Limited to ${workshop.slots} slots only!`)
+  lines.push('')
+  lines.push('📞 Register now:')
+  lines.push(`${BUSINESS.website}/workshop`)
+  if (workshop.paymentNumber) lines.push(`📲 ${workshop.paymentNumber}`)
+  lines.push('')
+  lines.push('See you there! 🚀')
+  return lines.join('\n')
+}
+
+// Accepts the full workshop object (preferred — includes date & time) or a bare
+// title string, plus the registrant's name.
+export function workshopWhatsappMessage(workshop, fullName) {
+  const title = typeof workshop === 'string' ? workshop : workshop?.title || 'the workshop'
+  const when = []
+  if (typeof workshop === 'object' && workshop) {
+    if (workshop.date) when.push(`Date: ${fmtDate(workshop.date)}`)
+    if (workshop.time) when.push(`Time: ${workshop.time}`)
+  }
+  const whenStr = when.length ? ` (${when.join(', ')})` : ''
+  return `Hi ${BUSINESS.name},\n\nI have registered for *${title}*${whenStr} under the name *${fullName || ''}* and completed the payment. Sharing my payment screenshot here to confirm my slot.`
 }

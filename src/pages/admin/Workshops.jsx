@@ -1,16 +1,17 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
   Plus, Trash2, Pencil, Loader2, GraduationCap, Users, Check, X,
-  CalendarDays, ClipboardList, Eye,
+  CalendarDays, ClipboardList, Eye, Copy,
 } from 'lucide-react'
 import {
-  watchWorkshops, createWorkshop, updateWorkshop, deleteWorkshop,
+  watchWorkshops, createWorkshop, updateWorkshop, deleteWorkshop, watchWorkshopSeats,
   watchWorkshopRegistrations, approveRegistration, unapproveRegistration, deleteRegistration,
 } from '../../lib/firestore'
 import ContactActions from '../../components/ContactActions'
 import AdminFilter from '../../components/AdminFilter'
 import AdminPageHeader from '../../components/AdminPageHeader'
 import { fmtDate, matchesDateFilter } from '../../lib/format'
+import { workshopShareMessage } from '../../lib/constants'
 import { useUnsaved } from '../../context/UnsavedContext'
 
 // Sensible defaults for the common case — the admin can backspace and change
@@ -20,6 +21,7 @@ const EMPTY = {
   venue: 'Balaiah Avenue, Mylapore',
   mapUrl: 'https://maps.app.goo.gl/r15LukodqtmcwqKk9',
   fee: '500', slots: '', upiId: '', paymentNumber: '7200043621', status: 'draft',
+  shareMessage: '',
 }
 
 // 12-hour time picker → value like "10:00 AM".
@@ -70,7 +72,10 @@ export default function Workshops() {
   )
 }
 
-function StatusPill({ status }) {
+function StatusPill({ status, full }) {
+  // A workshop whose seats are all booked is effectively closed on the website —
+  // show that clearly (in red) even though its stored status is still "open".
+  if (full) return <span className="badge bg-red-100 text-red-700">All slots booked &amp; closed</span>
   const map = {
     open: 'bg-green-100 text-green-700',
     closed: 'bg-slate-200 text-slate-600',
@@ -87,6 +92,14 @@ function WorkshopManager() {
   const [error, setError] = useState('')
   const { setDirty } = useUnsaved()
   const set = (k) => (e) => { setForm((f) => ({ ...f, [k]: e.target.value })); setDirty(true) }
+  // Digits-only setter (no spinner / scroll-to-change number inputs).
+  const setDigits = (k) => (e) => { const v = e.target.value.replace(/\D/g, ''); setForm((f) => ({ ...f, [k]: v })); setDirty(true) }
+  // Fill the share message from the current form details (admin can then edit it).
+  const fillShare = () => {
+    const w = { ...form, time: [form.startTime, form.endTime].filter(Boolean).join(' – ') }
+    setForm((f) => ({ ...f, shareMessage: workshopShareMessage(w) }))
+    setDirty(true)
+  }
 
   useEffect(() => watchWorkshops(setItems), [])
   useEffect(() => () => setDirty(false), [setDirty])
@@ -125,6 +138,7 @@ function WorkshopManager() {
       upiId: form.upiId.trim(),
       paymentNumber: form.paymentNumber.trim(),
       status: form.status,
+      shareMessage: form.shareMessage.trim(),
     }
     try {
       if (form.status === 'open') {
@@ -148,6 +162,7 @@ function WorkshopManager() {
       title: w.title || '', description: w.description || '', date: w.date || '',
       startTime: w.startTime || '', endTime: w.endTime || '', venue: w.venue || '', mapUrl: w.mapUrl || '',
       fee: w.fee ?? '', slots: w.slots ?? '', upiId: w.upiId || '', paymentNumber: w.paymentNumber || '', status: w.status || 'draft',
+      shareMessage: w.shareMessage || '',
     })
     setError('')
     window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -195,12 +210,20 @@ function WorkshopManager() {
           <div><label className="label text-xs">Google Maps location link</label><input className="input" value={form.mapUrl} onChange={set('mapUrl')} placeholder="https://maps.app.goo.gl/…" /></div>
         </div>
         <div className="grid gap-3 sm:grid-cols-2">
-          <div><label className="label text-xs">Fee (₹)</label><input type="number" min="0" className="input" value={form.fee} onChange={set('fee')} placeholder="500" /></div>
-          <div><label className="label text-xs">Number of Slots</label><input type="number" min="1" className="input" value={form.slots} onChange={set('slots')} placeholder="12" /></div>
+          <div><label className="label text-xs">Fee (₹)</label><input inputMode="numeric" className="input" value={form.fee} onChange={setDigits('fee')} placeholder="500" /></div>
+          <div><label className="label text-xs">Number of Slots</label><input inputMode="numeric" className="input" value={form.slots} onChange={setDigits('slots')} placeholder="12" /></div>
         </div>
         <div className="grid gap-3 sm:grid-cols-2">
           <div><label className="label text-xs">UPI ID (for payment QR)</label><input className="input" value={form.upiId} onChange={set('upiId')} placeholder="name@okhdfcbank" /></div>
           <div><label className="label text-xs">Payment Number</label><input className="input" value={form.paymentNumber} onChange={set('paymentNumber')} placeholder="7200043621" /></div>
+        </div>
+        <div>
+          <div className="flex items-center justify-between">
+            <label className="label text-xs">Share message (used by the Copy button)</label>
+            <button type="button" onClick={fillShare} className="text-xs font-semibold text-brand-600 hover:underline">Fill from details</button>
+          </div>
+          <textarea className="input min-h-[140px] whitespace-pre-wrap" value={form.shareMessage} onChange={set('shareMessage')} placeholder="Leave blank to auto-generate from the details above. Or click “Fill from details” and edit it." />
+          <p className="mt-1 text-xs text-slate-400">Leave blank to auto-generate from the workshop details (updates automatically when you edit them). Type your own copy here to override it.</p>
         </div>
         <div>
           <label className="label text-xs">Status</label>
@@ -225,34 +248,74 @@ function WorkshopManager() {
       ) : (
         <div className="space-y-3">
           {items.map((w) => (
-            <div key={w.id} className="card p-5">
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <p className="font-bold text-slate-900">{w.title}</p>
-                    <StatusPill status={w.status} />
-                  </div>
-                  <p className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500">
-                    {w.date && <span className="inline-flex items-center gap-1"><CalendarDays size={13} /> {fmtDate(w.date)}</span>}
-                    {w.time && <span>{w.time}</span>}
-                    {w.fee !== '' && w.fee != null && <span>₹{w.fee}</span>}
-                    {w.slots !== '' && w.slots != null && <span className="inline-flex items-center gap-1"><Users size={13} /> {w.slots} slots</span>}
-                  </p>
-                </div>
-                <div className="flex flex-wrap gap-1.5">
-                  {w.status !== 'open' ? (
-                    <button onClick={() => setStatus(w, 'open')} className="inline-flex items-center gap-1 rounded-lg bg-green-50 px-3 py-1.5 text-xs font-semibold text-green-700 hover:bg-green-100"><Eye size={14} /> Open</button>
-                  ) : (
-                    <button onClick={() => setStatus(w, 'closed')} className="inline-flex items-center gap-1 rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-200"><X size={14} /> Close</button>
-                  )}
-                  <button onClick={() => edit(w)} className="grid h-8 w-8 place-items-center rounded-lg text-slate-500 hover:bg-slate-100"><Pencil size={15} /></button>
-                  <button onClick={() => remove(w)} className="grid h-8 w-8 place-items-center rounded-lg text-red-500 hover:bg-red-50"><Trash2 size={15} /></button>
-                </div>
-              </div>
-            </div>
+            <WorkshopCard
+              key={w.id}
+              w={w}
+              onOpen={() => setStatus(w, 'open')}
+              onClose={() => setStatus(w, 'closed')}
+              onEdit={() => edit(w)}
+              onRemove={() => remove(w)}
+            />
           ))}
         </div>
       )}
+    </div>
+  )
+}
+
+// Copies the workshop's share message (custom override, or auto-generated from
+// its details so it always reflects the latest edits).
+function CopyShareButton({ workshop }) {
+  const [copied, setCopied] = useState(false)
+  const copy = () => {
+    const text = workshop.shareMessage?.trim() || workshopShareMessage(workshop)
+    navigator.clipboard?.writeText(text)
+      .then(() => { setCopied(true); setTimeout(() => setCopied(false), 1500) })
+      .catch(() => {})
+  }
+  return (
+    <button
+      onClick={copy}
+      title="Copy share message"
+      className="inline-flex items-center gap-1 rounded-lg bg-brand-50 px-3 py-1.5 text-xs font-semibold text-brand-700 hover:bg-brand-100"
+    >
+      {copied ? <><Check size={14} /> Copied</> : <><Copy size={14} /> Copy</>}
+    </button>
+  )
+}
+
+function WorkshopCard({ w, onOpen, onClose, onEdit, onRemove }) {
+  const [seats, setSeats] = useState(0)
+  useEffect(() => watchWorkshopSeats(w.id, setSeats), [w.id])
+  const slots = Number(w.slots) || 0
+  const full = w.status === 'open' && slots > 0 && seats >= slots
+
+  return (
+    <div className="card p-5">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="font-bold text-slate-900">{w.title}</p>
+            <StatusPill status={w.status} full={full} />
+          </div>
+          <p className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500">
+            {w.date && <span className="inline-flex items-center gap-1"><CalendarDays size={13} /> {fmtDate(w.date)}</span>}
+            {w.time && <span>{w.time}</span>}
+            {w.fee !== '' && w.fee != null && <span>₹{w.fee}</span>}
+            {w.slots !== '' && w.slots != null && <span className="inline-flex items-center gap-1"><Users size={13} /> {slots > 0 ? `${seats}/${slots}` : w.slots} slots</span>}
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-1.5">
+          <CopyShareButton workshop={w} />
+          {w.status !== 'open' ? (
+            <button onClick={onOpen} className="inline-flex items-center gap-1 rounded-lg bg-green-50 px-3 py-1.5 text-xs font-semibold text-green-700 hover:bg-green-100"><Eye size={14} /> Open Workshop</button>
+          ) : (
+            <button onClick={onClose} className="inline-flex items-center gap-1 rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-200"><X size={14} /> Close Workshop</button>
+          )}
+          <button onClick={onEdit} className="grid h-8 w-8 place-items-center rounded-lg text-slate-500 hover:bg-slate-100"><Pencil size={15} /></button>
+          <button onClick={onRemove} className="grid h-8 w-8 place-items-center rounded-lg text-red-500 hover:bg-red-50"><Trash2 size={15} /></button>
+        </div>
+      </div>
     </div>
   )
 }

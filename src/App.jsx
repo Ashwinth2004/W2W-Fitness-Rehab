@@ -20,6 +20,7 @@ import BlogPost from './pages/BlogPost'
 import Gallery from './pages/Gallery'
 import Testimonials from './pages/Testimonials'
 import Workshop from './pages/Workshop'
+import Appointment from './pages/Appointment'
 import Privacy from './pages/Privacy'
 import NotFound from './pages/NotFound'
 
@@ -95,6 +96,7 @@ export default function App() {
               <Route path="/gallery" element={<Gallery />} />
               <Route path="/testimonials" element={<Testimonials />} />
               <Route path="/workshop" element={<Workshop />} />
+              <Route path="/appointment" element={<Appointment />} />
               <Route path="/privacy" element={<Privacy />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
