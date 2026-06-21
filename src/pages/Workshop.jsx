@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   CalendarDays, Clock, MapPin, IndianRupee, Users, Loader2, CheckCircle2,
   AlertCircle, GraduationCap, ShieldCheck, Copy, Check, ExternalLink, ArrowRight, ArrowLeft,
@@ -47,7 +47,10 @@ export default function Workshop() {
         <div className="absolute -right-24 -top-24 h-96 w-96 rounded-full bg-brand-700/40 blur-3xl" />
         <div className="container-page relative py-14 text-center md:py-20">
           <span className="badge bg-white/10 text-brand-100">W2W Academy · Workshops</span>
-          <h1 className="mt-4 text-4xl font-extrabold text-white md:text-5xl">W2W One-Day Workshop</h1>
+          <h1 className="mt-4 font-extrabold leading-tight text-white">
+            <span className="block text-5xl md:text-6xl">W2W</span>
+            <span className="mt-1 block text-2xl font-semibold text-brand-100 md:text-3xl">One-Day Workshop</span>
+          </h1>
           <p className="mx-auto mt-4 max-w-2xl text-brand-100">
             Hands-on, practical workshops for physiotherapy students and professionals — led by experienced clinicians.
           </p>
@@ -204,10 +207,10 @@ function RegistrationForm({ workshop }) {
 
       <div>
         <label className="label">Qualification *</label>
-        <div id="wf-qualification" className={`flex flex-wrap gap-2 ${bad === 'qualification' ? 'rounded-xl p-1 ring-2 ring-red-200' : ''}`}>
+        <div id="wf-qualification" className={`flex flex-nowrap justify-between gap-1.5 sm:justify-start ${bad === 'qualification' ? 'rounded-xl p-1 ring-2 ring-red-200' : ''}`}>
           {QUALIFICATIONS.map((q) => (
             <button type="button" key={q} onClick={() => { setForm((f) => ({ ...f, qualification: q })); setBad('') }}
-              className={`rounded-full px-4 py-2 text-sm font-medium transition ${form.qualification === q ? 'bg-brand-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
+              className={`rounded-full px-3 py-1.5 text-xs font-medium transition sm:px-4 sm:py-2 sm:text-sm ${form.qualification === q ? 'bg-brand-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
               {q}
             </button>
           ))}
@@ -249,6 +252,11 @@ function PaymentStep({ workshop, form, onBack, onConfirmed }) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [copied, setCopied] = useState(false)
+  const topRef = useRef(null)
+  useEffect(() => {
+    const y = (topRef.current?.getBoundingClientRect().top || 0) + window.scrollY - 90
+    window.scrollTo({ top: y, behavior: 'smooth' })
+  }, [])
 
   const amount = workshop.fee
   const payNumber = workshop.paymentNumber || BUSINESS.whatsapp.replace(/^91/, '')
@@ -280,7 +288,7 @@ function PaymentStep({ workshop, form, onBack, onConfirmed }) {
   }
 
   return (
-    <div className="animate-fade-in space-y-4">
+    <div ref={topRef} className="animate-fade-in space-y-4">
       <button onClick={onBack} className="inline-flex items-center gap-1 text-sm font-medium text-slate-500 hover:text-brand-600"><ArrowLeft size={15} /> Back</button>
       <h3 className="text-center text-xl font-bold md:text-left">Step 2 of 2 — Payment</h3>
       <p className="text-center text-sm text-slate-600 md:text-left">Pay {amount != null && amount !== '' ? <strong>₹{amount}</strong> : 'the workshop fee'} via UPI, then mark it as paid and confirm.</p>
@@ -304,10 +312,10 @@ function PaymentStep({ workshop, form, onBack, onConfirmed }) {
       <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
         <p className="font-semibold">How confirmation works</p>
         <ol className="mt-2 list-decimal space-y-1 pl-5">
-          <li>Pay the fee to the UPI ID / payment mobile number above.</li>
-          <li>Tick “I have paid” and click <strong>Confirm registration</strong> below.</li>
-          <li>Message us on WhatsApp with your <strong>name</strong> &amp; the <strong>app you paid through</strong> (GPay/PhonePe/Paytm…).</li>
-          <li>Your seat is <strong>booked only after the admin verifies your payment</strong> and approves it.</li>
+          <li>Pay the fee to the UPI ID / number above.</li>
+          <li>Tick “I have paid” &amp; tap <strong>Confirm registration</strong>.</li>
+          <li>WhatsApp us your <strong>name</strong> &amp; the <strong>app you paid with</strong>.</li>
+          <li>Seat is booked once the admin verifies your payment.</li>
         </ol>
       </div>
 
@@ -331,9 +339,14 @@ function PaymentStep({ workshop, form, onBack, onConfirmed }) {
 }
 
 function Done({ fullName, workshop }) {
+  const topRef = useRef(null)
+  useEffect(() => {
+    const y = (topRef.current?.getBoundingClientRect().top || 0) + window.scrollY - 90
+    window.scrollTo({ top: y, behavior: 'smooth' })
+  }, [])
   const waLink = whatsappLink(workshopWhatsappMessage(workshop, fullName))
   return (
-    <div className="animate-fade-in py-4 text-center">
+    <div ref={topRef} className="animate-fade-in py-4 text-center">
       <CheckCircle2 className="mx-auto text-green-500" size={52} />
       <h3 className="mt-3 text-xl font-bold">Registration received!</h3>
       <p className="mt-2 text-slate-600">

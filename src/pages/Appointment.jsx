@@ -14,7 +14,7 @@ export default function Appointment() {
         path="/appointment"
       />
 
-      <section className="bg-gradient-to-br from-brand-50 to-white py-12 md:py-16">
+      <section className="bg-gradient-to-br from-brand-50 to-white pb-6 pt-12 md:py-16">
         <div className="container-page text-center">
           <span className="section-eyebrow">Book Online</span>
           <h1 className="text-3xl font-extrabold md:text-4xl">Book Your Appointment</h1>
@@ -24,7 +24,7 @@ export default function Appointment() {
         </div>
       </section>
 
-      <section className="py-10 md:py-14">
+      <section className="pb-12 pt-4 md:py-14">
         <div className="container-page grid gap-8 lg:grid-cols-[minmax(0,1.4fr),minmax(0,1fr)]">
           {/* Form */}
           <div className="card order-2 min-w-0 p-6 md:p-8 lg:order-1">
@@ -33,24 +33,24 @@ export default function Appointment() {
 
           {/* Info */}
           <aside className="order-1 min-w-0 space-y-4 lg:order-2">
-            <div className="card p-6 text-center lg:text-left">
+            <div className="card p-6">
               <h2 className="text-lg font-bold text-slate-900">Good to know</h2>
               <ul className="mt-4 space-y-4 text-sm text-slate-600">
-                <li className="flex items-start justify-center gap-3 lg:justify-start">
+                <li className="flex items-start gap-3">
                   <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-brand-50 text-brand-600"><Clock size={17} /></span>
                   <span>
                     <span className="block font-semibold text-slate-800">Opening hours</span>
                     {BUSINESS.hours[0].day} · {BUSINESS.hours[0].time}. {BUSINESS.hours[1].day}s closed.
                   </span>
                 </li>
-                <li className="flex items-start justify-center gap-3 lg:justify-start">
+                <li className="flex items-start gap-3">
                   <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-brand-50 text-brand-600"><MapPin size={17} /></span>
                   <span>
                     <span className="block font-semibold text-slate-800">Where</span>
                     {BUSINESS.address}
                   </span>
                 </li>
-                <li className="flex items-start justify-center gap-3 lg:justify-start">
+                <li className="flex items-start gap-3">
                   <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-brand-50 text-brand-600"><Phone size={17} /></span>
                   <span>
                     <span className="block font-semibold text-slate-800">Call / WhatsApp</span>
