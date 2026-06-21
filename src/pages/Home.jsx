@@ -104,7 +104,7 @@ export default function Home() {
                 <div className="relative h-44 overflow-hidden">
                   <img
                     src={s.photo}
-                    alt={s.title}
+                    alt={`${s.title} at W2W Fitness & Rehab, Mylapore, Chennai`}
                     loading="lazy"
                     className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
                   />
@@ -174,7 +174,7 @@ export default function Home() {
               <div key={f.name} className="card grid overflow-hidden sm:grid-cols-[12rem,1fr]">
                 <img
                   src={f.photo}
-                  alt={f.name}
+                  alt={`${f.name} — ${f.role}, W2W Fitness & Rehab, Mylapore`}
                   loading="lazy"
                   className="h-72 w-full object-cover object-top sm:h-full"
                 />

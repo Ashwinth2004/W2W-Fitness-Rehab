@@ -37,7 +37,7 @@ export default function Services() {
               <div className="relative min-h-[14rem] overflow-hidden">
                 <img
                   src={s.photo}
-                  alt={s.title}
+                  alt={`${s.title} at W2W Fitness & Rehab, Mylapore, Chennai`}
                   loading="lazy"
                   className={`h-56 w-full object-cover sm:h-72 md:absolute md:inset-0 md:h-full ${s.id === 'yoga' ? 'scale-[1.35]' : ''}`}
                 />

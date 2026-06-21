@@ -57,7 +57,7 @@ export default function About() {
                   {f.photo ? (
                     <img
                       src={f.photo}
-                      alt={f.name}
+                      alt={`${f.name} — ${f.role}, W2W Fitness & Rehab, Mylapore`}
                       loading="lazy"
                       className="h-28 w-28 shrink-0 rounded-2xl object-cover object-top ring-2 ring-brand-100"
                     />
