@@ -1,0 +1,14 @@
+{
+  "name": "w2w-backup-tools",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "W2W Firestore backup & restore tooling (Firebase Admin SDK). Recursively exports every collection and subcollection; restores from any snapshot.",
+  "scripts": {
+    "backup": "node backup.mjs",
+    "restore": "node restore.mjs"
+  },
+  "dependencies": {
+    "firebase-admin": "^12.1.1"
+  }
+}

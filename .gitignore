@@ -18,6 +18,10 @@ dist-ssr/
 *.key
 *.p8
 *.p12
+# Local DB backup output (encrypted or plain) — backups live in the private
+# backups repo / your machine, never in this code repo.
+*.json.enc
+scripts/backups/
 
 # ── Logs ─────────────────────────────────────────────────────────────────────
 *.log

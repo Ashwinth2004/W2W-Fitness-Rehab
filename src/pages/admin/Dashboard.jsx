@@ -1,13 +1,16 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Inbox, CalendarDays, Users, CalendarClock, ArrowRight, CheckCheck } from 'lucide-react'
+import { Inbox, CalendarDays, Users, CalendarClock, ArrowRight, CheckCheck, DatabaseBackup, Loader2, Check } from 'lucide-react'
 import { watchEnquiries, watchAppointments, watchClients, setEnquiryStatus } from '../../lib/firestore'
 import { fmt12h, fmtDate, todayISO } from '../../lib/format'
+import { downloadBackup } from '../../lib/backupExport'
+import { useAuth } from '../../context/AuthContext'
 import ContactActions from '../../components/ContactActions'
 import StatusBadge from '../../components/StatusBadge'
 import AdminPageHeader from '../../components/AdminPageHeader'
 
 export default function Dashboard() {
+  const { role } = useAuth()
   const [enquiries, setEnquiries] = useState([])
   const [appointments, setAppointments] = useState([])
   const [clients, setClients] = useState([])
@@ -116,6 +119,61 @@ export default function Dashboard() {
           )}
         </div>
       </div>
+
+      {role === 'full' && <BackupCard />}
+    </div>
+  )
+}
+
+// On-demand full export (Layer 2). Downloads a complete JSON snapshot of the
+// database to this device — handy right before a big edit. The automated daily
+// backup still runs independently in the background.
+function BackupCard() {
+  const [busy, setBusy] = useState(false)
+  const [result, setResult] = useState(null)
+  const [error, setError] = useState('')
+
+  async function run() {
+    setBusy(true); setError(''); setResult(null)
+    try {
+      const r = await downloadBackup()
+      setResult(r)
+    } catch (e) {
+      console.error(e)
+      setError('Backup failed. Check your connection and try again.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="card p-5">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-start gap-3">
+          <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-slate-100 text-slate-600">
+            <DatabaseBackup size={22} />
+          </div>
+          <div>
+            <h2 className="font-bold text-slate-900">Data Backup</h2>
+            <p className="mt-0.5 max-w-xl text-sm text-slate-500">
+              Download a full snapshot of every record (clients, treatments, appointments, accounts, workshops…).
+              Keep it somewhere safe. Automatic backups also run every day.
+            </p>
+          </div>
+        </div>
+        <button onClick={run} disabled={busy} className="btn-primary shrink-0 self-start sm:self-auto">
+          {busy ? <Loader2 size={18} className="animate-spin" /> : <DatabaseBackup size={18} />}
+          {busy ? 'Exporting…' : 'Export backup'}
+        </button>
+      </div>
+      {result && (
+        <p className="mt-3 flex items-center gap-1.5 rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
+          <Check size={15} className="shrink-0" />
+          Downloaded {result.count} records from {result.collections} collections.
+          {result.skipped?.length ? ` (Skipped: ${result.skipped.map((s) => s.collection).join(', ')}.)` : ''}
+        </p>
+      )}
+      {error && <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
     </div>
   )
 }

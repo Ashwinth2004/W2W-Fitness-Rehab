@@ -1,0 +1,62 @@
+name: Firestore daily backup
+
+# Layer 1 of the backup plan: every day, export the whole database (encrypted)
+# and push the snapshot into a SEPARATE PRIVATE repo so it's versioned, off-site
+# and retrievable from anywhere. See BACKUP.md for the one-time setup.
+
+on:
+  schedule:
+    - cron: '30 20 * * *'   # 20:30 UTC = 02:00 IST, daily
+  workflow_dispatch: {}      # also runnable on demand from the Actions tab
+
+concurrency:
+  group: firestore-backup
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout (for the backup scripts)
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install backup tooling
+        working-directory: scripts
+        run: npm install --no-audit --no-fund
+
+      - name: Export encrypted Firestore snapshot
+        working-directory: scripts
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          BACKUP_ENCRYPTION_PASSPHRASE: ${{ secrets.BACKUP_ENCRYPTION_PASSPHRASE }}
+        run: node backup.mjs --out "$RUNNER_TEMP/out"
+
+      - name: Push snapshot to the private backups repo
+        env:
+          BACKUP_REPO: ${{ secrets.BACKUP_REPO }}                 # e.g. your-username/w2w-data-backups
+          BACKUP_REPO_TOKEN: ${{ secrets.BACKUP_REPO_TOKEN }}     # fine-grained PAT, Contents: read & write on that repo
+        run: |
+          set -euo pipefail
+          if [ -z "${BACKUP_REPO:-}" ] || [ -z "${BACKUP_REPO_TOKEN:-}" ]; then
+            echo "::error::BACKUP_REPO and/or BACKUP_REPO_TOKEN secrets are not set. See BACKUP.md."
+            exit 1
+          fi
+          cd "$RUNNER_TEMP"
+          git clone --depth 1 "https://x-access-token:${BACKUP_REPO_TOKEN}@github.com/${BACKUP_REPO}.git" repo
+          mkdir -p repo/backups
+          cp "$RUNNER_TEMP/out/"* repo/backups/
+          cd repo
+          git config user.name  "w2w-backup-bot"
+          git config user.email "backup-bot@users.noreply.github.com"
+          git add backups
+          if git diff --cached --quiet; then
+            echo "No new snapshot to commit."
+          else
+            git commit -m "Backup $(date -u +%Y-%m-%dT%H-%M-%SZ)"
+            git push
+          fi

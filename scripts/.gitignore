@@ -1,0 +1,6 @@
+# Never commit credentials or local backup output.
+node_modules/
+serviceAccount.json
+backups/
+*.json.enc
+package-lock.json
