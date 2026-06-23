@@ -22,6 +22,10 @@ dist-ssr/
 # backups repo / your machine, never in this code repo.
 *.json.enc
 scripts/backups/
+# Local-only master reference holding the backup PASSPHRASE & key details.
+# NEVER commit this — it stays on your machine only.
+BACKUP-CREDENTIALS.local.md
+*.local.md
 
 # ── Logs ─────────────────────────────────────────────────────────────────────
 *.log
