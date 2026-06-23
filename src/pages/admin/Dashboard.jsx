@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Inbox, CalendarDays, Users, CalendarClock, ArrowRight, CheckCheck, DatabaseBackup, Loader2, Check } from 'lucide-react'
+import { Inbox, CalendarDays, Users, CalendarClock, ArrowRight, CheckCheck, FileSpreadsheet, Loader2, Check } from 'lucide-react'
 import { watchEnquiries, watchAppointments, watchClients, setEnquiryStatus } from '../../lib/firestore'
 import { fmt12h, fmtDate, todayISO } from '../../lib/format'
-import { downloadBackup } from '../../lib/backupExport'
+import { downloadExcelBackup } from '../../lib/backupExport'
 import { useAuth } from '../../context/AuthContext'
 import ContactActions from '../../components/ContactActions'
 import StatusBadge from '../../components/StatusBadge'
@@ -136,7 +136,7 @@ function BackupCard() {
   async function run() {
     setBusy(true); setError(''); setResult(null)
     try {
-      const r = await downloadBackup()
+      const r = await downloadExcelBackup()
       setResult(r)
     } catch (e) {
       console.error(e)
@@ -150,26 +150,27 @@ function BackupCard() {
     <div className="card p-5">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-start gap-3">
-          <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-slate-100 text-slate-600">
-            <DatabaseBackup size={22} />
+          <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-emerald-50 text-emerald-600">
+            <FileSpreadsheet size={22} />
           </div>
           <div>
-            <h2 className="font-bold text-slate-900">Data Backup</h2>
+            <h2 className="font-bold text-slate-900">Data Backup (Excel)</h2>
             <p className="mt-0.5 max-w-xl text-sm text-slate-500">
-              Download a full snapshot of every record (clients, treatments, appointments, accounts, workshops…).
-              Keep it somewhere safe. Automatic backups also run every day.
+              Download a full, well-organised Excel copy of every record — clients, treatments, appointments,
+              accounts, workshops — with a separate tab for each. Easy to open and read. Encrypted automatic
+              backups also run every day.
             </p>
           </div>
         </div>
         <button onClick={run} disabled={busy} className="btn-primary shrink-0 self-start sm:self-auto">
-          {busy ? <Loader2 size={18} className="animate-spin" /> : <DatabaseBackup size={18} />}
-          {busy ? 'Exporting…' : 'Export backup'}
+          {busy ? <Loader2 size={18} className="animate-spin" /> : <FileSpreadsheet size={18} />}
+          {busy ? 'Preparing…' : 'Download Excel'}
         </button>
       </div>
       {result && (
         <p className="mt-3 flex items-center gap-1.5 rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
           <Check size={15} className="shrink-0" />
-          Downloaded {result.count} records from {result.collections} collections.
+          Downloaded {result.count} records across {result.sheets} sheets.
           {result.skipped?.length ? ` (Skipped: ${result.skipped.map((s) => s.collection).join(', ')}.)` : ''}
         </p>
       )}
