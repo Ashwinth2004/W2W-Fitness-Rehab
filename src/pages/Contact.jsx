@@ -29,7 +29,7 @@ export default function Contact() {
             <div className="card p-6 text-center md:text-left">
               <h2 className="text-xl font-bold">Contact Information</h2>
               <ul className="mt-5 space-y-4 text-slate-700">
-                <li className="flex justify-center gap-3 md:justify-start"><MapPin className="shrink-0 text-brand-600" /> {BUSINESS.address}</li>
+                <li><a href={BUSINESS.mapsUrl} target="_blank" rel="noreferrer" className="flex items-start justify-center gap-3 hover:text-brand-700 md:justify-start"><MapPin className="shrink-0 text-brand-600" /> {BUSINESS.address}</a></li>
                 <li><a href={telLink()} className="flex items-center justify-center gap-3 hover:text-brand-700 md:justify-start"><Phone className="text-brand-600" /> {BUSINESS.phoneDisplay}</a></li>
                 <li><a href={`mailto:${BUSINESS.email}`} className="flex items-center justify-center gap-3 hover:text-brand-700 md:justify-start"><Mail className="text-brand-600" /> {BUSINESS.email}</a></li>
               </ul>

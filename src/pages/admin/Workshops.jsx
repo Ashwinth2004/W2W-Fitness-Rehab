@@ -57,24 +57,37 @@ const regWhatsApp = (r, groupLink) =>
 
 export default function Workshops() {
   const [tab, setTab] = useState('workshops')
+  const [linkCopied, setLinkCopied] = useState(false)
+
+  const copyRegLink = () => {
+    navigator.clipboard?.writeText(`${BUSINESS.website}/workshop`)
+      .then(() => { setLinkCopied(true); setTimeout(() => setLinkCopied(false), 1500) })
+      .catch(() => {})
+  }
+
   return (
     <div className="space-y-5">
       <AdminPageHeader title="W2W Workshop" />
-      <div className="flex flex-wrap justify-center gap-2 md:justify-start">
-        {[
-          { id: 'workshops', label: 'Workshops', icon: GraduationCap },
-          { id: 'registrations', label: 'Registrations', icon: ClipboardList },
-        ].map((t) => (
-          <button
-            key={t.id}
-            onClick={() => setTab(t.id)}
-            className={`flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-medium transition ${
-              tab === t.id ? 'bg-brand-600 text-white' : 'bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50'
-            }`}
-          >
-            <t.icon size={16} /> {t.label}
-          </button>
-        ))}
+      <div className="flex flex-wrap items-center justify-center gap-2 md:justify-between">
+        <div className="flex flex-wrap justify-center gap-2 md:justify-start">
+          {[
+            { id: 'workshops', label: 'Workshops', icon: GraduationCap },
+            { id: 'registrations', label: 'Registrations', icon: ClipboardList },
+          ].map((t) => (
+            <button
+              key={t.id}
+              onClick={() => setTab(t.id)}
+              className={`flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-medium transition ${
+                tab === t.id ? 'bg-brand-600 text-white' : 'bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50'
+              }`}
+            >
+              <t.icon size={16} /> {t.label}
+            </button>
+          ))}
+        </div>
+        <button onClick={copyRegLink} className="btn-outline" title="Copy the public workshop registration link to share">
+          {linkCopied ? <><Check size={18} /> Copied</> : <><Link2 size={18} /> Copy registration link</>}
+        </button>
       </div>
       {tab === 'workshops' ? <WorkshopManager /> : <Registrations />}
     </div>
@@ -342,13 +355,6 @@ function Registrations() {
   const [dateFilter, setDateFilter] = useState({ day: '', month: '' })
   const [editReg, setEditReg] = useState(null) // registration being edited
   const [adding, setAdding] = useState(false)   // add-student modal open
-  const [linkCopied, setLinkCopied] = useState(false)
-
-  const copyRegLink = () => {
-    navigator.clipboard?.writeText(`${BUSINESS.website}/workshop`)
-      .then(() => { setLinkCopied(true); setTimeout(() => setLinkCopied(false), 1500) })
-      .catch(() => {})
-  }
 
   useEffect(() => {
     const u1 = watchWorkshopRegistrations(setRegs)
@@ -378,9 +384,6 @@ function Registrations() {
     <div className="space-y-5">
       <div className="flex flex-wrap items-center gap-2">
         <button onClick={() => setAdding(true)} className="btn-primary"><Plus size={18} /> Add student</button>
-        <button onClick={copyRegLink} className="btn-outline" title="Copy the public workshop registration link to share">
-          {linkCopied ? <><Check size={18} /> Copied</> : <><Link2 size={18} /> Copy registration link</>}
-        </button>
       </div>
 
       <div className="flex flex-wrap items-center gap-3">

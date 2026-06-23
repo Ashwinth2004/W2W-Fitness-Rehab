@@ -47,7 +47,7 @@ export default function Appointment() {
                   <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-brand-50 text-brand-600"><MapPin size={17} /></span>
                   <span>
                     <span className="block font-semibold text-slate-800">Where</span>
-                    {BUSINESS.address}
+                    <a href={BUSINESS.mapsUrl} target="_blank" rel="noreferrer" className="hover:text-brand-700 hover:underline">{BUSINESS.address}</a>
                   </span>
                 </li>
                 <li className="flex items-start gap-3">

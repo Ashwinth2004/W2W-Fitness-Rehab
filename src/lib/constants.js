@@ -101,8 +101,8 @@ export const FOUNDERS = [
     role: 'Head Physiotherapist & Founder',
     instagram: 'https://www.instagram.com/98sakthisaravanan',
     photo: '/team/sakthi-saravanan-physiotherapist.webp',
-    credentials: ['BPT', 'M.Sc. Exercise Physiology & Nutrition', 'Dip. Manual Therapy', 'Certified Dry Needling'],
-    bio: 'Head physiotherapist and Way to Wellness founder with six years of experience. BPT, M.Sc. in Exercise Physiology & Nutrition, Diploma in Manual Therapy, certified in evidence-based orthopaedic manual therapy and certified dry needling practitioner. Worked with the Tamil Nadu senior women’s football squad for two years.',
+    credentials: ['BPT', 'M.Sc. Exercise Physiology & Nutrition', 'MIAP (Member of Indian Association of Physiotherapists)', 'Dip. Manual Therapy', 'Certified Dry Needling'],
+    bio: 'Head physiotherapist and Way to Wellness founder with six years of experience. BPT, M.Sc. in Exercise Physiology & Nutrition, and a Member of the Indian Association of Physiotherapists (MIAP), with a Diploma in Manual Therapy, certified in evidence-based orthopaedic manual therapy and a certified dry needling practitioner. Worked with the Tamil Nadu senior women’s football squad for two years.',
   },
   {
     name: 'Akash Pariyar',
@@ -113,6 +113,15 @@ export const FOUNDERS = [
     bio: 'An internationally certified fitness professional with close to a decade of experience in health and wellness. Holds credentials from the American Council on Exercise (ACE) and the American College of Sports Medicine (ACSM), with formal training in Hatha Yoga, bringing a comprehensive and integrative approach to fitness.',
   },
 ]
+
+// A therapist's formal qualification line — shown after their name wherever they
+// are credited (e.g. under the consultant's signature on client reports). Keyed
+// by name so each therapist carries their own credentials.
+export const THERAPIST_QUALIFICATIONS = {
+  'Sakthi Saravanan': 'BPT, M.Sc Exercise Physiology & Nutrition, MIAP',
+}
+
+export const qualificationFor = (name) => THERAPIST_QUALIFICATIONS[(name || '').trim()] || ''
 
 // Gallery images (optimised copies live in /public/gallery). Captions are
 // generic but descriptive — tweak any time without touching the page.
@@ -161,7 +170,6 @@ export const REELS = [
   { url: 'https://www.instagram.com/reel/DZr4htuCBSS/', thumbnail: '/reels/knee-pain-clinical-reasoning.webp', caption: 'Why did my knee pain return? — the clinical reasoning' },
   { url: 'https://www.instagram.com/reel/DTyAqiakt8i/', thumbnail: '/reels/way-to-wellness-2-years.webp', caption: 'Way to Wellness turns two' },
   { url: 'https://www.instagram.com/reel/DRQ_H-nkp_E/', thumbnail: '/reels/physiotherapy-clinical-reasoning.webp', caption: 'When the prescription already decides the treatment…' },
-  { url: 'https://www.instagram.com/reel/DRHlSbYEmhW/', thumbnail: '/reels/vertigo-balance-challenge.webp', caption: 'The vertigo challenge — give it a try!' },
   { url: 'https://www.instagram.com/reel/DQ_hB3Ukn2Q/', thumbnail: '/reels/chase-understanding-not-certificates.webp', caption: 'Don’t chase certificates, chase understanding' },
   { url: 'https://www.instagram.com/reel/DQyb_0ZEnZh/', thumbnail: '/reels/healing-emotional-wellbeing.webp', caption: 'Healing isn’t just physical, it’s emotional too' },
 ]

@@ -210,9 +210,9 @@ export default function Home() {
                 <Instagram size={18} /> {BUSINESS.instagramHandle}
               </a>
             </div>
-            <p className="mt-6 flex items-center justify-center gap-2 text-sm text-brand-100">
+            <a href={BUSINESS.mapsUrl} target="_blank" rel="noreferrer" className="mt-6 flex items-center justify-center gap-2 text-sm text-brand-100 transition hover:text-white">
               <MapPin size={16} /> {BUSINESS.address}
-            </p>
+            </a>
           </div>
         </div>
       </section>

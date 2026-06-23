@@ -40,7 +40,7 @@ export default function Footer() {
         <div>
           <h4 className="mb-3 font-semibold text-white">Get in Touch</h4>
           <ul className="space-y-4 text-sm md:space-y-3">
-            <li className="flex flex-col items-center gap-1.5 text-center md:flex-row md:gap-2 md:text-left"><MapPin size={18} className="shrink-0 text-brand-400" />{BUSINESS.address}</li>
+            <li><a href={BUSINESS.mapsUrl} target="_blank" rel="noreferrer" className="flex flex-col items-center gap-1.5 text-center hover:text-white md:flex-row md:gap-2 md:text-left"><MapPin size={18} className="shrink-0 text-brand-400" />{BUSINESS.address}</a></li>
             <li><a href={telLink()} className="flex flex-col items-center gap-1.5 text-center hover:text-white md:flex-row md:gap-2 md:text-left"><Phone size={18} className="text-brand-400" />{BUSINESS.phoneDisplay}</a></li>
             <li><a href={`mailto:${BUSINESS.email}`} className="flex flex-col items-center gap-1.5 text-center hover:text-white md:flex-row md:gap-2 md:text-left"><Mail size={18} className="text-brand-400" />{BUSINESS.email}</a></li>
           </ul>

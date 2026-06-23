@@ -8,7 +8,7 @@
 // ============================================================================
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
-import { BUSINESS } from './constants'
+import { BUSINESS, qualificationFor } from './constants'
 import { fmtDate, fmt12h } from './format'
 
 const BRAND = [14, 139, 161] // #0e8ba1
@@ -302,7 +302,11 @@ export async function generateClientReport(client, opts = {}) {
   doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.setTextColor(...DARK)
   doc.text("Patient's signature", M + 2, y + 5)
   doc.text('Consultant Physiotherapist', PW - M - 70, y + 5)
-  if (therapist) { doc.setFont('helvetica', 'normal'); doc.setTextColor(80); doc.text(therapist, PW - M - 70, y + 10) }
+  if (therapist) {
+    doc.setFont('helvetica', 'normal'); doc.setTextColor(80); doc.text(therapist, PW - M - 70, y + 10)
+    const quals = qualificationFor(therapist)
+    if (quals) { doc.setFontSize(7.5); doc.setTextColor(110); doc.text(quals, PW - M - 70, y + 14) }
+  }
 
   footerAll(doc)
   const filename = `W2W_Report_${client.clientId || 'client'}_${client.name?.replace(/\s+/g, '_') || 'report'}.pdf`
