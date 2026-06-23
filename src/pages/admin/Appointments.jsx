@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
-  CalendarDays, Plus, Check, X, Loader2, CalendarClock, MessageSquarePlus, Pencil, Copy,
+  CalendarDays, Plus, Check, X, Loader2, CalendarClock, MessageSquarePlus, Pencil, Copy, Trash2,
 } from 'lucide-react'
 import {
   watchAppointments, addAppointmentByAdmin, setAppointmentStatus, cancelAppointment,
-  rescheduleAppointment, setAppointmentRemarks, updateAppointment, getBookedTimes,
+  rescheduleAppointment, setAppointmentRemarks, updateAppointment, getBookedTimes, deleteAppointment,
 } from '../../lib/firestore'
 import { fmt12h, fmtDate, todayISO, matchesDateFilter } from '../../lib/format'
 import { SERVICE_OPTIONS, SLOT_TIMES, BUSINESS } from '../../lib/constants'
@@ -239,6 +239,13 @@ function RowActions({ appt, onReschedule, onEdit }) {
         }`}
       >
         <X size={17} />
+      </button>
+      <button
+        onClick={() => window.confirm('Delete this appointment permanently? It will no longer appear in reports.') && deleteAppointment(appt)}
+        title="Delete permanently"
+        className="grid h-8 w-8 place-items-center rounded-lg text-slate-400 hover:bg-red-50 hover:text-red-600"
+      >
+        <Trash2 size={16} />
       </button>
     </div>
   )

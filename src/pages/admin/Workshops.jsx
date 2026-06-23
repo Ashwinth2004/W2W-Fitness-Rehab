@@ -1,19 +1,23 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
   Plus, Trash2, Pencil, Loader2, GraduationCap, Users, Check, X,
-  CalendarDays, ClipboardList, Eye, Copy,
+  CalendarDays, ClipboardList, Eye, Copy, Link2,
 } from 'lucide-react'
 import {
   watchWorkshops, createWorkshop, updateWorkshop, deleteWorkshop, watchWorkshopSeats,
   watchWorkshopRegistrations, approveRegistration, unapproveRegistration, deleteRegistration,
+  updateRegistration, addRegistrationByAdmin,
 } from '../../lib/firestore'
 import ContactActions from '../../components/ContactActions'
 import DateField from '../../components/DateField'
+import PhoneField from '../../components/PhoneField'
 import AdminFilter from '../../components/AdminFilter'
 import AdminPageHeader from '../../components/AdminPageHeader'
 import { fmtDate, matchesDateFilter } from '../../lib/format'
-import { workshopShareMessage } from '../../lib/constants'
+import { workshopShareMessage, BUSINESS } from '../../lib/constants'
 import { useUnsaved } from '../../context/UnsavedContext'
+
+const QUALIFICATIONS = ['BPT', 'MPT', 'Intern', 'Student', 'Others']
 
 // Sensible defaults for the common case — the admin can backspace and change
 // any of these per workshop.
@@ -22,7 +26,7 @@ const EMPTY = {
   venue: 'Balaiah Avenue, Mylapore',
   mapUrl: 'https://maps.app.goo.gl/r15LukodqtmcwqKk9',
   fee: '500', slots: '', upiId: 'vyapar.169653437474@hdfcbank', paymentNumber: '7200043621', status: 'draft',
-  shareMessage: '',
+  shareMessage: '', whatsappGroup: '',
 }
 
 // 12-hour time picker → value like "10:00 AM".
@@ -44,8 +48,12 @@ function Time12({ value, onChange }) {
   )
 }
 
-const regWhatsApp = (r) =>
-  `Hi ${r.fullName || 'there'}, greetings from W2W Fitness & Rehab! Your slot for *${r.workshopTitle || 'the workshop'}* is *confirmed*. We look forward to seeing you. — Team W2W`
+// Confirmation message sent to a student (via the WhatsApp icon). When the
+// workshop has a WhatsApp group link set, it's appended so the student can join.
+const regWhatsApp = (r, groupLink) =>
+  `Hi ${r.fullName || 'there'}, greetings from W2W Fitness & Rehab! Your slot for *${r.workshopTitle || 'the workshop'}* is *confirmed*. We look forward to seeing you.` +
+  (groupLink ? `\n\nPlease join this WhatsApp group for further updates & contact:\n${groupLink}` : '') +
+  `\n\n— Team W2W`
 
 export default function Workshops() {
   const [tab, setTab] = useState('workshops')
@@ -140,6 +148,7 @@ function WorkshopManager() {
       paymentNumber: form.paymentNumber.trim(),
       status: form.status,
       shareMessage: form.shareMessage.trim(),
+      whatsappGroup: form.whatsappGroup.trim(),
     }
     try {
       if (form.status === 'open') {
@@ -163,7 +172,7 @@ function WorkshopManager() {
       title: w.title || '', description: w.description || '', date: w.date || '',
       startTime: w.startTime || '', endTime: w.endTime || '', venue: w.venue || '', mapUrl: w.mapUrl || '',
       fee: w.fee ?? '', slots: w.slots ?? '', upiId: w.upiId || '', paymentNumber: w.paymentNumber || '', status: w.status || 'draft',
-      shareMessage: w.shareMessage || '',
+      shareMessage: w.shareMessage || '', whatsappGroup: w.whatsappGroup || '',
     })
     setError('')
     window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -217,6 +226,11 @@ function WorkshopManager() {
         <div className="grid gap-3 sm:grid-cols-2">
           <div><label className="label text-xs">UPI ID (for payment QR)</label><input className="input" value={form.upiId} onChange={set('upiId')} placeholder="name@okhdfcbank" /></div>
           <div><label className="label text-xs">Payment mobile number</label><input className="input" value={form.paymentNumber} onChange={set('paymentNumber')} placeholder="7200043621" /></div>
+        </div>
+        <div>
+          <label className="label text-xs">WhatsApp group link <span className="font-normal text-slate-400">(admin only — never shown on the website)</span></label>
+          <input className="input" value={form.whatsappGroup} onChange={set('whatsappGroup')} placeholder="https://chat.whatsapp.com/…" />
+          <p className="mt-1 text-xs text-slate-400">Auto-added to the confirmation WhatsApp message you send a student after approving their slot.</p>
         </div>
         <div>
           <div className="flex items-center justify-between">
@@ -326,6 +340,15 @@ function Registrations() {
   const [workshops, setWorkshops] = useState([])
   const [filter, setFilter] = useState('all')
   const [dateFilter, setDateFilter] = useState({ day: '', month: '' })
+  const [editReg, setEditReg] = useState(null) // registration being edited
+  const [adding, setAdding] = useState(false)   // add-student modal open
+  const [linkCopied, setLinkCopied] = useState(false)
+
+  const copyRegLink = () => {
+    navigator.clipboard?.writeText(`${BUSINESS.website}/workshop`)
+      .then(() => { setLinkCopied(true); setTimeout(() => setLinkCopied(false), 1500) })
+      .catch(() => {})
+  }
 
   useEffect(() => {
     const u1 = watchWorkshopRegistrations(setRegs)
@@ -353,6 +376,13 @@ function Registrations() {
 
   return (
     <div className="space-y-5">
+      <div className="flex flex-wrap items-center gap-2">
+        <button onClick={() => setAdding(true)} className="btn-primary"><Plus size={18} /> Add student</button>
+        <button onClick={copyRegLink} className="btn-outline" title="Copy the public workshop registration link to share">
+          {linkCopied ? <><Check size={18} /> Copied</> : <><Link2 size={18} /> Copy registration link</>}
+        </button>
+      </div>
+
       <div className="flex flex-wrap items-center gap-3">
         <label className="text-sm font-medium text-slate-600">Filter:</label>
         <select className="input max-w-xs" value={filter} onChange={(e) => setFilter(e.target.value)}>
@@ -393,7 +423,8 @@ function Registrations() {
                   {r.reason && <p className="mt-1 text-xs italic text-slate-500">“{r.reason}”</p>}
                 </div>
                 <div className="flex items-center gap-2">
-                  <ContactActions phone={r.phone} size="sm" message={regWhatsApp(r)} />
+                  <ContactActions phone={r.phone} size="sm" message={regWhatsApp(r, workshops.find((w) => w.id === r.workshopId)?.whatsappGroup)} />
+                  <button onClick={() => setEditReg(r)} title="Edit details" className="grid h-8 w-8 place-items-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-brand-600"><Pencil size={15} /></button>
                   {r.status !== 'confirmed' ? (
                     <button onClick={() => approveRegistration(r)} title="Approve & book seat" className="grid h-8 w-8 place-items-center rounded-lg bg-green-50 text-green-600 hover:bg-green-100"><Check size={16} /></button>
                   ) : (
@@ -406,6 +437,82 @@ function Registrations() {
           ))}
         </div>
       )}
+
+      {(adding || editReg) && (
+        <RegistrationFormModal
+          reg={editReg}
+          workshops={workshops}
+          defaultWorkshopId={filter !== 'all' ? filter : ''}
+          onClose={() => { setAdding(false); setEditReg(null) }}
+        />
+      )}
+    </div>
+  )
+}
+
+// Add a new registration manually, or edit an existing one's details.
+function RegistrationFormModal({ reg, workshops, defaultWorkshopId, onClose }) {
+  const editing = Boolean(reg)
+  const [workshopId, setWorkshopId] = useState(reg?.workshopId || defaultWorkshopId || workshops[0]?.id || '')
+  const [fullName, setFullName] = useState(reg?.fullName || '')
+  const [phone, setPhone] = useState(reg?.phone || '')
+  const [email, setEmail] = useState(reg?.email || '')
+  const [qualification, setQualification] = useState(reg?.qualification || '')
+  const [paidVia, setPaidVia] = useState(reg?.paidVia || '')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+
+  async function save(e) {
+    e.preventDefault()
+    setError('')
+    if (!fullName.trim()) return setError('Name is required.')
+    if (!/^\d{10}$/.test(phone.trim())) return setError('Enter a valid 10-digit mobile number.')
+    setBusy(true)
+    try {
+      const data = { fullName: fullName.trim(), phone: phone.trim(), email: email.trim().toLowerCase(), qualification, paidVia: paidVia.trim() }
+      if (editing) {
+        await updateRegistration(reg.id, data)
+      } else {
+        const w = workshops.find((x) => x.id === workshopId)
+        if (!w) { setError('Please choose a workshop.'); setBusy(false); return }
+        await addRegistrationByAdmin(w, data)
+      }
+      onClose()
+    } catch (err) {
+      setError(err.message === 'DUPLICATE' ? 'This phone or email is already registered for that workshop.' : 'Could not save. Please try again.')
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-[80] grid place-items-center bg-slate-900/50 p-4 backdrop-blur-sm" onClick={onClose}>
+      <form onSubmit={save} onClick={(e) => e.stopPropagation()} className="w-full max-w-md animate-pop-in space-y-4 rounded-3xl bg-white p-6 shadow-2xl">
+        <div className="flex items-center justify-between">
+          <h2 className="text-xl font-bold">{editing ? 'Edit registration' : 'Add student'}</h2>
+          <button type="button" onClick={onClose} className="rounded-full p-1.5 text-slate-400 hover:bg-slate-100"><X size={20} /></button>
+        </div>
+        {!editing && (
+          <div>
+            <label className="label text-xs">Workshop *</label>
+            <select className="input" value={workshopId} onChange={(e) => setWorkshopId(e.target.value)}>
+              <option value="">Select a workshop…</option>
+              {workshops.map((w) => <option key={w.id} value={w.id}>{w.title}</option>)}
+            </select>
+          </div>
+        )}
+        <div><label className="label text-xs">Full name *</label><input className="input" value={fullName} onChange={(e) => setFullName(e.target.value)} autoFocus /></div>
+        <div><label className="label text-xs">Phone *</label><PhoneField value={phone} onChange={setPhone} /></div>
+        <div><label className="label text-xs">Email</label><input className="input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@email.com" /></div>
+        <div className="grid grid-cols-2 gap-3">
+          <div><label className="label text-xs">Qualification</label><select className="input" value={qualification} onChange={(e) => setQualification(e.target.value)}><option value="">—</option>{QUALIFICATIONS.map((q) => <option key={q}>{q}</option>)}</select></div>
+          <div><label className="label text-xs">Paid via</label><input className="input" value={paidVia} onChange={(e) => setPaidVia(e.target.value)} placeholder="GPay / PhonePe…" /></div>
+        </div>
+        {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}
+        <div className="flex justify-end gap-2">
+          <button type="button" onClick={onClose} className="btn-ghost">Cancel</button>
+          <button disabled={busy} className="btn-primary">{busy ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />} {editing ? 'Save' : 'Add student'}</button>
+        </div>
+      </form>
     </div>
   )
 }

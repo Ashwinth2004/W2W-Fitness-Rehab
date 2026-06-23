@@ -164,7 +164,7 @@ function group(doc, y, title, pairs, blockKeys = []) {
 //  Individual patient assessment report (matches the W2W intake form).
 // ---------------------------------------------------------------------------
 export async function generateClientReport(client, opts = {}) {
-  const { notes = [], progress = [], therapist = '', bill = null, action = 'download' } = opts
+  const { notes = [], progress = [], therapist = '', bill = null, action = 'download', sessions = null } = opts
   const logo = await loadLogo()
   const doc = new jsPDF({ unit: 'mm', format: 'a4' })
   let y = header(doc, logo, 'Physiotherapy Assessment Report',
@@ -196,31 +196,49 @@ export async function generateClientReport(client, opts = {}) {
     ['Past Medical History', client.pastHistory], ['Present Medical History', client.presentHistory],
     ['Current chief complaints', client.complaint], ['Mechanism of injury', client.mechanism],
   ], ['Past Medical History', 'Present Medical History', 'Current chief complaints', 'Mechanism of injury'])
-  y = group(doc, y, 'Pain Assessment', [
-    ['Area (side & site)', client.painArea], ['Duration', client.painDuration],
-    ['Nature / type', client.painType], ['Impact on ADL', client.painADL],
-    ['Aggravating factor', client.painAggravating], ['Relieving factor', client.painRelieving],
-    ['VAS — pain score (0-10)', client.vas],
-  ])
-  y = group(doc, y, 'Objective Assessment', [
-    ['Built', client.built], ['Deformities / Edema / Wasting', client.deformities],
-    ['Gait', client.gait], ['Notes', client.objectiveNotes],
-  ], ['Notes'])
-  y = group(doc, y, 'On Palpation', [
-    ['Tenderness', client.tenderness], ['Swelling / Spasm', client.swelling],
-    ['Crepitus / Abnormal sounds', client.crepitus],
-  ])
-  y = group(doc, y, 'On Examination', [
-    ['ROM', client.rom], ['End feel', client.endFeel], ['Grip', client.grip],
-    ['Muscle tone', client.muscleTone], ['Girth measurements', client.girth],
-    ['Limb length discrepancies', client.limbLength], ['Reflexes', client.reflexes],
-    ['Special tests & functional testing', client.specialTests],
-  ], ['ROM', 'Special tests & functional testing'])
-  y = group(doc, y, 'Assessment & Plan', [
-    ['Opinion about the condition', client.opinion], ['Treatment options (with evidence)', client.treatmentOptions],
-    ['Expected duration of recovery & outcomes', client.expectedRecovery],
-    ['Treatment plan', client.treatmentPlan], ['Follow up', client.followUp],
-  ], ['Opinion about the condition', 'Treatment options (with evidence)', 'Expected duration of recovery & outcomes', 'Treatment plan', 'Follow up'])
+  // Clinical assessment — rendered once, or repeated per selected session.
+  const renderClinical = (src) => {
+    y = group(doc, y, 'Pain Assessment', [
+      ['Area (side & site)', src.painArea], ['Duration', src.painDuration],
+      ['Nature / type', src.painType], ['Impact on ADL', src.painADL],
+      ['Aggravating factor', src.painAggravating], ['Relieving factor', src.painRelieving],
+      ['VAS — pain score (0-10)', src.vas],
+    ])
+    y = group(doc, y, 'Objective Assessment', [
+      ['Built', src.built], ['Deformities / Edema / Wasting', src.deformities],
+      ['Gait', src.gait], ['Notes', src.objectiveNotes],
+    ], ['Notes'])
+    y = group(doc, y, 'On Palpation', [
+      ['Tenderness', src.tenderness], ['Swelling / Spasm', src.swelling],
+      ['Crepitus / Abnormal sounds', src.crepitus],
+    ])
+    y = group(doc, y, 'On Examination', [
+      ['ROM', src.rom], ['End feel', src.endFeel], ['Grip', src.grip],
+      ['Muscle tone', src.muscleTone], ['Girth measurements', src.girth],
+      ['Limb length discrepancies', src.limbLength], ['Reflexes', src.reflexes],
+      ['Special tests & functional testing', src.specialTests],
+    ], ['ROM', 'Special tests & functional testing'])
+    y = group(doc, y, 'Assessment & Plan', [
+      ['Opinion about the condition', src.opinion], ['Treatment options (with evidence)', src.treatmentOptions],
+      ['Expected duration of recovery & outcomes', src.expectedRecovery],
+      ['Treatment plan', src.treatmentPlan], ['Follow up', src.followUp],
+    ], ['Opinion about the condition', 'Treatment options (with evidence)', 'Expected duration of recovery & outcomes', 'Treatment plan', 'Follow up'])
+    if (src.note) y = group(doc, y, 'Session Note', [['Note', src.note]], ['Note'])
+  }
+
+  if (sessions && sessions.length) {
+    sessions.forEach((s) => {
+      y = ensure(doc, y, 16)
+      doc.setFillColor(...DARK)
+      doc.rect(M, y - 4, CW, 8, 'F')
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(11); doc.setTextColor(255)
+      doc.text(`Session — ${fmtDate(s.date)}${s.therapist ? `   ·   ${s.therapist}` : ''}`, M + 2, y + 1.5)
+      y += 11
+      renderClinical(s)
+    })
+  } else {
+    renderClinical(client)
+  }
 
   // Progress measurements
   if (progress.length) {
@@ -379,4 +397,89 @@ export async function generateIncomeReport({ rangeLabel = '', entries = [], acti
   })
   footerAll(doc)
   return finalize(doc, `W2W_Income_${rangeLabel.replace(/\s+/g, '_')}.pdf`, action)
+}
+
+// ---------------------------------------------------------------------------
+//  Accounts report — income (patient charges) + expenses + net profit.
+// ---------------------------------------------------------------------------
+export async function generateAccountsReport({ rangeLabel = '', entries = [], expenses = [], action = 'download' }) {
+  const logo = await loadLogo()
+  const doc = new jsPDF({ unit: 'mm', format: 'a4' })
+  let y = header(doc, logo, 'Accounts Report', rangeLabel)
+  const charged = entries.reduce((s, e) => s + Number(e.amount || 0), 0)
+  const received = entries.reduce((s, e) => s + Number(e.paid || 0), 0)
+  const due = entries.reduce((s, e) => s + Number(e.balance || 0), 0)
+  const totalExp = expenses.reduce((s, e) => s + Number(e.amount || 0), 0)
+  const net = received - totalExp
+
+  autoTable(doc, {
+    startY: y + 2,
+    body: [[`Income (received)\n${inr(received)}`, `Expenses\n${inr(totalExp)}`, `Net Profit\n${inr(net)}`]],
+    theme: 'grid', styles: { halign: 'center', fontSize: 11, cellPadding: 4, textColor: DARK }, margin: { left: M, right: M },
+  })
+  y = doc.lastAutoTable.finalY + 8
+
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(12); doc.setTextColor(...DARK); doc.text('Income — Patient Charges', 14, y)
+  autoTable(doc, {
+    startY: y + 3,
+    head: [['Date', 'Client', 'Service', 'Charged', 'Received', 'Due', 'Mode']],
+    body: entries.slice().sort((a, b) => a.date.localeCompare(b.date)).map((e) => [fmtDate(e.date), e.clientName, e.service || '—', inr(e.amount), inr(e.paid), inr(e.balance), e.mode || '—']),
+    foot: [['', '', 'Total', inr(charged), inr(received), inr(due), '']],
+    theme: 'striped', headStyles: { fillColor: BRAND, fontSize: 8 }, bodyStyles: { fontSize: 8 }, footStyles: { fillColor: DARK, textColor: 255, fontSize: 8 },
+    columnStyles: { 3: { halign: 'right' }, 4: { halign: 'right' }, 5: { halign: 'right' } }, margin: { left: M, right: M },
+  })
+  y = doc.lastAutoTable.finalY + 8
+  if (y > PH - 60) { doc.addPage(); y = 20 }
+
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(12); doc.setTextColor(...DARK); doc.text('Expenses', 14, y)
+  autoTable(doc, {
+    startY: y + 3,
+    head: [['Date', 'Expense', 'Note', 'Amount']],
+    body: expenses.slice().sort((a, b) => a.date.localeCompare(b.date)).map((e) => [fmtDate(e.date), e.name, e.note || '—', inr(e.amount)]),
+    foot: [['', '', 'Total', inr(totalExp)]],
+    theme: 'striped', headStyles: { fillColor: [176, 58, 58], fontSize: 9 }, bodyStyles: { fontSize: 9 }, footStyles: { fillColor: DARK, textColor: 255, fontSize: 9 },
+    columnStyles: { 3: { halign: 'right' } }, margin: { left: M, right: M },
+  })
+  y = doc.lastAutoTable.finalY + 8
+
+  y = ensure(doc, y, 16)
+  doc.setFillColor(238, 249, 251); doc.roundedRect(M, y, CW, 12, 2, 2, 'F')
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(12); doc.setTextColor(...DARK)
+  doc.text('Net Profit  (Income received − Expenses)', M + 4, y + 8)
+  doc.text(inr(net), PW - M - 4, y + 8, { align: 'right' })
+
+  footerAll(doc)
+  return finalize(doc, `W2W_Accounts_${rangeLabel.replace(/\s+/g, '_')}.pdf`, action)
+}
+
+// ---------------------------------------------------------------------------
+//  Workshop report — students, mobile, fees paid + total workshop income.
+// ---------------------------------------------------------------------------
+export async function generateWorkshopReport({ rangeLabel = '', registrations = [], workshops = [], action = 'download' }) {
+  const logo = await loadLogo()
+  const doc = new jsPDF({ unit: 'mm', format: 'a4' })
+  let y = header(doc, logo, 'Workshop Report', rangeLabel)
+  const feeOf = (r) => Number(workshops.find((w) => w.id === r.workshopId)?.fee || 0)
+  const confirmed = registrations.filter((r) => r.status === 'confirmed')
+  const income = confirmed.reduce((s, r) => s + feeOf(r), 0)
+
+  autoTable(doc, {
+    startY: y + 2,
+    body: [[`Registrations\n${registrations.length}`, `Confirmed (paid)\n${confirmed.length}`, `Workshop Income\n${inr(income)}`]],
+    theme: 'grid', styles: { halign: 'center', fontSize: 11, cellPadding: 4, textColor: DARK }, margin: { left: M, right: M },
+  })
+  y = doc.lastAutoTable.finalY + 6
+
+  autoTable(doc, {
+    startY: y,
+    head: [['Workshop', 'Name', 'Mobile', 'Qualification', 'Status', 'Fee paid']],
+    body: registrations.slice().sort((a, b) => (a.workshopTitle || '').localeCompare(b.workshopTitle || ''))
+      .map((r) => [r.workshopTitle || '—', r.fullName || '—', r.phone || '—', r.qualification || '—', r.status === 'confirmed' ? 'Confirmed' : 'Pending', r.status === 'confirmed' ? inr(feeOf(r)) : '—']),
+    foot: [['', '', '', '', 'Total income', inr(income)]],
+    theme: 'striped', headStyles: { fillColor: BRAND, fontSize: 8.5 }, bodyStyles: { fontSize: 8.5 }, footStyles: { fillColor: DARK, textColor: 255, fontSize: 8.5 },
+    columnStyles: { 5: { halign: 'right' } }, margin: { left: M, right: M },
+  })
+
+  footerAll(doc)
+  return finalize(doc, `W2W_Workshops_${rangeLabel.replace(/\s+/g, '_')}.pdf`, action)
 }

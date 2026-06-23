@@ -270,6 +270,7 @@ function PaymentStep({ workshop, form, onBack, onConfirmed }) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [copied, setCopied] = useState(false)
+  const [copiedNum, setCopiedNum] = useState(false)
   const topRef = useRef(null)
   useEffect(() => {
     const y = (topRef.current?.getBoundingClientRect().top || 0) + window.scrollY - 90
@@ -286,6 +287,9 @@ function PaymentStep({ workshop, form, onBack, onConfirmed }) {
   function copyUpi() {
     if (!workshop.upiId) return
     navigator.clipboard?.writeText(workshop.upiId).then(() => { setCopied(true); setTimeout(() => setCopied(false), 1500) }).catch(() => {})
+  }
+  function copyNum() {
+    navigator.clipboard?.writeText(String(payNumber)).then(() => { setCopiedNum(true); setTimeout(() => setCopiedNum(false), 1500) }).catch(() => {})
   }
 
   async function confirm() {
@@ -332,9 +336,12 @@ function PaymentStep({ workshop, form, onBack, onConfirmed }) {
             </button>
           </div>
         )}
-        <p className="mt-3 flex items-center justify-between gap-2 rounded-xl bg-white px-3 py-2 text-sm">
-          <span><span className="text-slate-400">Payment mobile number:</span> <span className="font-semibold text-slate-800">{payNumber}</span></span>
-        </p>
+        <div className="mt-3 flex items-center justify-between gap-2 rounded-xl bg-white px-3 py-2 text-sm">
+          <span className="truncate"><span className="text-slate-400">Payment mobile number:</span> <span className="font-semibold text-slate-800">{payNumber}</span></span>
+          <button type="button" onClick={copyNum} className="inline-flex shrink-0 items-center gap-1 rounded-lg bg-brand-50 px-2.5 py-1.5 text-xs font-semibold text-brand-700 hover:bg-brand-100">
+            {copiedNum ? <><Check size={14} /> Copied</> : <><Copy size={14} /> Copy</>}
+          </button>
+        </div>
       </div>
 
       {/* What to do note */}

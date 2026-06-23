@@ -133,6 +133,13 @@ export async function cancelAppointment(appt) {
   await freeSlot(appt.date, appt.time)
 }
 
+// Permanently remove an appointment (won't appear in reports). Frees its slot
+// first (unless it was already cancelled, which freed it).
+export async function deleteAppointment(appt) {
+  if (appt.status !== 'cancelled') { try { await freeSlot(appt.date, appt.time) } catch (_) {} }
+  return deleteDoc(doc(db, 'appointments', appt.id))
+}
+
 // Admin free-text remarks/notes on an appointment.
 export async function setAppointmentRemarks(id, remarks) {
   return updateDoc(doc(db, 'appointments', id), { remarks })
@@ -442,6 +449,21 @@ export function watchWorkshopRegistrations(cb) {
   return onSnapshot(q, (snap) => cb(snap.docs.map((d) => ({ id: d.id, ...d.data() }))))
 }
 
+// Admin edit of a registration's entered details (name, phone, email, qualification…).
+export async function updateRegistration(id, data) {
+  return updateDoc(doc(db, 'workshopRegistrations', id), data)
+}
+
+// Admin-added registration (manual entry). Reuses the per-phone/email dedup.
+export async function addRegistrationByAdmin(workshop, data) {
+  return registerForWorkshop(workshop, { ...data, available: true, markedPaid: data.markedPaid ?? true })
+}
+
+export async function getWorkshopRegistrationsOnce() {
+  const snap = await getDocs(query(collection(db, 'workshopRegistrations'), orderBy('createdAt', 'desc')))
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+}
+
 // Admin approves a paid registration → confirmed (books a seat: +1 confirmed).
 export async function approveRegistration(reg) {
   if (reg.status === 'confirmed') return
@@ -606,6 +628,10 @@ export function watchTreatments(clientId, cb) {
 export async function getTreatmentsOnce(clientId) {
   const snap = await getDocs(query(collection(db, 'clients', clientId, 'treatments'), orderBy('date', 'desc')))
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+}
+
+export async function updateTreatment(clientId, id, data) {
+  return updateDoc(doc(db, 'clients', clientId, 'treatments', id), data)
 }
 
 export async function deleteTreatment(clientId, id) {

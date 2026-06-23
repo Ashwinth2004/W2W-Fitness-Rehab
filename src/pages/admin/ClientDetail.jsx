@@ -3,11 +3,11 @@ import { Link, useParams, useNavigate } from 'react-router-dom'
 import {
   ArrowLeft, BadgeCheck, FileDown, Pencil, Trash2, Plus, Save, X, Loader2,
   NotebookPen, Stethoscope, User, Calendar, Send, IndianRupee, MapPin,
-  CalendarClock, Activity,
+  CalendarClock, Activity, ChevronRight,
 } from 'lucide-react'
 import {
   getClient, updateClient, deleteClient, watchClientNotes, addClientNote, deleteClientNote,
-  watchTreatments, deleteTreatment, getClientNotesOnce, addAccountingEntry,
+  watchTreatments, deleteTreatment, updateTreatment, getClientNotesOnce, addAccountingEntry,
 } from '../../lib/firestore'
 import { fmtDate, fmtDateTime, todayISO } from '../../lib/format'
 import { onlyDigits, isValidMobile } from '../../lib/validate'
@@ -177,45 +177,85 @@ function TreatmentSessions({ clientId, treatments }) {
   return (
     <div className="card p-5">
       <div className="mb-4 flex items-center justify-between">
-        <h2 className="flex items-center gap-2 font-bold text-slate-900"><Stethoscope size={18} className="text-brand-600" /> Treatment Sessions</h2>
+        <h2 className="flex items-center gap-2 font-bold text-slate-900"><Stethoscope size={18} className="text-brand-600" /> Treatment Sessions {treatments.length > 0 && <span className="text-sm font-medium text-slate-400">({treatments.length})</span>}</h2>
         <Link to={`/admin/treatment?client=${clientId}`} className="btn-ghost px-3 py-1.5 text-sm"><Plus size={16} /> New session</Link>
       </div>
       {treatments.length === 0 ? (
         <p className="py-8 text-center text-sm text-slate-400">No treatment sessions yet. Record one from the Treatment module.</p>
       ) : (
-        <div className="space-y-4">
-          {treatments.map((t) => {
-            const groups = SESSION_GROUPS.map(([title, pairs]) => [title, pairs.filter(([k]) => t[k])]).filter(([, p]) => p.length)
-            return (
-              <div key={t.id} className="rounded-2xl border border-slate-100 p-4">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <p className="flex flex-wrap items-center gap-x-3 text-sm">
-                    <span className="font-semibold text-brand-700">{fmtDate(t.date)}</span>
-                    {t.therapist && <span className="text-slate-500">{t.therapist}</span>}
-                    {t.nextSession && <span className="inline-flex items-center gap-1 text-slate-500"><CalendarClock size={13} /> Next: {fmtDate(t.nextSession)}</span>}
-                  </p>
-                  <button onClick={() => window.confirm('Delete this treatment session?') && deleteTreatment(clientId, t.id)} className="text-slate-300 hover:text-red-500"><Trash2 size={15} /></button>
-                </div>
-                {groups.length > 0 && (
-                  <div className="mt-3 grid gap-x-8 gap-y-4 border-t border-slate-100 pt-3 md:grid-cols-2">
-                    {groups.map(([title, pairs]) => (
-                      <div key={title}>
-                        <p className="mb-1.5 text-xs font-bold uppercase tracking-wide text-brand-600">{title}</p>
-                        <dl className="space-y-1">
-                          {pairs.map(([k, label]) => (
-                            <div key={k} className="flex gap-2 text-sm"><dt className="shrink-0 text-slate-400">{label}:</dt><dd className="whitespace-pre-line text-slate-700">{String(t[k])}</dd></div>
-                          ))}
-                        </dl>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )
-          })}
+        <div className="space-y-3">
+          {treatments.map((t, i) => <SessionItem key={t.id} clientId={clientId} t={t} defaultOpen={i === 0} />)}
         </div>
       )}
     </div>
+  )
+}
+
+// One treatment session — collapsible, with an editable per-session note.
+function SessionItem({ clientId, t, defaultOpen }) {
+  const [editingNote, setEditingNote] = useState(false)
+  const [noteText, setNoteText] = useState(t.note || '')
+  const [savingNote, setSavingNote] = useState(false)
+  const groups = SESSION_GROUPS.map(([title, pairs]) => [title, pairs.filter(([k]) => t[k])]).filter(([, p]) => p.length)
+
+  async function saveNote() {
+    setSavingNote(true)
+    try { await updateTreatment(clientId, t.id, { note: noteText.trim() }); setEditingNote(false) } finally { setSavingNote(false) }
+  }
+
+  return (
+    <details open={defaultOpen} className="rounded-2xl border border-slate-100 [&[open]_.chev]:rotate-90">
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-2 p-4">
+        <span className="flex flex-wrap items-center gap-x-3 text-sm">
+          <ChevronRight size={16} className="chev shrink-0 text-slate-400 transition-transform" />
+          <span className="font-semibold text-brand-700">{fmtDate(t.date)}</span>
+          {t.therapist && <span className="text-slate-500">{t.therapist}</span>}
+          {t.nextSession && <span className="inline-flex items-center gap-1 text-slate-500"><CalendarClock size={13} /> Next: {fmtDate(t.nextSession)}</span>}
+          {t.note && <span className="inline-flex items-center gap-1 text-xs text-amber-600"><NotebookPen size={12} /> note</span>}
+        </span>
+        <span className="text-xs text-slate-400">view</span>
+      </summary>
+
+      <div className="border-t border-slate-100 p-4 pt-3">
+        {groups.length > 0 && (
+          <div className="grid gap-x-8 gap-y-4 md:grid-cols-2">
+            {groups.map(([title, pairs]) => (
+              <div key={title}>
+                <p className="mb-1.5 text-xs font-bold uppercase tracking-wide text-brand-600">{title}</p>
+                <dl className="space-y-1">
+                  {pairs.map(([k, label]) => (
+                    <div key={k} className="flex gap-2 text-sm"><dt className="shrink-0 text-slate-400">{label}:</dt><dd className="whitespace-pre-line text-slate-700">{String(t[k])}</dd></div>
+                  ))}
+                </dl>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Per-session note */}
+        <div className="mt-3 rounded-xl bg-slate-50 p-3">
+          <p className="mb-1 text-xs font-bold uppercase tracking-wide text-slate-500">Session note</p>
+          {editingNote ? (
+            <div>
+              <textarea className="input min-h-[60px]" value={noteText} onChange={(e) => setNoteText(e.target.value)} placeholder="Add a note for this session…" autoFocus />
+              <div className="mt-2 flex gap-2">
+                <button onClick={saveNote} disabled={savingNote} className="btn-primary px-3 py-1.5 text-xs">{savingNote ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />} Save note</button>
+                <button onClick={() => { setNoteText(t.note || ''); setEditingNote(false) }} className="btn-ghost px-3 py-1.5 text-xs">Cancel</button>
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-start justify-between gap-2">
+              <p className="whitespace-pre-line text-sm text-slate-700">{t.note || <span className="text-slate-400">No note yet.</span>}</p>
+              <button onClick={() => { setNoteText(t.note || ''); setEditingNote(true) }} className="shrink-0 text-xs font-semibold text-brand-600 hover:underline">{t.note ? 'Edit' : '+ Add note'}</button>
+            </div>
+          )}
+        </div>
+
+        <div className="mt-3 flex justify-end">
+          <button onClick={() => window.confirm('Delete this treatment session?') && deleteTreatment(clientId, t.id)} className="inline-flex items-center gap-1 text-xs text-red-500 hover:text-red-700"><Trash2 size={14} /> Delete session</button>
+        </div>
+      </div>
+    </details>
   )
 }
 
@@ -263,8 +303,8 @@ function NotesSection({ clientId, notes }) {
 const PAY_MODES = ['Cash', 'UPI', 'Card', 'Bank transfer', 'Other']
 
 function ReportModal({ client, treatments, onClose }) {
-  const [sessionId, setSessionId] = useState(treatments[0]?.id || '')
-  const [therapist, setTherapist] = useState('')
+  const [selectedIds, setSelectedIds] = useState(() => treatments.map((t) => t.id)) // all by default
+  const [therapist, setTherapist] = useState(client.therapist || 'Sakthi Saravanan')
   const [chargeDate, setChargeDate] = useState(todayISO())
   const [amount, setAmount] = useState('')
   const [paid, setPaid] = useState('')
@@ -275,12 +315,9 @@ function ReportModal({ client, treatments, onClose }) {
   const [recorded, setRecorded] = useState(false)
   const [msg, setMsg] = useState('')
 
-  const session = treatments.find((t) => t.id === sessionId) || null
-  // Default the therapist + charge date to the selected session.
-  useEffect(() => {
-    setTherapist(session?.therapist || client.therapist || '')
-    if (session?.date) setChargeDate(session.date)
-  }, [sessionId]) // eslint-disable-line
+  const allSelected = treatments.length > 0 && selectedIds.length === treatments.length
+  const toggleSession = (id) => setSelectedIds((ids) => (ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id]))
+  const toggleAll = () => setSelectedIds(allSelected ? [] : treatments.map((t) => t.id))
 
   const balance = Math.max(0, (Number(amount) || 0) - (Number(paid) || 0))
   const money = (set) => (e) => set(onlyDigits(e.target.value).slice(0, 7))
@@ -289,10 +326,13 @@ function ReportModal({ client, treatments, onClose }) {
     setBusy(action); setMsg('')
     try {
       const notes = await getClientNotesOnce(client.id)
-      // Merge the client's basics with the chosen session's clinical fields.
-      const merged = { ...client, ...(session || {}), assessmentDate: session?.date || todayISO() }
+      // Combine the selected sessions (one, several, or all) into a single report.
+      const sessions = treatments
+        .filter((t) => selectedIds.includes(t.id))
+        .sort((a, b) => (a.date || '').localeCompare(b.date || ''))
+      const baseClient = { ...client, assessmentDate: sessions[0]?.date || todayISO() }
       const bill = withBilling ? { amount: Number(amount) || 0, paid: Number(paid) || 0, balance, mode } : null
-      const res = await generateClientReport(merged, { notes, progress: [], therapist, bill, action })
+      const res = await generateClientReport(baseClient, { notes, progress: [], therapist, bill, action, sessions })
       if (withBilling && record && !recorded && (bill.amount > 0 || bill.paid > 0)) {
         await addAccountingEntry({
           date: chargeDate || todayISO(),
@@ -322,18 +362,31 @@ function ReportModal({ client, treatments, onClose }) {
           <button onClick={onClose} className="rounded-full p-1.5 text-slate-400 hover:bg-slate-100"><X size={22} /></button>
         </div>
 
-        {/* Past session / history selector */}
+        {/* Sessions to include — tick one, several, or all (combined into one report) */}
         <div>
-          <label className="label text-xs">Report from session (past history)</label>
+          <div className="flex items-center justify-between">
+            <label className="label text-xs">Sessions to include</label>
+            {treatments.length > 0 && (
+              <button type="button" onClick={toggleAll} className="text-xs font-semibold text-brand-600 hover:underline">
+                {allSelected ? 'Clear all' : 'Select all'}
+              </button>
+            )}
+          </div>
           {treatments.length === 0 ? (
             <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700">No treatment sessions yet — this report will include basic details only.</p>
           ) : (
-            <select className="input" value={sessionId} onChange={(e) => setSessionId(e.target.value)}>
+            <div className="max-h-44 space-y-1 overflow-y-auto rounded-xl border border-slate-200 p-2">
               {treatments.map((t, i) => (
-                <option key={t.id} value={t.id}>{fmtDate(t.date)}{t.therapist ? ` · ${t.therapist}` : ''}{i === 0 ? ' (latest)' : ''}</option>
+                <label key={t.id} className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-sm hover:bg-slate-50">
+                  <input type="checkbox" checked={selectedIds.includes(t.id)} onChange={() => toggleSession(t.id)} className="h-4 w-4 rounded border-slate-300 text-brand-600" />
+                  <span className="font-medium text-slate-700">{fmtDate(t.date)}</span>
+                  {t.therapist && <span className="text-xs text-slate-400">· {t.therapist}</span>}
+                  {i === 0 && <span className="text-[11px] font-semibold text-brand-500">latest</span>}
+                </label>
               ))}
-            </select>
+            </div>
           )}
+          <p className="mt-1 text-xs text-slate-400">Tick one, several, or all sessions — they're combined into a single report.</p>
         </div>
 
         {/* Therapist */}
