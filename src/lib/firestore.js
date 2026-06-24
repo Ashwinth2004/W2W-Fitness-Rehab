@@ -605,6 +605,19 @@ export async function addExpenseCategory(name) {
   return addDoc(collection(db, 'expenseCategories'), { name: name.trim(), createdAt: serverTimestamp() })
 }
 
+export async function updateExpenseCategory(id, name) {
+  return updateDoc(doc(db, 'expenseCategories', id), { name: name.trim() })
+}
+
+export async function deleteExpenseCategory(id) {
+  return deleteDoc(doc(db, 'expenseCategories', id))
+}
+
+export async function getExpenseCategoriesOnce() {
+  const snap = await getDocs(query(collection(db, 'expenseCategories'), orderBy('name')))
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+}
+
 // ---------- Treatments (per-visit clinical assessments) --------------------
 // Stored under clients/{id}/treatments — one record per session, holding the
 // clinical fields + handling therapist + next-session date.

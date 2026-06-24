@@ -102,7 +102,7 @@ export const FOUNDERS = [
     instagram: 'https://www.instagram.com/98sakthisaravanan',
     photo: '/team/sakthi-saravanan-physiotherapist.webp',
     credentials: ['BPT', 'M.Sc. Exercise Physiology & Nutrition', 'MIAP (Member of Indian Association of Physiotherapists)', 'Dip. Manual Therapy', 'Certified Dry Needling'],
-    bio: 'Head physiotherapist and Way to Wellness founder with six years of experience. BPT, M.Sc. in Exercise Physiology & Nutrition, and a Member of the Indian Association of Physiotherapists (MIAP), with a Diploma in Manual Therapy, certified in evidence-based orthopaedic manual therapy and a certified dry needling practitioner. Worked with the Tamil Nadu senior women’s football squad for two years.',
+    bio: 'Head physiotherapist and Way to Wellness founder with 6+ years of experience. BPT, M.Sc. in Exercise Physiology & Nutrition, and a Member of the Indian Association of Physiotherapists (MIAP), with a Diploma in Manual Therapy, certified in evidence-based orthopaedic manual therapy and a certified dry needling practitioner. Worked with the Tamil Nadu senior women’s football squad for two years.',
   },
   {
     name: 'Akash Pariyar',

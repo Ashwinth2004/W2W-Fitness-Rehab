@@ -40,7 +40,7 @@ const Workshops = lazy(() => import('./pages/admin/Workshops'))
 
 function PublicLayout({ children }) {
   return (
-    <div className="flex min-h-screen flex-col">
+    <div className="flex min-h-screen flex-col pt-9">
       <AnnouncementBar />
       <Navbar />
       <main className="flex-1 overflow-x-hidden">{children}</main>

@@ -3,7 +3,7 @@ import { TrendingUp, TrendingDown, Plus, Trash2, X, Save, Pencil } from 'lucide-
 import {
   watchAccounting, addAccountingEntry, updateAccountingEntry, deleteAccountingEntry,
   watchExpenses, addExpense, updateExpense, deleteExpense, watchClients,
-  watchExpenseCategories, addExpenseCategory,
+  watchExpenseCategories, addExpenseCategory, getExpenseCategoriesOnce,
 } from '../../lib/firestore'
 import { fmtDate, todayISO, matchesDateFilter } from '../../lib/format'
 import { onlyDigits } from '../../lib/validate'
@@ -11,6 +11,7 @@ import DateField from '../../components/DateField'
 import AdminFilter from '../../components/AdminFilter'
 import AdminPageHeader from '../../components/AdminPageHeader'
 import TherapistSelect from '../../components/TherapistSelect'
+import ExpenseSelect from '../../components/ExpenseSelect'
 import { useUnsaved } from '../../context/UnsavedContext'
 
 const inr = (n) => 'Rs. ' + Number(n || 0).toLocaleString('en-IN')
@@ -219,8 +220,6 @@ function Expenses() {
   const [cats, setCats] = useState([])
   const [filter, setFilter] = useState({ day: '', month: '' })
   const [f, setF] = useState({ date: todayISO(), name: '', amount: '', note: '' })
-  const [adding, setAdding] = useState(false)
-  const [newCat, setNewCat] = useState('')
   const [editId, setEditId] = useState(null)
   const { setDirty } = useUnsaved()
 
@@ -228,19 +227,26 @@ function Expenses() {
   useEffect(() => watchExpenseCategories(setCats), [])
   useEffect(() => () => setDirty(false), [setDirty])
 
+  // One-time: move the built-in preset titles into the DB so every title in the
+  // dropdown can be renamed/deleted. Runs once per browser; only adds presets
+  // that don't already exist.
+  useEffect(() => {
+    if (localStorage.getItem('w2w_expcat_seeded') === '1') return
+    ;(async () => {
+      try {
+        const existing = await getExpenseCategoriesOnce()
+        const have = new Set(existing.map((c) => (c.name || '').toLowerCase()))
+        await Promise.all(EXPENSE_PRESETS.filter((p) => !have.has(p.toLowerCase())).map((p) => addExpenseCategory(p)))
+        localStorage.setItem('w2w_expcat_seeded', '1')
+      } catch { /* ignore — presets just won't be pre-seeded */ }
+    })()
+  }, [])
+
   const list = rows.filter((r) => matchesDateFilter(r.date, filter))
   const total = list.reduce((s, r) => s + Number(r.amount || 0), 0)
-  const catNames = Array.from(new Set([...EXPENSE_PRESETS, ...cats.map((c) => c.name)])).sort()
 
-  async function saveNewCat() {
-    const n = newCat.trim()
-    if (!n) return
-    if (!catNames.includes(n)) await addExpenseCategory(n)
-    setF((s) => ({ ...s, name: n })); setNewCat(''); setAdding(false)
-  }
-
-  function reset() { setF({ date: todayISO(), name: '', amount: '', note: '' }); setEditId(null); setAdding(false); setDirty(false) }
-  function startEdit(r) { setF({ date: r.date || todayISO(), name: r.name || '', amount: String(r.amount ?? ''), note: r.note || '' }); setEditId(r.id); setAdding(false) }
+  function reset() { setF({ date: todayISO(), name: '', amount: '', note: '' }); setEditId(null); setDirty(false) }
+  function startEdit(r) { setF({ date: r.date || todayISO(), name: r.name || '', amount: String(r.amount ?? ''), note: r.note || '' }); setEditId(r.id) }
 
   async function save(e) {
     e.preventDefault()
@@ -263,23 +269,7 @@ function Expenses() {
         <div><label className="label text-xs">Date</label><DateField value={f.date} onChange={(iso) => { setF((s) => ({ ...s, date: iso })); setDirty(true) }} max={todayISO()} /></div>
         <div>
           <label className="label text-xs">Expense name *</label>
-          {adding ? (
-            <div className="flex gap-1.5">
-              <input className="input" autoFocus value={newCat} onChange={(e) => { setNewCat(e.target.value); setDirty(true) }} placeholder="New expense name…" onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); saveNewCat() } }} />
-              <button type="button" onClick={saveNewCat} className="btn-primary shrink-0 px-3"><Plus size={15} /></button>
-            </div>
-          ) : (
-            <select
-              className="input"
-              value={f.name}
-              onChange={(e) => { if (e.target.value === '__add__') { setAdding(true); return } setF((s) => ({ ...s, name: e.target.value })); setDirty(true) }}
-            >
-              <option value="">— Select expense —</option>
-              {catNames.map((n) => <option key={n} value={n}>{n}</option>)}
-              {f.name && !catNames.includes(f.name) && <option value={f.name}>{f.name}</option>}
-              <option value="__add__">+ Add new expense…</option>
-            </select>
-          )}
+          <ExpenseSelect value={f.name} categories={cats} onChange={(name) => { setF((s) => ({ ...s, name })); setDirty(true) }} />
         </div>
         <div><label className="label text-xs">Amount (Rs.) *</label><input className="input" inputMode="numeric" value={f.amount} onChange={money((v) => { setF((s) => ({ ...s, amount: v })); setDirty(true) })} placeholder="0" /></div>
         <div><label className="label text-xs">Note</label><input className="input" value={f.note} onChange={(e) => { setF((s) => ({ ...s, note: e.target.value })); setDirty(true) }} placeholder="Optional" /></div>

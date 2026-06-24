@@ -32,12 +32,12 @@ export default function AnnouncementBar() {
 
   return (
     <div
-      className={`no-print text-white ${
+      className={`no-print fixed inset-x-0 top-0 z-[60] flex h-9 items-center text-white ${
         isOpen ? 'bg-gradient-to-r from-brand-600 to-brand-700' : 'bg-brand-900'
       }`}
     >
-      <Link to="/workshop" className="block hover:opacity-95" title="W2W Workshop registration">
-        <div className="flex overflow-hidden whitespace-nowrap py-2 text-sm">
+      <Link to="/workshop" className="flex h-full w-full items-center hover:opacity-95" title="W2W Workshop registration">
+        <div className="flex w-full overflow-hidden whitespace-nowrap text-sm">
           <div className="flex shrink-0 animate-marquee">
             <Copy />
             <Copy hidden />
