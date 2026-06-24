@@ -110,7 +110,7 @@ export const FOUNDERS = [
     instagram: 'https://www.instagram.com/akash_8_pariyar',
     photo: '/team/akash-pariyar-fitness-director.webp',
     credentials: ['ACE Certified', 'ACSM Certified', 'Hatha Yoga Trained', '10+ yrs experience'],
-    bio: 'An internationally certified fitness professional with close to a decade of experience in health and wellness. Holds credentials from the American Council on Exercise (ACE) and the American College of Sports Medicine (ACSM), with formal training in Hatha Yoga, bringing a comprehensive and integrative approach to fitness.',
+    bio: 'An internationally certified fitness professional with close to a decade of experience in health and wellness. Holds credentials from the American Council on Exercise (ACE) and the American College of Sports Medicine (ACSM), with formal training in Hatha Yoga, he brings a comprehensive and integrative approach to fitness.',
   },
 ]
 
