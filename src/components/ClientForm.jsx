@@ -12,7 +12,8 @@ import AssessmentField from './AssessmentField'
 import SignaturePad from './SignaturePad'
 import BodyPainSelector from './BodyPainSelector'
 
-const blankForm = () => Object.fromEntries(BASIC_KEYS.map((k) => [k, '']))
+// New clients default to Physiotherapy as the primary service (changeable in the dropdown).
+const blankForm = () => ({ ...Object.fromEntries(BASIC_KEYS.map((k) => [k, ''])), service: 'Physiotherapy' })
 
 // Front-desk client intake — Basic Details only. The clinical assessment is
 // done by the physiotherapist in the Treatment module. onCreated(id) is called
