@@ -1,7 +1,7 @@
-import { Fragment, useEffect, useMemo, useState } from 'react'
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { Stethoscope, Search, Loader2, Save, ArrowRight, Plus, CheckCircle2, BadgeCheck } from 'lucide-react'
-import { watchClients, watchTreatments, addTreatment } from '../../lib/firestore'
+import { watchClients, watchTreatments, addTreatment, updateTreatment } from '../../lib/firestore'
 import { CLINICAL_SECTIONS, CLINICAL_KEYS } from '../../lib/assessmentSchema'
 import { todayISO, fmtDate } from '../../lib/format'
 import DateField from '../../components/DateField'
@@ -28,7 +28,7 @@ export default function Treatment() {
   if (!clients.length) return <div className="grid place-items-center py-20 text-slate-400"><Loader2 className="animate-spin" /></div>
   if (!client) return <ClientPicker clients={clients} note="That patient could not be found — pick again." onPick={(id) => setParams({ client: id })} onNew={() => navigate('/admin/clients?new=1')} />
 
-  return <TreatmentForm key={client.id} client={client} onChangeClient={() => setParams({})} navigate={navigate} />
+  return <TreatmentForm key={`${client.id}:${params.get('session') || ''}`} client={client} editId={params.get('session') || ''} onChangeClient={() => setParams({})} navigate={navigate} />
 }
 
 function ClientPicker({ clients, onPick, onNew, note }) {
@@ -161,7 +161,7 @@ function PatientSummary({ client }) {
   )
 }
 
-function TreatmentForm({ client, onChangeClient, navigate }) {
+function TreatmentForm({ client, editId = '', onChangeClient, navigate }) {
   const [treatments, setTreatments] = useState([])
   const [form, setForm] = useState(blank)
   const [date, setDate] = useState(todayISO())
@@ -174,8 +174,24 @@ function TreatmentForm({ client, onChangeClient, navigate }) {
   const [therapistInvalid, setTherapistInvalid] = useState(false)
   const { setDirty, guard } = useUnsaved()
 
+  const editLoaded = useRef(false)
   useEffect(() => watchTreatments(client.id, setTreatments), [client.id])
   useEffect(() => () => setDirty(false), [setDirty])
+
+  // Edit mode: load the chosen saved session into the form (once, when it arrives).
+  useEffect(() => {
+    if (!editId || editLoaded.current || !treatments.length) return
+    const t = treatments.find((x) => x.id === editId)
+    if (!t) return
+    editLoaded.current = true
+    const next = blank()
+    CLINICAL_KEYS.forEach((k) => { next[k] = t[k] ?? '' })
+    setForm(next)
+    setDate(t.date || todayISO())
+    setNextSession(t.nextSession || '')
+    setTherapist(t.therapist || '')
+    setConsent(Boolean(t.consent))
+  }, [editId, treatments])
 
   const last = treatments[0] || null
   // Default the handler to the client's last therapist if none chosen yet.
@@ -192,11 +208,17 @@ function TreatmentForm({ client, onChangeClient, navigate }) {
       requestAnimationFrame(() => document.getElementById('treat-therapist')?.scrollIntoView({ behavior: 'smooth', block: 'center' }))
       return
     }
+    if (!consent) {
+      setError('Please tick the consent confirmation before saving.')
+      requestAnimationFrame(() => document.getElementById('treat-consent')?.scrollIntoView({ behavior: 'smooth', block: 'center' }))
+      return
+    }
     setBusy(true)
     try {
       const data = { date: date || todayISO(), therapist, nextSession: nextSession || '', consent }
       CLINICAL_KEYS.forEach((k) => { const v = form[k]; data[k] = typeof v === 'string' ? v.trim() : v })
-      await addTreatment(client.id, data)
+      if (editId) await updateTreatment(client.id, editId, data)
+      else await addTreatment(client.id, data)
       setDirty(false)
       setSaved(true)
     } catch (err) {
@@ -212,11 +234,11 @@ function TreatmentForm({ client, onChangeClient, navigate }) {
         <AdminPageHeader title="Treatment" />
         <div className="card mx-auto max-w-lg p-8 text-center">
           <CheckCircle2 className="mx-auto text-green-500" size={48} />
-          <h2 className="mt-3 text-xl font-bold">Treatment saved</h2>
-          <p className="mt-1 text-slate-500">Session recorded for {client.name} ({client.clientId}).</p>
+          <h2 className="mt-3 text-xl font-bold">{editId ? 'Treatment updated' : 'Treatment saved'}</h2>
+          <p className="mt-1 text-slate-500">Session {editId ? 'updated' : 'recorded'} for {client.name} ({client.clientId}).</p>
           <div className="mt-6 flex flex-wrap justify-center gap-2">
             <Link to={`/admin/clients/${client.id}`} className="btn-primary">Open patient &amp; generate report <ArrowRight size={16} /></Link>
-            <button onClick={() => { setForm(blank()); setNextSession(''); setConsent(false); setSaved(false) }} className="btn-outline">Add another session</button>
+            <button onClick={() => { if (editId) navigate(`/admin/treatment?client=${client.id}`); else { setForm(blank()); setNextSession(''); setConsent(false); setSaved(false) } }} className="btn-outline">Add another session</button>
             <button onClick={onChangeClient} className="btn-ghost">Another patient</button>
           </div>
         </div>
@@ -225,7 +247,7 @@ function TreatmentForm({ client, onChangeClient, navigate }) {
   }
 
   return (
-    <form onSubmit={save} className="space-y-5">
+    <form onSubmit={save} onKeyDown={(e) => { if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA') e.preventDefault() }} className="space-y-5">
       <AdminPageHeader title="Treatment">
         <button type="button" onClick={() => guard(() => navigate(`/admin/clients/${client.id}`))} className="text-sm font-medium text-brand-600 hover:underline">Open patient page →</button>
       </AdminPageHeader>
@@ -284,7 +306,7 @@ function TreatmentForm({ client, onChangeClient, navigate }) {
           any time. Every effort is made to preserve modesty and keep the patient comfortable.
         </p>
         <label className="mt-3 flex items-start gap-2 font-medium text-slate-700">
-          <input type="checkbox" checked={consent} onChange={(e) => { setConsent(e.target.checked); touch() }} className="mt-0.5 h-4 w-4 rounded border-slate-300 text-brand-600" />
+          <input id="treat-consent" type="checkbox" checked={consent} onChange={(e) => { setConsent(e.target.checked); touch() }} className="mt-0.5 h-4 w-4 rounded border-slate-300 text-brand-600" />
           The procedure was explained and the patient consents to the assessment &amp; treatment.
         </label>
       </div>
@@ -292,7 +314,7 @@ function TreatmentForm({ client, onChangeClient, navigate }) {
       {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}
       <div className="flex justify-end gap-2">
         <button type="button" onClick={() => guard(() => navigate('/admin/clients'))} className="btn-ghost">Cancel</button>
-        <button type="submit" disabled={busy} className="btn-primary">{busy ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />} Save treatment</button>
+        <button type="submit" disabled={busy} className="btn-primary">{busy ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />} {editId ? 'Update treatment' : 'Save treatment'}</button>
       </div>
     </form>
   )

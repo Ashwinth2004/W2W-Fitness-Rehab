@@ -259,7 +259,8 @@ function SessionItem({ clientId, t, defaultOpen }) {
           )}
         </div>
 
-        <div className="mt-3 flex justify-end">
+        <div className="mt-3 flex justify-end gap-4">
+          <Link to={`/admin/treatment?client=${clientId}&session=${t.id}`} className="inline-flex items-center gap-1 text-xs font-medium text-brand-600 hover:text-brand-700"><Pencil size={14} /> Edit session</Link>
           <button onClick={() => window.confirm('Delete this treatment session?') && deleteTreatment(clientId, t.id)} className="inline-flex items-center gap-1 text-xs text-red-500 hover:text-red-700"><Trash2 size={14} /> Delete session</button>
         </div>
       </div>

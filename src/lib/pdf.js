@@ -185,6 +185,16 @@ function ensure(doc, y, needed = 8) {
   return y
 }
 
+// Draw text shrunk just enough to fit maxW, so long values (e.g. emails) never
+// overflow the page. Restores the base size afterwards.
+function fitText(doc, text, x, y, maxW, baseSize, minSize = 6) {
+  let size = baseSize
+  doc.setFontSize(size)
+  while (size > minSize && doc.getTextWidth(String(text)) > maxW) { size -= 0.5; doc.setFontSize(size) }
+  doc.text(String(text), x, y)
+  doc.setFontSize(baseSize)
+}
+
 function sectionHeader(doc, y, text) {
   y = ensure(doc, y, 12)
   doc.setFillColor(238, 249, 251)
@@ -248,9 +258,9 @@ export async function generateClientReport(client, opts = {}) {
   const col1 = [`Reg. No: ${client.clientId || '—'}`, `Age / Gender: ${client.age || '—'} / ${client.gender || '—'}`, `Phone: ${client.phone || '—'}`]
   const col2 = [`Occupation: ${client.occupation || '—'}`, `Hand dominance: ${client.handDominance || '—'}`, `Referred by: ${client.referredBy || '—'}`]
   const col3 = [`Height: ${client.height || '—'} cm`, `Weight: ${client.weight || '—'} kg`, `Email: ${client.email || '—'}`]
-  col1.forEach((t, i) => doc.text(t, M + 6, y + 15 + i * 5))
-  col2.forEach((t, i) => doc.text(t, M + 70, y + 15 + i * 5))
-  col3.forEach((t, i) => doc.text(t, M + 135, y + 15 + i * 5))
+  col1.forEach((t, i) => fitText(doc, t, M + 6, y + 15 + i * 5, 60, 8.5))
+  col2.forEach((t, i) => fitText(doc, t, M + 70, y + 15 + i * 5, 61, 8.5))
+  col3.forEach((t, i) => fitText(doc, t, M + 135, y + 15 + i * 5, PW - 2 * M - 135, 8.5))
   y += 38
   if (client.address) { doc.setFontSize(9); doc.setTextColor(90); y = field(doc, y, 'Address', client.address) }
 
@@ -298,9 +308,9 @@ export async function generateClientReport(client, opts = {}) {
   if (Array.isArray(client.painAreas) && client.painAreas.length) {
     const chart = await renderPainChart(client.painAreas)
     if (chart) {
+      const w = 110, h = w * (PAIN_H / PAIN_W)
+      y = ensure(doc, y, h + 18) // keep the header + chart together on one page
       y = sectionHeader(doc, y, 'Pain Areas (marked by patient)')
-      const w = 105, h = w * (PAIN_H / PAIN_W)
-      y = ensure(doc, y, h + 4)
       doc.addImage(chart, 'JPEG', (PW - w) / 2, y, w, h)
       y += h + 4
     }
