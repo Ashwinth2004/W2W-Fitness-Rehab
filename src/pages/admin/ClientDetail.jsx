@@ -453,6 +453,7 @@ function EditClientModal({ client, onClose, onSaved }) {
     BASIC_KEYS.forEach((k) => { f[k] = client[k] ?? '' })
     return f
   })
+  const [painAreas, setPainAreas] = useState(() => (Array.isArray(client.painAreas) ? client.painAreas : []))
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const set = (k) => (val) => { setForm((f) => ({ ...f, [k]: val })); setError('') }
@@ -466,6 +467,7 @@ function EditClientModal({ client, onClose, onSaved }) {
     try {
       const data = {}
       BASIC_KEYS.forEach((k) => { const v = form[k]; data[k] = typeof v === 'string' ? v.trim() : v })
+      data.painAreas = painAreas
       await updateClient(client.id, data) // also stamps updatedAt
       onSaved(data)
     } catch (err) {
@@ -494,6 +496,11 @@ function EditClientModal({ client, onClose, onSaved }) {
             </div>
           </fieldset>
         ))}
+
+        <fieldset className="rounded-2xl border border-slate-100 p-4">
+          <legend className="px-2 text-sm font-bold text-brand-700">Pain areas (tap on the body)</legend>
+          <BodyPainSelector value={painAreas} onChange={setPainAreas} />
+        </fieldset>
 
         {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}
 

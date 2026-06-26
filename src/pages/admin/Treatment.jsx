@@ -7,6 +7,7 @@ import { todayISO, fmtDate } from '../../lib/format'
 import DateField from '../../components/DateField'
 import AssessmentField from '../../components/AssessmentField'
 import VasScale from '../../components/VasScale'
+import BodyPainSelector from '../../components/BodyPainSelector'
 import TherapistSelect from '../../components/TherapistSelect'
 import ContactActions from '../../components/ContactActions'
 import AdminPageHeader from '../../components/AdminPageHeader'
@@ -118,7 +119,8 @@ const SUMMARY_NOTES = [
 function PatientSummary({ client }) {
   const facts = SUMMARY_FACTS.filter(([k]) => client[k])
   const notes = SUMMARY_NOTES.filter(([k]) => client[k])
-  const hasAny = facts.length > 0 || notes.length > 0 || client.address
+  const hasArea = Array.isArray(client.painAreas) && client.painAreas.length > 0
+  const hasAny = facts.length > 0 || notes.length > 0 || client.address || hasArea
   return (
     <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-4">
       <div className="flex items-center justify-between gap-2">
@@ -153,6 +155,12 @@ function PatientSummary({ client }) {
                   <p className="mt-0.5 whitespace-pre-line text-sm text-slate-700">{client[k]}</p>
                 </div>
               ))}
+            </div>
+          )}
+          {hasArea && (
+            <div className="mt-4 border-t border-slate-100 pt-3">
+              <p className="mb-1 text-xs font-medium uppercase tracking-wide text-slate-400">Pain areas marked ({client.painAreas.length})</p>
+              <BodyPainSelector value={client.painAreas} readonly />
             </div>
           )}
         </>
