@@ -141,6 +141,8 @@ service cloud.firestore {
 
     // Therapists — shared (Treatment module needs them) → any admin.
     match /therapists/{id} { allow read, write: if isAdmin(); }
+    // Patient signatures (drawn in the Signatures module, shown on reports) → any admin.
+    match /signatures/{id} { allow read, write: if isAdmin(); }
     // Accounting (patient charges) and expenses — Accounting module → full admin only.
     match /accounting/{id} { allow read, write: if isFullAdmin(); }
     match /expenses/{id} { allow read, write: if isFullAdmin(); }

@@ -123,6 +123,15 @@ export const THERAPIST_QUALIFICATIONS = {
 
 export const qualificationFor = (name) => THERAPIST_QUALIFICATIONS[(name || '').trim()] || ''
 
+// A therapist's signature image, shown above their name in the consultant block
+// of client reports. Sakthi Saravanan is the default consultant, so hers shows
+// by default. (Other therapists simply show their name, with no signature.)
+export const THERAPIST_SIGNATURES = {
+  'Sakthi Saravanan': '/signatures/sakthi-saravanan.jpg',
+}
+
+export const signatureFor = (name) => THERAPIST_SIGNATURES[(name || '').trim()] || ''
+
 // Gallery images (optimised copies live in /public/gallery). Captions are
 // generic but descriptive — tweak any time without touching the page.
 export const GALLERY_PHOTOS = [

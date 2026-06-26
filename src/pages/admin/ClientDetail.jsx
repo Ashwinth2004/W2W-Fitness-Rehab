@@ -7,7 +7,7 @@ import {
 } from 'lucide-react'
 import {
   getClient, updateClient, deleteClient, watchClientNotes, addClientNote, deleteClientNote,
-  watchTreatments, deleteTreatment, updateTreatment, getClientNotesOnce, addAccountingEntry,
+  watchTreatments, deleteTreatment, updateTreatment, getClientNotesOnce, addAccountingEntry, getSignatureOnce,
 } from '../../lib/firestore'
 import { fmtDate, fmtDateTime, todayISO } from '../../lib/format'
 import { onlyDigits, isValidMobile } from '../../lib/validate'
@@ -325,14 +325,14 @@ function ReportModal({ client, treatments, onClose }) {
   async function go(action) {
     setBusy(action); setMsg('')
     try {
-      const notes = await getClientNotesOnce(client.id)
+      const [notes, sig] = await Promise.all([getClientNotesOnce(client.id), getSignatureOnce(client.id).catch(() => null)])
       // Combine the selected sessions (one, several, or all) into a single report.
       const sessions = treatments
         .filter((t) => selectedIds.includes(t.id))
         .sort((a, b) => (a.date || '').localeCompare(b.date || ''))
       const baseClient = { ...client, assessmentDate: sessions[0]?.date || todayISO() }
       const bill = withBilling ? { amount: Number(amount) || 0, paid: Number(paid) || 0, balance, mode } : null
-      const res = await generateClientReport(baseClient, { notes, progress: [], therapist, bill, action, sessions })
+      const res = await generateClientReport(baseClient, { notes, progress: [], therapist, bill, action, sessions, signature: sig?.dataUrl || null })
       if (withBilling && record && !recorded && (bill.amount > 0 || bill.paid > 0)) {
         await addAccountingEntry({
           date: chargeDate || todayISO(),

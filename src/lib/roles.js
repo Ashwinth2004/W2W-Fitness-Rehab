@@ -13,7 +13,7 @@ const ROLES = {
 }
 
 // Paths a 'limited' admin may open (Dashboard '/admin' is handled separately).
-const LIMITED_ALLOW = ['/admin/queries', '/admin/appointments', '/admin/clients', '/admin/treatment']
+const LIMITED_ALLOW = ['/admin/queries', '/admin/appointments', '/admin/clients', '/admin/treatment', '/admin/signatures']
 
 // Role for an email, or null if it isn't one of the configured admins.
 export function roleForEmail(email) {

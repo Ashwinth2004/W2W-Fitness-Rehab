@@ -37,6 +37,7 @@ const Reports = lazy(() => import('./pages/admin/Reports'))
 const Accounting = lazy(() => import('./pages/admin/Accounting'))
 const Content = lazy(() => import('./pages/admin/Content'))
 const Workshops = lazy(() => import('./pages/admin/Workshops'))
+const Signatures = lazy(() => import('./pages/admin/Signatures'))
 
 function PublicLayout({ children }) {
   return (
@@ -78,6 +79,7 @@ export default function App() {
               <Route path="clients" element={<Clients />} />
               <Route path="clients/:id" element={<ClientDetail />} />
               <Route path="treatment" element={<Treatment />} />
+              <Route path="signatures" element={<Signatures />} />
               <Route path="reports" element={<Reports />} />
               <Route path="accounting" element={<Accounting />} />
               <Route path="content" element={<Content />} />

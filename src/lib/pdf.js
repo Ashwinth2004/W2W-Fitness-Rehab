@@ -8,7 +8,7 @@
 // ============================================================================
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
-import { BUSINESS, qualificationFor } from './constants'
+import { BUSINESS, qualificationFor, signatureFor } from './constants'
 import { fmtDate, fmt12h } from './format'
 
 const BRAND = [14, 139, 161] // #0e8ba1
@@ -36,6 +36,41 @@ async function loadLogo() {
     _logoCache = null
   }
   return _logoCache
+}
+
+// Load any image (asset URL or data URL) → { dataUrl, ratio (w/h), fmt }. Cached.
+const _imgCache = {}
+async function loadImageData(src) {
+  if (!src) return null
+  if (src in _imgCache) return _imgCache[src]
+  try {
+    let dataUrl = src
+    if (!src.startsWith('data:')) {
+      const res = await fetch(src)
+      const blob = await res.blob()
+      dataUrl = await new Promise((resolve) => { const r = new FileReader(); r.onloadend = () => resolve(r.result); r.readAsDataURL(blob) })
+    }
+    const ratio = await new Promise((resolve) => {
+      const img = new Image()
+      img.onload = () => resolve(img.naturalWidth && img.naturalHeight ? img.naturalWidth / img.naturalHeight : 3)
+      img.onerror = () => resolve(3)
+      img.src = dataUrl
+    })
+    _imgCache[src] = { dataUrl, ratio, fmt: dataUrl.startsWith('data:image/png') ? 'PNG' : 'JPEG' }
+  } catch {
+    _imgCache[src] = null
+  }
+  return _imgCache[src]
+}
+
+// Draw a signature image sitting just above a signature line at (x, lineY),
+// scaled to ~maxH tall and the line's width.
+function drawSignature(doc, sig, x, lineY, maxW, maxH) {
+  if (!sig) return
+  let w = maxH * sig.ratio
+  let h = maxH
+  if (w > maxW) { w = maxW; h = maxW / sig.ratio }
+  try { doc.addImage(sig.dataUrl, sig.fmt, x, lineY - h - 1, w, h) } catch { /* ignore bad image */ }
 }
 
 function header(doc, logo, title, subtitle) {
@@ -164,7 +199,7 @@ function group(doc, y, title, pairs, blockKeys = []) {
 //  Individual patient assessment report (matches the W2W intake form).
 // ---------------------------------------------------------------------------
 export async function generateClientReport(client, opts = {}) {
-  const { notes = [], progress = [], therapist = '', bill = null, action = 'download', sessions = null } = opts
+  const { notes = [], progress = [], therapist = '', bill = null, action = 'download', sessions = null, signature = null } = opts
   const logo = await loadLogo()
   const doc = new jsPDF({ unit: 'mm', format: 'a4' })
   let y = header(doc, logo, 'Physiotherapy Assessment Report',
@@ -299,6 +334,13 @@ export async function generateClientReport(client, opts = {}) {
   doc.setDrawColor(150); doc.setLineWidth(0.3)
   doc.line(M + 2, y, M + 70, y)
   doc.line(PW - M - 70, y, PW - M, y)
+  // Signatures sit just above each line (consultant defaults to Sakthi Saravanan).
+  const [patientSig, consultSig] = await Promise.all([
+    loadImageData(signature),
+    loadImageData(signatureFor(therapist)),
+  ])
+  drawSignature(doc, patientSig, M + 2, y, 64, 12)
+  drawSignature(doc, consultSig, PW - M - 70, y, 64, 12)
   doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.setTextColor(...DARK)
   doc.text("Patient's signature", M + 2, y + 5)
   doc.text('Consultant Physiotherapist', PW - M - 70, y + 5)

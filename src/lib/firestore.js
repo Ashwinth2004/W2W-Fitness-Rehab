@@ -618,6 +618,28 @@ export async function getExpenseCategoriesOnce() {
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }))
 }
 
+// ---------- Patient signatures ---------------------------------------------
+// One per client at signatures/{clientId}; the drawn image is stored as a PNG
+// data URL. Reflected on the "Patient's signature" line of that client's reports.
+export function watchSignatures(cb) {
+  return onSnapshot(collection(db, 'signatures'), (snap) => cb(snap.docs.map((d) => ({ id: d.id, ...d.data() }))), () => cb([]))
+}
+
+export async function getSignatureOnce(clientId) {
+  const snap = await getDoc(doc(db, 'signatures', clientId))
+  return snap.exists() ? snap.data() : null
+}
+
+export async function saveSignature(clientId, clientName, dataUrl, updatedBy = '') {
+  return setDoc(doc(db, 'signatures', clientId), {
+    clientId, clientName: clientName || '', dataUrl, updatedBy, updatedAt: serverTimestamp(),
+  })
+}
+
+export async function deleteSignature(clientId) {
+  return deleteDoc(doc(db, 'signatures', clientId))
+}
+
 // ---------- Treatments (per-visit clinical assessments) --------------------
 // Stored under clients/{id}/treatments — one record per session, holding the
 // clinical fields + handling therapist + next-session date.
