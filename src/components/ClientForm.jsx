@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { Plus, Loader2, Search, X, ArrowRight, Pencil, PenLine, Check } from 'lucide-react'
 import { createClient, updateClient, saveSignature } from '../lib/firestore'
 import { isValidMobile } from '../lib/validate'
@@ -227,7 +228,7 @@ export default function ClientForm({ clients = [], onCreated, onClose }) {
         </button>
       </div>
 
-      {signOpen && (
+      {signOpen && createPortal(
         <div className="fixed inset-0 z-[90] grid place-items-center bg-black/50 p-4" onClick={() => setSignOpen(false)}>
           <div className="w-full max-w-lg rounded-2xl bg-white p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
             <div className="mb-3 flex items-start justify-between">
@@ -247,7 +248,8 @@ export default function ClientForm({ clients = [], onCreated, onClose }) {
               <p className="mt-3 text-sm text-slate-400">Tick the confirmation above to start signing.</p>
             )}
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </form>
   )

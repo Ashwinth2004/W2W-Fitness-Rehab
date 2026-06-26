@@ -7,6 +7,11 @@ import { Undo2, Eraser, Check, X, Loader2 } from 'lucide-react'
 const INK = '#1a237e'      // dark blue, like a pen
 const LINE_WIDTH = 2.5
 
+// A visible black pen-nib cursor (so you can see where you're signing inside the
+// box). Hotspot is at the pen tip (bottom-left).
+const PEN_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="white" stroke="black" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>'
+const PEN_CURSOR = `url("data:image/svg+xml,${encodeURIComponent(PEN_SVG)}") 2 22, crosshair`
+
 export default function SignaturePad({ initial = '', onSave, onCancel, busy = false }) {
   const canvasRef = useRef(null)
   const ctxRef = useRef(null)
@@ -101,8 +106,8 @@ export default function SignaturePad({ initial = '', onSave, onCancel, busy = fa
         )}
         <canvas
           ref={canvasRef}
-          className="block h-56 w-full cursor-crosshair touch-none"
-          style={{ touchAction: 'none' }}
+          className="block h-56 w-full touch-none"
+          style={{ touchAction: 'none', cursor: PEN_CURSOR }}
           onPointerDown={start}
           onPointerMove={move}
           onPointerUp={end}
