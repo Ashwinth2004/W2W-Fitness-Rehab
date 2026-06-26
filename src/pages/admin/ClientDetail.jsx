@@ -16,6 +16,7 @@ import ContactActions from '../../components/ContactActions'
 import DateField from '../../components/DateField'
 import AssessmentField from '../../components/AssessmentField'
 import TherapistSelect from '../../components/TherapistSelect'
+import BodyPainSelector from '../../components/BodyPainSelector'
 import { generateClientReport } from '../../lib/pdf'
 
 const SESSION_GROUPS = [
@@ -130,6 +131,13 @@ export default function ClientDetail() {
           empty="No history recorded."
         />
       </div>
+
+      {Array.isArray(client.painAreas) && client.painAreas.length > 0 && (
+        <div className="card p-5">
+          <h2 className="mb-3 flex items-center gap-2 font-bold text-slate-900"><MapPin size={18} className="text-brand-600" /> Pain Areas <span className="text-sm font-medium text-slate-400">({client.painAreas.length})</span></h2>
+          <BodyPainSelector value={client.painAreas} readonly />
+        </div>
+      )}
 
       {activity.length > 0 && (
         <div className="card p-5">

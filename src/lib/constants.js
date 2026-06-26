@@ -132,6 +132,15 @@ export const THERAPIST_SIGNATURES = {
 
 export const signatureFor = (name) => THERAPIST_SIGNATURES[(name || '').trim()] || ''
 
+// Consent declaration shown when capturing a patient's signature (in client
+// registration and in the Signatures module). Their signature confirms it.
+export const CONSENT_DECLARATION =
+  'I voluntarily consent to physiotherapy assessment and treatment at W2W Fitness & Rehab, '
+  + 'Balaiah Avenue, Mylapore, Chennai. I confirm that this is my own decision, that the nature '
+  + 'and purpose of the treatment have been explained to me, and that I am free to ask questions '
+  + 'or decline any part of the treatment at any time. I take responsibility for the information '
+  + 'I have provided and willingly agree to proceed with the treatment.'
+
 // Gallery images (optimised copies live in /public/gallery). Captions are
 // generic but descriptive — tweak any time without touching the page.
 export const GALLERY_PHOTOS = [

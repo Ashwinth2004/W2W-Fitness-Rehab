@@ -1,12 +1,15 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Plus, Loader2, Search, X, ArrowRight, Pencil } from 'lucide-react'
-import { createClient, updateClient } from '../lib/firestore'
+import { Plus, Loader2, Search, X, ArrowRight, Pencil, PenLine, Check } from 'lucide-react'
+import { createClient, updateClient, saveSignature } from '../lib/firestore'
 import { isValidMobile } from '../lib/validate'
 import { todayISO } from '../lib/format'
 import { BASIC_SECTIONS, BASIC_KEYS } from '../lib/assessmentSchema'
+import { CONSENT_DECLARATION } from '../lib/constants'
 import { useUnsaved } from '../context/UnsavedContext'
 import DateField from './DateField'
 import AssessmentField from './AssessmentField'
+import SignaturePad from './SignaturePad'
+import BodyPainSelector from './BodyPainSelector'
 
 const blankForm = () => Object.fromEntries(BASIC_KEYS.map((k) => [k, '']))
 
@@ -25,6 +28,10 @@ export default function ClientForm({ clients = [], onCreated, onClose }) {
   const [invalidKey, setInvalidKey] = useState('')
   const [manualId, setManualId] = useState(false)
   const [customId, setCustomId] = useState('')
+  const [signatureUrl, setSignatureUrl] = useState('')
+  const [signOpen, setSignOpen] = useState(false)
+  const [agreed, setAgreed] = useState(false)
+  const [painAreas, setPainAreas] = useState([])
   const { setDirty } = useUnsaved()
 
   // Clear the unsaved flag when this form unmounts (closed / navigated away).
@@ -56,11 +63,12 @@ export default function ClientForm({ clients = [], onCreated, onClose }) {
     else if (e.key === 'ArrowUp') { e.preventDefault(); setActive((i) => Math.max(0, i - 1)) }
     else if (e.key === 'Enter') { e.preventDefault(); if (matches[active]) selectReturning(matches[active]) }
   }
-  function clearReturning() { setExisting(null); setEditing(false); setForm(blankForm()) }
+  function clearReturning() { setExisting(null); setEditing(false); setForm(blankForm()); setPainAreas([]); setSignatureUrl('') }
   function startEdit() {
     const next = blankForm()
     BASIC_KEYS.forEach((k) => { next[k] = existing[k] ?? '' })
     setForm(next); setEditing(true)
+    setPainAreas(Array.isArray(existing.painAreas) ? existing.painAreas : [])
   }
 
   async function submit(dest) {
@@ -74,10 +82,18 @@ export default function ClientForm({ clients = [], onCreated, onClose }) {
     const data = {}
     BASIC_KEYS.forEach((k) => { const v = form[k]; data[k] = typeof v === 'string' ? v.trim() : v })
     data.registeredOn = regDate || todayISO()
+    data.painAreas = painAreas
     setBusy(true)
     try {
-      if (existing && editing) { await updateClient(existing.id, data); setDirty(false); onCreated(existing.id, dest) }
-      else { const { id } = await createClient(data, manualId ? customId : ''); setDirty(false); onCreated(id, dest) }
+      if (existing && editing) {
+        await updateClient(existing.id, data)
+        if (signatureUrl) await saveSignature(existing.id, name, signatureUrl).catch(() => {})
+        setDirty(false); onCreated(existing.id, dest)
+      } else {
+        const { id } = await createClient(data, manualId ? customId : '')
+        if (signatureUrl) await saveSignature(id, name, signatureUrl).catch(() => {})
+        setDirty(false); onCreated(id, dest)
+      }
     } catch (err) {
       console.error('save client failed:', err)
       setError('Could not save. Please try again.')
@@ -173,6 +189,30 @@ export default function ClientForm({ clients = [], onCreated, onClose }) {
         </fieldset>
       ))}
 
+      <fieldset className="rounded-2xl border border-slate-100 p-4">
+        <legend className="px-2 text-sm font-bold text-brand-700">Pain areas (tap on the body)</legend>
+        <BodyPainSelector value={painAreas} onChange={(v) => { setPainAreas(v); setDirty(true) }} />
+      </fieldset>
+
+      {/* Consent declaration + optional digital signature */}
+      <div className="rounded-2xl border border-slate-200 bg-slate-50/60 p-4">
+        <p className="text-sm font-bold text-brand-700">Treatment Consent &amp; Declaration</p>
+        <p className="mt-2 text-sm leading-relaxed text-slate-600">{CONSENT_DECLARATION}</p>
+        <div className="mt-3 flex flex-wrap items-center gap-3">
+          {signatureUrl ? (
+            <>
+              <img src={signatureUrl} alt="signature" className="h-12 max-w-[160px] rounded border border-slate-200 bg-white object-contain p-1" />
+              <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-600"><Check size={14} /> Signed</span>
+              <button type="button" onClick={() => { setAgreed(true); setSignOpen(true) }} className="btn-outline text-xs"><PenLine size={14} /> Re-sign</button>
+              <button type="button" onClick={() => { setSignatureUrl(''); setDirty(true) }} className="text-xs font-medium text-red-500 hover:underline">Remove</button>
+            </>
+          ) : (
+            <button type="button" onClick={() => { setAgreed(false); setSignOpen(true) }} className="btn-outline text-sm"><PenLine size={16} /> Sign digitally (optional)</button>
+          )}
+        </div>
+        <p className="mt-2 text-[11px] text-slate-400">Optional now — you can also capture or update the signature anytime from the Signatures module. Once signed, it appears on all of this patient's reports.</p>
+      </div>
+
       {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}
 
       <div className="flex flex-wrap justify-end gap-2">
@@ -186,6 +226,29 @@ export default function ClientForm({ clients = [], onCreated, onClose }) {
           {editing ? 'Save & continue to Treatment' : 'Create & continue to Treatment'}
         </button>
       </div>
+
+      {signOpen && (
+        <div className="fixed inset-0 z-[90] grid place-items-center bg-black/50 p-4" onClick={() => setSignOpen(false)}>
+          <div className="w-full max-w-lg rounded-2xl bg-white p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <div className="mb-3 flex items-start justify-between">
+              <h3 className="font-bold text-slate-900">Patient signature</h3>
+              <button type="button" onClick={() => setSignOpen(false)} className="grid h-9 w-9 place-items-center rounded-full text-slate-400 hover:bg-slate-100"><X size={20} /></button>
+            </div>
+            <p className="max-h-32 overflow-y-auto rounded-lg bg-slate-50 p-3 text-xs leading-relaxed text-slate-600">{CONSENT_DECLARATION}</p>
+            <label className="mt-3 flex items-start gap-2 text-sm text-slate-700">
+              <input type="checkbox" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} className="mt-0.5" />
+              <span>The patient has read and agrees to the above declaration, and is signing of their own free will.</span>
+            </label>
+            {agreed ? (
+              <div className="mt-3">
+                <SignaturePad initial={signatureUrl} onSave={(url) => { setSignatureUrl(url); setDirty(true); setSignOpen(false) }} onCancel={() => setSignOpen(false)} />
+              </div>
+            ) : (
+              <p className="mt-3 text-sm text-slate-400">Tick the confirmation above to start signing.</p>
+            )}
+          </div>
+        </div>
+      )}
     </form>
   )
 }

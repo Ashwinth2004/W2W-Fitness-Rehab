@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { PenLine, Search, Trash2, X } from 'lucide-react'
 import { watchClients, watchSignatures, saveSignature, deleteSignature } from '../../lib/firestore'
+import { CONSENT_DECLARATION } from '../../lib/constants'
 import { useAuth } from '../../context/AuthContext'
 import AdminPageHeader from '../../components/AdminPageHeader'
 import SignaturePad from '../../components/SignaturePad'
@@ -110,6 +111,7 @@ export default function Signatures() {
               </div>
               <button onClick={() => !busy && setEditing(null)} className="grid h-9 w-9 place-items-center rounded-full text-slate-400 hover:bg-slate-100"><X size={20} /></button>
             </div>
+            <p className="mb-3 max-h-28 overflow-y-auto rounded-lg bg-slate-50 p-3 text-xs leading-relaxed text-slate-600">{CONSENT_DECLARATION}</p>
             <SignaturePad
               initial={sigByClient[editing.id]?.dataUrl || ''}
               onSave={handleSave}

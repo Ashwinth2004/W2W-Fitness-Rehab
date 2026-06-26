@@ -9,6 +9,7 @@
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import { BUSINESS, qualificationFor, signatureFor } from './constants'
+import { REGIONS as PAIN_REGIONS, VIEW_W as PAIN_W, VIEW_H as PAIN_H, DEFAULT_R as PAIN_R } from './bodyRegions'
 import { fmtDate, fmt12h } from './format'
 
 const BRAND = [14, 139, 161] // #0e8ba1
@@ -71,6 +72,38 @@ function drawSignature(doc, sig, x, lineY, maxW, maxH) {
   let h = maxH
   if (w > maxW) { w = maxW; h = maxW / sig.ratio }
   try { doc.addImage(sig.dataUrl, sig.fmt, x, lineY - h - 1, w, h) } catch { /* ignore bad image */ }
+}
+
+// Load an <img> element (cached) — used to draw the pain chart onto a canvas.
+const _htmlImgCache = {}
+function loadHtmlImage(src) {
+  if (src in _htmlImgCache) return _htmlImgCache[src]
+  _htmlImgCache[src] = new Promise((resolve) => {
+    const img = new Image()
+    img.onload = () => resolve(img)
+    img.onerror = () => resolve(null)
+    img.src = src
+  })
+  return _htmlImgCache[src]
+}
+
+// Draw the body chart with the patient's marked regions tinted orange → JPEG data URL.
+async function renderPainChart(painAreas) {
+  const img = await loadHtmlImage('/body-pain-chart.jpg')
+  if (!img) return null
+  const canvas = document.createElement('canvas')
+  canvas.width = PAIN_W; canvas.height = PAIN_H
+  const ctx = canvas.getContext('2d')
+  ctx.drawImage(img, 0, 0, PAIN_W, PAIN_H)
+  ctx.fillStyle = 'rgba(255,169,77,0.55)'
+  ctx.strokeStyle = '#e8590c'
+  ctx.lineWidth = 4
+  const sel = new Set(painAreas)
+  for (const reg of PAIN_REGIONS) {
+    if (!sel.has(reg.id)) continue
+    ctx.beginPath(); ctx.arc(reg.cx, reg.cy, reg.r || PAIN_R, 0, Math.PI * 2); ctx.fill(); ctx.stroke()
+  }
+  try { return canvas.toDataURL('image/jpeg', 0.82) } catch { return null }
 }
 
 function header(doc, logo, title, subtitle) {
@@ -259,6 +292,18 @@ export async function generateClientReport(client, opts = {}) {
       ['Treatment plan', src.treatmentPlan], ['Follow up', src.followUp],
     ], ['Opinion about the condition', 'Treatment options (with evidence)', 'Expected duration of recovery & outcomes', 'Treatment plan', 'Follow up'])
     if (src.note) y = group(doc, y, 'Session Note', [['Note', src.note]], ['Note'])
+  }
+
+  // Body pain chart — the areas the patient marked at registration.
+  if (Array.isArray(client.painAreas) && client.painAreas.length) {
+    const chart = await renderPainChart(client.painAreas)
+    if (chart) {
+      y = sectionHeader(doc, y, 'Pain Areas (marked by patient)')
+      const w = 105, h = w * (PAIN_H / PAIN_W)
+      y = ensure(doc, y, h + 4)
+      doc.addImage(chart, 'JPEG', (PW - w) / 2, y, w, h)
+      y += h + 4
+    }
   }
 
   if (sessions && sessions.length) {
