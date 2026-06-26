@@ -188,8 +188,10 @@ async function nextClientId() {
   return `W2W-${String(seq).padStart(4, '0')}`
 }
 
-export async function createClient(data) {
-  const clientId = await nextClientId()
+// `customClientId` (optional) lets the admin set the Reg. No manually; otherwise
+// it auto-generates the next W2W-#### in sequence.
+export async function createClient(data, customClientId = '') {
+  const clientId = (customClientId || '').trim().toUpperCase() || await nextClientId()
   const ref = await addDoc(collection(db, 'clients'), {
     ...data,
     clientId,

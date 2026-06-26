@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { Fragment, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { Stethoscope, Search, Loader2, Save, ArrowRight, Plus, CheckCircle2, BadgeCheck } from 'lucide-react'
 import { watchClients, watchTreatments, addTreatment } from '../../lib/firestore'
@@ -6,6 +6,7 @@ import { CLINICAL_SECTIONS, CLINICAL_KEYS } from '../../lib/assessmentSchema'
 import { todayISO, fmtDate } from '../../lib/format'
 import DateField from '../../components/DateField'
 import AssessmentField from '../../components/AssessmentField'
+import VasScale from '../../components/VasScale'
 import TherapistSelect from '../../components/TherapistSelect'
 import ContactActions from '../../components/ContactActions'
 import AdminPageHeader from '../../components/AdminPageHeader'
@@ -262,7 +263,14 @@ function TreatmentForm({ client, onChangeClient, navigate }) {
           <legend className="px-2 text-base font-bold text-brand-700">{s.title}</legend>
           <div className={`grid gap-3 ${s.cols1 ? '' : 'sm:grid-cols-2'}`}>
             {s.fields.map((f) => (
-              <AssessmentField key={f.k} f={f} value={form[f.k]} ghost={last ? String(last[f.k] ?? '') : ''} onChange={set(f.k)} big />
+              <Fragment key={f.k}>
+                <AssessmentField f={f} value={form[f.k]} ghost={last ? String(last[f.k] ?? '') : ''} onChange={set(f.k)} big />
+                {f.k === 'vas' && (
+                  <div className="sm:col-span-2">
+                    <VasScale value={form.vas} onChange={set('vas')} />
+                  </div>
+                )}
+              </Fragment>
             ))}
           </div>
         </fieldset>

@@ -339,8 +339,8 @@ export async function generateClientReport(client, opts = {}) {
     loadImageData(signature),
     loadImageData(signatureFor(therapist)),
   ])
-  drawSignature(doc, patientSig, M + 2, y, 64, 12)
-  drawSignature(doc, consultSig, PW - M - 70, y, 64, 12)
+  drawSignature(doc, patientSig, M + 2, y, 66, 15)
+  drawSignature(doc, consultSig, PW - M - 70, y, 64, 13)
   doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.setTextColor(...DARK)
   doc.text("Patient's signature", M + 2, y + 5)
   doc.text('Consultant Physiotherapist', PW - M - 70, y + 5)

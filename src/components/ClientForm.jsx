@@ -23,6 +23,8 @@ export default function ClientForm({ clients = [], onCreated, onClose }) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [invalidKey, setInvalidKey] = useState('')
+  const [manualId, setManualId] = useState(false)
+  const [customId, setCustomId] = useState('')
   const { setDirty } = useUnsaved()
 
   // Clear the unsaved flag when this form unmounts (closed / navigated away).
@@ -75,7 +77,7 @@ export default function ClientForm({ clients = [], onCreated, onClose }) {
     setBusy(true)
     try {
       if (existing && editing) { await updateClient(existing.id, data); setDirty(false); onCreated(existing.id, dest) }
-      else { const { id } = await createClient(data); setDirty(false); onCreated(id, dest) }
+      else { const { id } = await createClient(data, manualId ? customId : ''); setDirty(false); onCreated(id, dest) }
     } catch (err) {
       console.error('save client failed:', err)
       setError('Could not save. Please try again.')
@@ -140,8 +142,21 @@ export default function ClientForm({ clients = [], onCreated, onClose }) {
 
       <div className="grid gap-3 sm:grid-cols-2">
         <div>
-          <label className="label text-xs">Reg. No</label>
-          <input className="input cursor-not-allowed bg-slate-50 text-slate-500" value={existing?.clientId || 'Auto-generated (W2W-####)'} readOnly />
+          <div className="flex items-center justify-between">
+            <label className="label text-xs">Reg. No</label>
+            {!existing && (
+              <button type="button" onClick={() => { setManualId((v) => !v); setDirty(true) }} className="text-[11px] font-medium text-brand-600 hover:underline">
+                {manualId ? 'Use auto' : 'Set manually'}
+              </button>
+            )}
+          </div>
+          {existing ? (
+            <input className="input cursor-not-allowed bg-slate-50 text-slate-500" value={existing.clientId} readOnly />
+          ) : manualId ? (
+            <input className="input" value={customId} onChange={(e) => { setCustomId(e.target.value); setDirty(true) }} placeholder="e.g. W2W-0001" />
+          ) : (
+            <input className="input cursor-not-allowed bg-slate-50 text-slate-500" value="Auto-generated (W2W-####)" readOnly />
+          )}
         </div>
         <div>
           <label className="label text-xs">Date</label>
