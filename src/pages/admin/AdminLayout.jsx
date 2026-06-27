@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { NavLink, Outlet, useNavigate, useLocation, Link } from 'react-router-dom'
 import {
   LayoutDashboard, Inbox, CalendarDays, Users, FileText, Newspaper,
@@ -7,7 +7,7 @@ import {
 import { useAuth } from '../../context/AuthContext'
 import { UnsavedProvider, useUnsaved } from '../../context/UnsavedContext'
 import { canAccessPath } from '../../lib/roles'
-import { watchEnquiries, watchWorkshopRegistrations } from '../../lib/firestore'
+import { watchEnquiries } from '../../lib/firestore'
 
 const nav = [
   { to: '/admin', label: 'Dashboard', icon: LayoutDashboard, end: true },
@@ -28,27 +28,6 @@ export default function AdminLayout() {
       <AdminShell />
     </UnsavedProvider>
   )
-}
-
-// A short two-tone chime for a new workshop registration (Web Audio — no asset).
-function beepNewRegistration() {
-  try {
-    const Ctx = window.AudioContext || window.webkitAudioContext
-    if (!Ctx) return
-    const ctx = new Ctx()
-    const o = ctx.createOscillator()
-    const g = ctx.createGain()
-    o.connect(g); g.connect(ctx.destination)
-    o.type = 'sine'
-    o.frequency.setValueAtTime(880, ctx.currentTime)
-    o.frequency.setValueAtTime(1320, ctx.currentTime + 0.12)
-    g.gain.setValueAtTime(0.0001, ctx.currentTime)
-    g.gain.exponentialRampToValueAtTime(0.25, ctx.currentTime + 0.02)
-    g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.45)
-    o.start()
-    o.stop(ctx.currentTime + 0.45)
-    o.onended = () => ctx.close()
-  } catch { /* audio unavailable — the badge still shows */ }
 }
 
 // "Install app" button — shown only when the browser fires beforeinstallprompt
@@ -87,47 +66,6 @@ function AdminShell() {
 
   // Live count of unread enquiries → red "NEW" badge on the Enquiries item.
   useEffect(() => watchEnquiries((list) => setNewEnq(list.filter((e) => e.status === 'new').length)), [])
-
-  // New workshop registrations → live "NEW" badge on the Workshop item + a chime
-  // (full admin only — limited admins can't read registrations). Acknowledged
-  // (cleared) when the Workshop page is opened; the "seen" point survives reloads.
-  const [newRegs, setNewRegs] = useState(0)
-  const prevMaxRef = useRef(0)
-  const pathRef = useRef(location.pathname)
-  useEffect(() => { pathRef.current = location.pathname }, [location.pathname])
-
-  useEffect(() => {
-    if (role !== 'full') return
-    let first = true
-    const tsMs = (t) => (t && typeof t.toMillis === 'function' ? t.toMillis() : (t?.seconds ? t.seconds * 1000 : 0))
-    return watchWorkshopRegistrations((list) => {
-      const times = list.map((r) => tsMs(r.createdAt)).filter((n) => n > 0)
-      const maxTs = times.length ? Math.max(...times) : 0
-      let seen = Number(localStorage.getItem('w2w_regs_seen_ts') || 0)
-      const onWorkshops = pathRef.current.startsWith('/admin/workshops')
-      if (first) {
-        first = false
-        if (!seen) { seen = maxTs; localStorage.setItem('w2w_regs_seen_ts', String(seen)) }
-      } else if (maxTs > prevMaxRef.current && !onWorkshops) {
-        beepNewRegistration()
-      }
-      prevMaxRef.current = maxTs
-      if (onWorkshops) {
-        localStorage.setItem('w2w_regs_seen_ts', String(maxTs))
-        setNewRegs(0)
-      } else {
-        setNewRegs(times.filter((t) => t > seen).length)
-      }
-    })
-  }, [role])
-
-  // Opening the Workshop page acknowledges all registrations.
-  useEffect(() => {
-    if (location.pathname.startsWith('/admin/workshops')) {
-      localStorage.setItem('w2w_regs_seen_ts', String(prevMaxRef.current || Date.now()))
-      setNewRegs(0)
-    }
-  }, [location.pathname])
 
   // Make the app installable ONLY inside the admin area: the manifest + PWA meta
   // tags exist only while this layout is mounted (a signed-in admin on /admin),
@@ -191,11 +129,6 @@ function AdminShell() {
                 {newEnq} New
               </span>
             )}
-            {n.to === '/admin/workshops' && newRegs > 0 && (
-              <span className="grid h-5 min-w-[2.25rem] place-items-center rounded-full bg-red-500 px-1.5 text-[10px] font-bold uppercase tracking-wide text-white">
-                {newRegs} New
-              </span>
-            )}
           </NavLink>
         ))}
       </nav>
@@ -228,9 +161,8 @@ function AdminShell() {
       <div className="flex min-w-0 flex-1 flex-col">
         {/* Top bar (mobile) */}
         <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-slate-200 bg-white px-4 lg:hidden">
-          <button onClick={() => setOpen(true)} className="relative rounded-lg p-2 text-slate-700" aria-label="Open menu">
+          <button onClick={() => setOpen(true)} className="rounded-lg p-2 text-slate-700" aria-label="Open menu">
             <Menu size={24} />
-            {newRegs > 0 && <span className="absolute right-1 top-1 h-2.5 w-2.5 rounded-full bg-red-500" />}
           </button>
           <div className="flex items-center gap-2">
             <img src="/w2w-fitness-rehab-logo.webp" alt="W2W Fitness & Rehab logo" className="h-9 w-9 rounded-full object-contain" />

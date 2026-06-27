@@ -10,33 +10,40 @@ export default async function handler(req, res) {
   }
 
   const apiKey = process.env.RESEND_API_KEY
-  const to = process.env.ENQUIRY_TO_EMAIL
+  // All site notifications (appointments, enquiries, workshop registrations) go
+  // to the clinic's official inbox.
+  const to = 'w2wfitnessandrehab@gmail.com'
   const from = process.env.ENQUIRY_FROM_EMAIL || 'W2W Fitness & Rehab <onboarding@resend.dev>'
 
-  if (!apiKey || !to) {
+  if (!apiKey) {
     // Not fatal for the user — the booking/enquiry is already saved in Firestore.
-    console.warn('Email not configured (RESEND_API_KEY / ENQUIRY_TO_EMAIL); skipping email.')
+    console.warn('Email not configured (RESEND_API_KEY missing); skipping email.')
     return res.status(200).json({ ok: false, reason: 'email-not-configured' })
   }
 
   try {
-    const { type = 'enquiry', name, phone, email, service, date, time, notes, message } = req.body || {}
+    const { type = 'enquiry', name, phone, email, service, date, time, notes, message, workshopTitle, qualification, paidVia } = req.body || {}
     const isBooking = type === 'booking'
-    const subject = isBooking
-      ? `🗓️ New Appointment — ${name || 'Client'} (${service || 'Service'})`
-      : `✉️ New Enquiry — ${name || 'Client'}`
+    const isWorkshop = type === 'workshop'
+    const subject = isWorkshop
+      ? `🎓 New Workshop Registration — ${name || 'Student'}`
+      : isBooking
+        ? `🗓️ New Appointment — ${name || 'Client'} (${service || 'Service'})`
+        : `✉️ New Enquiry — ${name || 'Client'}`
 
     const rows = [
       ['Name', name],
       ['Phone', phone],
       ['Email', email],
-      ['Service', service],
+      isWorkshop ? ['Workshop', workshopTitle] : ['Service', service],
+      isWorkshop ? ['Qualification', qualification] : null,
+      isWorkshop ? ['Paid via', paidVia] : null,
       isBooking ? ['Date', date] : null,
       isBooking ? ['Time', time] : null,
-      isBooking ? ['Notes', notes] : ['Message', message],
+      isBooking ? ['Notes', notes] : (isWorkshop ? null : ['Message', message]),
     ].filter(Boolean)
 
-    const html = renderEmail({ isBooking, rows, phone })
+    const html = renderEmail({ isBooking, isWorkshop, rows, phone })
     const resend = new Resend(apiKey)
     const { error } = await resend.emails.send({
       from,
@@ -62,7 +69,7 @@ function esc(v) {
   return String(v ?? '—').replace(/[<>&"']/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;', "'": '&#39;' }[c]))
 }
 
-function renderEmail({ isBooking, rows, phone }) {
+function renderEmail({ isBooking, isWorkshop, rows, phone }) {
   const waNumber = (phone || '').replace(/\D/g, '')
   const tableRows = rows
     .map(
@@ -79,7 +86,7 @@ function renderEmail({ isBooking, rows, phone }) {
     <div style="max-width:560px;margin:0 auto;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 8px 30px rgba(14,139,161,0.15);">
       <div style="background:${BRAND};padding:22px 24px;color:#fff;">
         <h1 style="margin:0;font-size:20px;">W2W Fitness &amp; Rehab</h1>
-        <p style="margin:4px 0 0;font-size:13px;opacity:.9;">${isBooking ? 'New appointment booked online' : 'New enquiry received'}</p>
+        <p style="margin:4px 0 0;font-size:13px;opacity:.9;">${isWorkshop ? 'New workshop registration' : isBooking ? 'New appointment booked online' : 'New enquiry received'}</p>
       </div>
       <div style="padding:24px;">
         <table style="width:100%;border-collapse:collapse;border-radius:10px;overflow:hidden;border:1px solid #e4eef0;">

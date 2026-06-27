@@ -78,6 +78,15 @@ export default function BookingForm({ preset = {}, onDone }) {
   }
 
   if (status === 'done') {
+    // Pre-fill the WhatsApp message with the patient's booking details.
+    const waMsg = `Hi ${BUSINESS.name}! I have booked an appointment.\n\n`
+      + `• Name: ${form.name}\n`
+      + `• Mobile: ${form.phone}\n`
+      + `• Service: ${form.service}\n`
+      + `• Date: ${fmtDate(form.date)}\n`
+      + `• Time: ${formatSlot(form.time)}`
+      + (form.notes ? `\n• Notes: ${form.notes}` : '')
+      + `\n\nI have a question about my appointment.`
     return (
       <div className="animate-fade-in py-6 text-center">
         <CheckCircle2 className="mx-auto mb-3 text-green-500" size={56} />
@@ -86,15 +95,12 @@ export default function BookingForm({ preset = {}, onDone }) {
           See you on <strong>{fmtDate(form.date)}</strong> at{' '}
           <strong>{formatSlot(form.time)}</strong>.
         </p>
-        <p className="mt-1 text-sm text-slate-500">
-          {form.name}, our team will reach you on {form.phone} if anything changes. A reminder will be sent the day before.
-        </p>
         <p className="mx-auto mt-4 max-w-sm rounded-xl bg-amber-50 px-4 py-2.5 text-sm font-semibold text-amber-800">
           Kindly arrive 15 minutes prior to your appointment.
         </p>
         <p className="mt-4 text-sm text-slate-500">
           Questions? WhatsApp us at{' '}
-          <a href={whatsappLink()} target="_blank" rel="noreferrer" className="font-semibold text-brand-700 hover:underline">
+          <a href={whatsappLink(waMsg)} target="_blank" rel="noreferrer" className="font-semibold text-brand-700 hover:underline">
             {BUSINESS.whatsappDisplay}
           </a>.
         </p>

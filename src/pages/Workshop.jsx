@@ -6,6 +6,7 @@ import {
 import { WhatsAppIcon } from '../components/BrandIcons'
 import PhoneField from '../components/PhoneField'
 import { getOpenWorkshop, watchWorkshopSeats, registerForWorkshop } from '../lib/firestore'
+import { notifyClinic } from '../lib/email'
 import {
   BUSINESS, upiLink, upiQrImage, whatsappLink, workshopWhatsappMessage,
 } from '../lib/constants'
@@ -300,6 +301,11 @@ function PaymentStep({ workshop, form, onBack, onConfirmed }) {
         email: form.email.trim(), fullName: form.fullName.trim(), phone: form.phone.trim(),
         qualification: form.qualification, reason: form.reason.trim(), attendedBefore: form.attendedBefore,
         available: true, paidVia: paidVia.trim(), markedPaid: true,
+      })
+      // Fire-and-forget email to the clinic about the new registration.
+      notifyClinic('workshop', {
+        name: form.fullName, phone: form.phone, email: form.email,
+        workshopTitle: workshop.title, qualification: form.qualification, paidVia: paidVia.trim(),
       })
       onConfirmed()
     } catch (err) {
