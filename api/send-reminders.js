@@ -52,7 +52,7 @@ export default async function handler(req, res) {
   }
 
   const apiKey = process.env.RESEND_API_KEY
-  const from = process.env.ENQUIRY_FROM_EMAIL || 'W2W Fitness & Rehab <onboarding@resend.dev>'
+  const from = process.env.ENQUIRY_FROM_EMAIL || 'W2W Fitness & Rehab <noreply@w2wfitnessandrehab.in>'
   const clinicTo = process.env.ENQUIRY_TO_EMAIL || ''
 
   try {

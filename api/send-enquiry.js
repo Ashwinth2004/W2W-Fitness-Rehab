@@ -14,7 +14,7 @@ export default async function handler(req, res) {
   // to the clinic's official inbox. In production, set ENQUIRY_TO_EMAIL to
   // the clinic's address once a domain is verified in Resend.
   const to = process.env.ENQUIRY_TO_EMAIL || 'w2wfitnessandrehab@gmail.com'
-  const from = process.env.ENQUIRY_FROM_EMAIL || 'W2W Fitness & Rehab <onboarding@resend.dev>'
+  const from = process.env.ENQUIRY_FROM_EMAIL || 'W2W Fitness & Rehab <noreply@w2wfitnessandrehab.in>'
 
   if (!apiKey) {
     // Not fatal for the user — the booking/enquiry is already saved in Firestore.
