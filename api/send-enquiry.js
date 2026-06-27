@@ -11,8 +11,9 @@ export default async function handler(req, res) {
 
   const apiKey = process.env.RESEND_API_KEY
   // All site notifications (appointments, enquiries, workshop registrations) go
-  // to the clinic's official inbox.
-  const to = 'w2wfitnessandrehab@gmail.com'
+  // to the clinic's official inbox. In production, set ENQUIRY_TO_EMAIL to
+  // the clinic's address once a domain is verified in Resend.
+  const to = process.env.ENQUIRY_TO_EMAIL || 'w2wfitnessandrehab@gmail.com'
   const from = process.env.ENQUIRY_FROM_EMAIL || 'W2W Fitness & Rehab <onboarding@resend.dev>'
 
   if (!apiKey) {
@@ -54,7 +55,7 @@ export default async function handler(req, res) {
     })
     if (error) {
       console.error('Resend error:', error)
-      return res.status(200).json({ ok: false, reason: 'send-failed' })
+      return res.status(200).json({ ok: false, reason: 'send-failed', detail: error?.message || String(error) })
     }
     return res.status(200).json({ ok: true })
   } catch (err) {

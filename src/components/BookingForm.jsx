@@ -86,7 +86,6 @@ export default function BookingForm({ preset = {}, onDone }) {
       + `• Date: ${fmtDate(form.date)}\n`
       + `• Time: ${formatSlot(form.time)}`
       + (form.notes ? `\n• Notes: ${form.notes}` : '')
-      + `\n\nI have a question about my appointment.`
     return (
       <div className="animate-fade-in py-6 text-center">
         <CheckCircle2 className="mx-auto mb-3 text-green-500" size={56} />
