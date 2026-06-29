@@ -1,4 +1,5 @@
-import { Plus, Trash2 } from 'lucide-react'
+import { useState } from 'react'
+import { Plus, Trash2, Check, ArrowRight, Pencil } from 'lucide-react'
 import {
   JOINTS, PAIN_RESPONSE, SPINE_ROM_GRADES, GIRTH_SITES, GIRTH_FINDINGS, LIMB_LENGTH_TYPES,
 } from '../lib/constants'
@@ -42,81 +43,163 @@ export function limbResult(ll = {}) {
 
 // On Examination — joint-wise ROM ------------------------------------------
 // value = { joints: [jointId], exam: { [jointId]: { note, mv: { [movKey]: {arom,prom,pain|grade} } } } }
+// Workflow: one joint is assessed at a time. Pick a joint, fill its movements,
+// then "Save" (collapse) or "Save & go next" (open the next joint).
+const jointHasData = (data) => {
+  if (!data) return false
+  if (data.note) return true
+  return Object.values(data.mv || {}).some((mv) => mv && (mv.arom || mv.prom || mv.pain || mv.grade))
+}
+function summarizeJoint(joint, data) {
+  if (!data) return '—'
+  const parts = []
+  for (const m of joint.movements) {
+    const mv = data.mv?.[m.key] || {}
+    const seg = joint.type === 'spine'
+      ? [mv.grade, mv.pain && `Pain: ${mv.pain}`].filter(Boolean)
+      : [mv.arom && `A:${mv.arom}`, mv.prom && `P:${mv.prom}`, mv.pain && `Pain:${mv.pain}`].filter(Boolean)
+    if (seg.length) parts.push(`${m.name} (${seg.join(', ')})`)
+  }
+  return parts.join('; ') || (data.note ? '' : '—')
+}
+
 export function RomField({ value, onChange }) {
   const v = value && typeof value === 'object' ? value : { joints: [], exam: {} }
   const joints = v.joints || []
   const exam = v.exam || {}
+  const [active, setActive] = useState(null)
 
-  const setJoints = (names) => {
-    const ids = JOINTS.filter((j) => names.includes(j.name)).map((j) => j.id)
-    onChange({ ...v, joints: ids })
+  const openJoint = (jid) => {
+    if (!joints.includes(jid)) onChange({ ...v, joints: [...joints, jid], exam })
+    setActive(jid)
   }
   const setMv = (jid, mkey, field, val) => {
     const j = { note: '', mv: {}, ...(exam[jid] || {}) }
     j.mv = { ...j.mv, [mkey]: { ...(j.mv[mkey] || {}), [field]: val } }
-    onChange({ ...v, joints, exam: { ...exam, [jid]: j } })
+    onChange({ ...v, joints: joints.includes(jid) ? joints : [...joints, jid], exam: { ...exam, [jid]: j } })
   }
   const setNote = (jid, val) => {
     const j = { note: '', mv: {}, ...(exam[jid] || {}) }
-    onChange({ ...v, joints, exam: { ...exam, [jid]: { ...j, note: val } } })
+    onChange({ ...v, exam: { ...exam, [jid]: { ...j, note: val } } })
   }
+  const removeJoint = (jid) => {
+    const ex = { ...exam }; delete ex[jid]
+    onChange({ ...v, joints: joints.filter((x) => x !== jid), exam: ex })
+    if (active === jid) setActive(null)
+  }
+  // Collapse the active joint; drop it if nothing was entered.
+  const closeActive = (goNext) => {
+    const cur = active
+    if (cur && !jointHasData(exam[cur])) removeJoint(cur)
+    if (goNext) {
+      const idx = JOINTS.findIndex((j) => j.id === cur)
+      const next = JOINTS[idx + 1]
+      if (next) { openJoint(next.id); return }
+    }
+    setActive(null)
+  }
+
+  const activeJoint = JOINTS.find((j) => j.id === active)
+  const savedJoints = joints.filter((jid) => jid !== active && jointHasData(exam[jid]))
 
   return (
     <div className="space-y-3">
-      <Pills multi options={JOINTS.map((j) => j.name)} value={joints.map((id) => JOINTS.find((j) => j.id === id)?.name).filter(Boolean)} onChange={setJoints} />
-      {joints.map((jid) => {
-        const joint = JOINTS.find((j) => j.id === jid)
-        if (!joint) return null
-        const data = exam[jid] || { note: '', mv: {} }
-        const spine = joint.type === 'spine'
-        return (
-          <div key={jid} className="rounded-xl bg-slate-50 p-3 sm:p-4">
-            <p className="font-semibold text-slate-800">{joint.name}</p>
-            <div className="mt-2 space-y-2">
-              {joint.movements.map((m) => {
-                const mv = data.mv?.[m.key] || {}
-                return (
-                  <div key={m.key} className="rounded-lg bg-white p-2.5 ring-1 ring-slate-100">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium text-slate-700">{m.name}</span>
-                      {m.normal && <span className="text-xs text-slate-400">Normal {m.normal}</span>}
-                    </div>
-                    {spine ? (
-                      <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
-                        <label className="text-xs text-slate-500">ROM
-                          <select className="input mt-1 py-2" value={mv.grade || ''} onChange={(e) => setMv(jid, m.key, 'grade', e.target.value)}>
-                            <option value="">—</option>{SPINE_ROM_GRADES.map((g) => <option key={g}>{g}</option>)}
-                          </select>
-                        </label>
-                        <label className="text-xs text-slate-500">Pain
-                          <select className="input mt-1 py-2" value={mv.pain || ''} onChange={(e) => setMv(jid, m.key, 'pain', e.target.value)}>
-                            <option value="">—</option>{PAIN_RESPONSE.map((p) => <option key={p}>{p}</option>)}
-                          </select>
-                        </label>
-                      </div>
-                    ) : (
-                      <div className="mt-2 grid grid-cols-3 gap-2">
-                        <label className="text-xs text-slate-500">AROM
-                          <input className="input mt-1 py-2" placeholder="°" value={mv.arom || ''} onChange={(e) => setMv(jid, m.key, 'arom', e.target.value)} />
-                        </label>
-                        <label className="text-xs text-slate-500">PROM
-                          <input className="input mt-1 py-2" placeholder="°" value={mv.prom || ''} onChange={(e) => setMv(jid, m.key, 'prom', e.target.value)} />
-                        </label>
-                        <label className="text-xs text-slate-500">Pain
-                          <select className="input mt-1 py-2" value={mv.pain || ''} onChange={(e) => setMv(jid, m.key, 'pain', e.target.value)}>
-                            <option value="">—</option>{PAIN_RESPONSE.map((p) => <option key={p}>{p}</option>)}
-                          </select>
-                        </label>
-                      </div>
-                    )}
+      {/* Joint picker — one assessed at a time. Green = saved with data. */}
+      <div className="flex flex-wrap gap-2">
+        {JOINTS.map((j) => {
+          const isActive = active === j.id
+          const done = jointHasData(exam[j.id]) && !isActive
+          return (
+            <button
+              type="button" key={j.id} onClick={() => openJoint(j.id)}
+              className={`inline-flex items-center gap-1 rounded-full px-3.5 py-2 text-sm font-medium transition ${
+                isActive ? 'bg-brand-600 text-white shadow' : done ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              }`}
+            >
+              {done && <Check size={14} />}{j.name}
+            </button>
+          )
+        })}
+      </div>
+
+      {/* Active joint editor */}
+      {activeJoint && (
+        <div className="rounded-xl bg-slate-50 p-3 sm:p-4">
+          <p className="font-semibold text-slate-800">{activeJoint.name}</p>
+          <div className="mt-2 space-y-2">
+            {activeJoint.movements.map((m) => {
+              const mv = exam[active]?.mv?.[m.key] || {}
+              const spine = activeJoint.type === 'spine'
+              return (
+                <div key={m.key} className="rounded-lg bg-white p-2.5 ring-1 ring-slate-100">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium text-slate-700">{m.name}</span>
+                    {m.normal && <span className="text-xs text-slate-400">Normal {m.normal}</span>}
                   </div>
-                )
-              })}
-            </div>
-            <textarea className="input mt-2 min-h-[44px]" placeholder={`Note for ${joint.name}…`} value={data.note || ''} onChange={(e) => setNote(jid, e.target.value)} />
+                  {spine ? (
+                    <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                      <label className="text-xs text-slate-500">ROM
+                        <select className="input mt-1 py-2" value={mv.grade || ''} onChange={(e) => setMv(active, m.key, 'grade', e.target.value)}>
+                          <option value="">—</option>{SPINE_ROM_GRADES.map((g) => <option key={g}>{g}</option>)}
+                        </select>
+                      </label>
+                      <label className="text-xs text-slate-500">Pain
+                        <select className="input mt-1 py-2" value={mv.pain || ''} onChange={(e) => setMv(active, m.key, 'pain', e.target.value)}>
+                          <option value="">—</option>{PAIN_RESPONSE.map((p) => <option key={p}>{p}</option>)}
+                        </select>
+                      </label>
+                    </div>
+                  ) : (
+                    <div className="mt-2 grid grid-cols-3 gap-2">
+                      <label className="text-xs text-slate-500">AROM
+                        <input className="input mt-1 py-2" placeholder="°" value={mv.arom || ''} onChange={(e) => setMv(active, m.key, 'arom', e.target.value)} />
+                      </label>
+                      <label className="text-xs text-slate-500">PROM
+                        <input className="input mt-1 py-2" placeholder="°" value={mv.prom || ''} onChange={(e) => setMv(active, m.key, 'prom', e.target.value)} />
+                      </label>
+                      <label className="text-xs text-slate-500">Pain
+                        <select className="input mt-1 py-2" value={mv.pain || ''} onChange={(e) => setMv(active, m.key, 'pain', e.target.value)}>
+                          <option value="">—</option>{PAIN_RESPONSE.map((p) => <option key={p}>{p}</option>)}
+                        </select>
+                      </label>
+                    </div>
+                  )}
+                </div>
+              )
+            })}
           </div>
-        )
-      })}
+          <textarea className="input mt-2 min-h-[44px]" placeholder={`Note for ${activeJoint.name}…`} value={exam[active]?.note || ''} onChange={(e) => setNote(active, e.target.value)} />
+          <div className="mt-3 flex flex-wrap items-center justify-end gap-2">
+            <button type="button" onClick={() => removeJoint(active)} className="mr-auto text-sm font-medium text-red-500 hover:underline">Remove</button>
+            <button type="button" onClick={() => closeActive(false)} className="btn-outline"><Check size={16} /> Save</button>
+            <button type="button" onClick={() => closeActive(true)} className="btn-primary">Save &amp; go next <ArrowRight size={16} /></button>
+          </div>
+        </div>
+      )}
+
+      {/* Saved joints (collapsed) */}
+      {savedJoints.length > 0 && (
+        <div className="space-y-1.5">
+          {savedJoints.map((jid) => {
+            const j = JOINTS.find((x) => x.id === jid)
+            if (!j) return null
+            const sum = summarizeJoint(j, exam[jid])
+            return (
+              <div key={jid} className="flex items-start justify-between gap-2 rounded-lg bg-white p-2.5 text-sm ring-1 ring-slate-100">
+                <div className="min-w-0">
+                  <span className="font-medium text-slate-700">{j.name}</span>
+                  {sum && <span className="ml-2 text-slate-500">{sum}</span>}
+                  {exam[jid]?.note && <span className="ml-2 text-xs text-slate-400">| Note: {exam[jid].note}</span>}
+                </div>
+                <div className="flex shrink-0 items-center gap-1">
+                  <button type="button" onClick={() => setActive(jid)} className="grid h-7 w-7 place-items-center rounded text-slate-400 hover:bg-slate-100 hover:text-brand-600"><Pencil size={13} /></button>
+                  <button type="button" onClick={() => removeJoint(jid)} className="grid h-7 w-7 place-items-center rounded text-slate-400 hover:bg-red-50 hover:text-red-500"><Trash2 size={13} /></button>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
     </div>
   )
 }

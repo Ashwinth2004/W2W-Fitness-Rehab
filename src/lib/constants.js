@@ -221,6 +221,9 @@ export const BOOKABLE_SERVICES = ['Physiotherapy', 'Rehab']
 export const WALKING_ROUTINE_OPTIONS = ['1–2k steps', '3–5k steps', '5–7k steps', '7–10k steps']
 export const EXERCISE_ROUTINE_OPTIONS = ['Yoga', 'Strength training', 'Only walking', 'Others']
 export const MEDICAL_HISTORY_OPTIONS = ['Diabetics', 'Hypertension', 'Thyroid', 'Other']
+export const HYDRATION_OPTIONS = ['Less than 1 L', '1–2 L', '2–3 L', '3 L & above']
+export const SLEEP_OPTIONS = ['< 5 hrs', '5–6 hrs', '6–7 hrs', '7–8 hrs', '8+ hrs']
+export const DESKWORK_OPTIONS = ['< 2 hrs', '2–4 hrs', '4–6 hrs', '6–8 hrs', '8+ hrs']
 
 // --- Treatment / examination (doctor) --------------------------------------
 export const PAIN_DURATION_UNITS = ['Days', 'Weeks', 'Months']

@@ -271,9 +271,9 @@ export async function generateClientReport(client, opts = {}) {
   // Sections (skip groups with no data)
   y = group(doc, y, 'Activity Levels', [
     ['Walking / steps per day', client.walking], ['Exercise routines', client.exercise],
-    ['Desktop work or others', client.deskWork], ['Sleep (hours & cycle)', client.sleep],
-    ['Hydration (water/day)', client.hydration],
-  ])
+    ['Desktop work or others', client.deskWork], ['Sleep (hours/day)', client.sleep],
+    ['Hydration (water/day)', client.hydration], ['Notes', client.activityNotes],
+  ], ['Notes'])
   y = group(doc, y, 'History', [
     ['Past Medical History', client.pastHistory], ['Present Medical History', client.presentHistory],
     ['Current chief complaints', client.complaint], ['Mechanism of injury', client.mechanism],

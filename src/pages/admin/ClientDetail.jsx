@@ -27,7 +27,7 @@ const SESSION_GROUPS = [
   ['Functional', [['functionalUpper', 'Upper body'], ['functionalLower', 'Lower body'], ['movementQuality', 'Movement quality']]],
   ['Assessment & plan', [['opinion', 'Opinion'], ['treatmentOptions', 'Treatment options'], ['expectedRecovery', 'Expected recovery'], ['treatmentPlan', 'Treatment plan'], ['followUp', 'Follow up']]],
 ]
-const ACTIVITY = [['walking', 'Walking / steps'], ['exercise', 'Exercise'], ['deskWork', 'Desk work'], ['sleep', 'Sleep'], ['hydration', 'Hydration']]
+const ACTIVITY = [['walking', 'Walking / steps'], ['exercise', 'Exercise'], ['deskWork', 'Desk work'], ['sleep', 'Sleep'], ['hydration', 'Hydration'], ['activityNotes', 'Notes']]
 const REG_FIELDS = [['email', 'Email'], ['occupation', 'Occupation / Sports'], ['height', 'Height (cm)'], ['weight', 'Weight (kg)'], ['handDominance', 'Hand dominance'], ['referredBy', 'Referred by']]
 
 export default function ClientDetail() {
@@ -60,7 +60,7 @@ export default function ClientDetail() {
     navigate('/admin/clients')
   }
 
-  const activity = ACTIVITY.filter(([k]) => client[k])
+  const activity = ACTIVITY.filter(([k]) => formatAssessmentValue(client[k]) !== '')
   const reg = REG_FIELDS.filter(([k]) => client[k])
 
   return (
@@ -145,7 +145,7 @@ export default function ClientDetail() {
           <h2 className="mb-3 flex items-center gap-2 font-bold text-slate-900"><Activity size={18} className="text-brand-600" /> Lifestyle &amp; Activity</h2>
           <dl className="grid gap-x-8 gap-y-2 sm:grid-cols-2">
             {activity.map(([k, label]) => (
-              <div key={k} className="flex gap-2 text-sm"><dt className="shrink-0 text-slate-400">{label}:</dt><dd className="text-slate-700">{String(client[k])}</dd></div>
+              <div key={k} className="flex gap-2 text-sm"><dt className="shrink-0 text-slate-400">{label}:</dt><dd className="whitespace-pre-line text-slate-700">{formatAssessmentValue(client[k])}</dd></div>
             ))}
           </dl>
         </div>

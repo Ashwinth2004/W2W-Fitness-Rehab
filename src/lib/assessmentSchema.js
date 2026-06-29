@@ -14,6 +14,7 @@
 //   limb      — limb-length (type, R/L, auto-calculated discrepancy)
 import {
   SERVICE_OPTIONS, WALKING_ROUTINE_OPTIONS, EXERCISE_ROUTINE_OPTIONS, MEDICAL_HISTORY_OPTIONS,
+  HYDRATION_OPTIONS, SLEEP_OPTIONS, DESKWORK_OPTIONS,
   PAIN_TYPE_OPTIONS, ADL_IMPACT_OPTIONS, BUILT_OPTIONS, FUNCTIONAL_UPPER, FUNCTIONAL_LOWER, MOVEMENT_QUALITY,
   JOINTS,
 } from './constants'
@@ -35,10 +36,11 @@ export const BASIC_SECTIONS = [
   ] },
   { title: 'Activity levels', ghost: true, fields: [
     { k: 'walking', label: 'Walking routine (steps per day)', type: 'chips', options: WALKING_ROUTINE_OPTIONS, full: true },
-    { k: 'exercise', label: 'Exercise routine', type: 'chips', options: EXERCISE_ROUTINE_OPTIONS, other: true, full: true },
-    { k: 'deskWork', label: 'Desktop work or others' },
-    { k: 'sleep', label: 'Sleeping hours per day & cycle' },
-    { k: 'hydration', label: 'Hydration (water intake / day)', full: true },
+    { k: 'exercise', label: 'Exercise routine', type: 'multi', options: EXERCISE_ROUTINE_OPTIONS, other: true, full: true },
+    { k: 'deskWork', label: 'Desktop work or others (hours / day)', type: 'chips', options: DESKWORK_OPTIONS, full: true },
+    { k: 'sleep', label: 'Sleeping hours per day', type: 'chips', options: SLEEP_OPTIONS, full: true },
+    { k: 'hydration', label: 'Hydration (water intake / day)', type: 'chips', options: HYDRATION_OPTIONS, full: true },
+    { k: 'activityNotes', label: 'Notes (optional)', area: true, full: true },
   ] },
   { title: 'History', ghost: true, cols1: true, fields: [
     { k: 'pastHistory', label: 'Past Medical History (major illness, injury or surgery)', area: true },

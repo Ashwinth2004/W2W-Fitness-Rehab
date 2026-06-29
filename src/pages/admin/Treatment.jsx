@@ -174,7 +174,7 @@ function TreatmentForm({ client, editId = '', onChangeClient, navigate }) {
   const [form, setForm] = useState(blank)
   const [date, setDate] = useState(todayISO())
   const [nextSession, setNextSession] = useState('')
-  const [therapist, setTherapist] = useState(client.therapist || '')
+  const [therapist, setTherapist] = useState(client.therapist || 'Sakthi Saravanan')
   const [consent, setConsent] = useState(false)
   const [busy, setBusy] = useState(false)
   const [saved, setSaved] = useState(false)
@@ -203,7 +203,7 @@ function TreatmentForm({ client, editId = '', onChangeClient, navigate }) {
 
   const last = treatments[0] || null
   // Default the handler to the client's last therapist if none chosen yet.
-  useEffect(() => { setTherapist((t) => t || last?.therapist || '') }, [last])
+  useEffect(() => { setTherapist((t) => t || last?.therapist || 'Sakthi Saravanan') }, [last])
 
   const set = (k) => (val) => { setForm((f) => ({ ...f, [k]: val })); setDirty(true) }
   const touch = () => setDirty(true)
@@ -318,6 +318,16 @@ function TreatmentForm({ client, editId = '', onChangeClient, navigate }) {
           </div>
         </fieldset>
       ))}
+
+      {/* Next session date — repeated at the end; bound to the same value as the
+          one up top, so editing either keeps both in sync. */}
+      <div className="card p-5">
+        <label className="label text-sm">Next session date</label>
+        <div className="max-w-xs">
+          <DateField value={nextSession} onChange={(iso) => { setNextSession(iso); touch() }} min={todayISO()} />
+        </div>
+        <p className="mt-1 text-xs text-slate-400">Same as the “Next session date” at the top — updating either keeps both in sync.</p>
+      </div>
 
       {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}
       <div className="flex justify-end gap-2">
