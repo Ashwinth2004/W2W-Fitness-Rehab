@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { watchBookedTimes } from '../lib/firestore'
+import { watchDayAvailability } from '../lib/firestore'
 import { SLOT_TIMES, SLOT_MINUTES } from '../lib/constants'
 
 // Formats "14:00" -> "2:00 PM"
@@ -29,15 +29,17 @@ export function formatSlot(t) {
 
 export default function SlotPicker({ date, value, onChange }) {
   const [booked, setBooked] = useState([])
+  const [blocked, setBlocked] = useState([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     if (!date) return
     setLoading(true)
     let settled = false
-    const unsub = watchBookedTimes(date, (times) => {
+    const unsub = watchDayAvailability(date, ({ booked, blocked }) => {
       settled = true
-      setBooked(times)
+      setBooked(booked)
+      setBlocked(blocked)
       setLoading(false)
     })
     // Safety net: never show "Loading…" forever.
@@ -62,14 +64,16 @@ export default function SlotPicker({ date, value, onChange }) {
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
           {SLOT_TIMES.map((t) => {
             const isBooked = booked.includes(t)
+            const isBlocked = blocked.includes(t)
             const past = isToday && t <= nowHM
-            const disabled = isBooked || past
+            const disabled = isBooked || isBlocked || past
             const selected = value === t
             return (
               <button
                 key={t}
                 type="button"
                 disabled={disabled}
+                title={isBlocked ? 'Unavailable — marked off by the clinic' : undefined}
                 onClick={() => onChange(t)}
                 className={`flex min-h-[3.25rem] items-center justify-center rounded-xl border px-2 py-1.5 text-center text-sm font-medium leading-tight transition ${
                   selected
@@ -86,7 +90,7 @@ export default function SlotPicker({ date, value, onChange }) {
         </div>
       )}
       <p className="mt-2 text-xs text-slate-400">
-        Crossed-out times are already booked or have passed. Sundays are closed.
+        Crossed-out times are already booked, marked unavailable, or have passed. Sundays are closed.
       </p>
     </div>
   )

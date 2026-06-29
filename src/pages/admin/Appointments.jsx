@@ -1,13 +1,17 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
   CalendarDays, Plus, Check, X, Loader2, CalendarClock, MessageSquarePlus, Pencil, Copy, Trash2,
+  CalendarOff, Ban, RotateCcw, Lock,
 } from 'lucide-react'
 import {
   watchAppointments, addAppointmentByAdmin, setAppointmentStatus, cancelAppointment,
   rescheduleAppointment, setAppointmentRemarks, updateAppointment, getBookedTimes, deleteAppointment,
+  blockSlots, unblockSlots, watchBlockedDays,
 } from '../../lib/firestore'
 import { fmt12h, fmtDate, todayISO, matchesDateFilter } from '../../lib/format'
-import { SERVICE_OPTIONS, SLOT_TIMES, BUSINESS } from '../../lib/constants'
+import { SERVICE_OPTIONS, BOOKABLE_SERVICES, SLOT_TIMES, BUSINESS } from '../../lib/constants'
+
+const SERVICE_FILTERS = ['All', ...BOOKABLE_SERVICES]
 import { isValidMobile } from '../../lib/validate'
 import SlotPicker, { formatSlot } from '../../components/SlotPicker'
 import DateField from '../../components/DateField'
@@ -29,10 +33,12 @@ export default function Appointments() {
   const [items, setItems] = useState([])
   const [tab, setTab] = useState('today')
   const [showForm, setShowForm] = useState(false)
+  const [showManage, setShowManage] = useState(false)
   const [reschedule, setReschedule] = useState(null) // appt being rescheduled
   const [remarkOf, setRemarkOf] = useState(null) // appt whose remark is being edited
   const [editOf, setEditOf] = useState(null) // appt whose details are being edited
   const [filter, setFilter] = useState({ day: '', month: '' })
+  const [serviceFilter, setServiceFilter] = useState('All')
 
   useEffect(() => watchAppointments(setItems), [])
 
@@ -48,7 +54,9 @@ export default function Appointments() {
     }
   }, [items, today])
 
-  const list = groups[tab].filter((a) => matchesDateFilter(a.date, filter))
+  const list = groups[tab]
+    .filter((a) => matchesDateFilter(a.date, filter))
+    .filter((a) => serviceFilter === 'All' || (a.service || '') === serviceFilter)
   const tabs = [
     { id: 'today', label: `Today (${groups.today.length})` },
     { id: 'upcoming', label: `Upcoming (${groups.upcoming.length})` },
@@ -59,26 +67,46 @@ export default function Appointments() {
   return (
     <div className="space-y-5">
       <AdminPageHeader title="Appointments">
-        <button onClick={() => setShowForm((v) => !v)} className="btn-primary">
+        <button onClick={() => { setShowManage((v) => !v); setShowForm(false) }} className="btn-outline">
+          {showManage ? <X size={18} /> : <CalendarOff size={18} />} {showManage ? 'Close' : 'Block time off'}
+        </button>
+        <button onClick={() => { setShowForm((v) => !v); setShowManage(false) }} className="btn-primary">
           {showForm ? <X size={18} /> : <Plus size={18} />} {showForm ? 'Close' : 'Add Appointment'}
         </button>
         <ShareBookingLink />
       </AdminPageHeader>
 
+      {showManage && <ManageAvailability />}
       {showForm && <AddAppointmentForm onDone={() => setShowForm(false)} />}
 
-      <div className="flex flex-wrap justify-center gap-2 md:justify-start">
-        {tabs.map((t) => (
-          <button
-            key={t.id}
-            onClick={() => setTab(t.id)}
-            className={`rounded-full px-4 py-1.5 text-sm font-medium transition ${
-              tab === t.id ? 'bg-brand-600 text-white' : 'bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50'
-            }`}
-          >
-            {t.label}
-          </button>
-        ))}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap justify-center gap-2 md:justify-start">
+          {tabs.map((t) => (
+            <button
+              key={t.id}
+              onClick={() => setTab(t.id)}
+              className={`rounded-full px-4 py-1.5 text-sm font-medium transition ${
+                tab === t.id ? 'bg-brand-600 text-white' : 'bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50'
+              }`}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+        {/* Physio / Rehab / All filter */}
+        <div className="flex items-center gap-1.5 rounded-full bg-white p-1 ring-1 ring-slate-200">
+          {SERVICE_FILTERS.map((s) => (
+            <button
+              key={s}
+              onClick={() => setServiceFilter(s)}
+              className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
+                serviceFilter === s ? 'bg-brand-600 text-white' : 'text-slate-500 hover:bg-slate-100'
+              }`}
+            >
+              {s}
+            </button>
+          ))}
+        </div>
       </div>
 
       <div className="card p-4"><AdminFilter filter={filter} setFilter={setFilter} /></div>
@@ -306,7 +334,7 @@ function EditApptModal({ appt, onClose }) {
         <div><label className="label">Full Name *</label><input className="input" value={name} onChange={(e) => setName(e.target.value)} autoFocus /></div>
         <div><label className="label">Phone / Mobile *</label><PhoneField value={phone} onChange={setPhone} /></div>
         <div><label className="label">Email</label><input className="input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@email.com" /></div>
-        <div><label className="label">Service</label><select className="input" value={service} onChange={(e) => setService(e.target.value)}>{SERVICE_OPTIONS.map((s) => <option key={s}>{s}</option>)}</select></div>
+        <div><label className="label">Service</label><select className="input" value={service} onChange={(e) => setService(e.target.value)}>{BOOKABLE_SERVICES.map((s) => <option key={s}>{s}</option>)}</select></div>
         {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}
         <div className="flex justify-end gap-2">
           <button type="button" onClick={onClose} className="btn-ghost">Cancel</button>
@@ -448,7 +476,7 @@ function AdminSlotGrid({ date, value, onChange, currentAppt }) {
 }
 
 function AddAppointmentForm({ onDone }) {
-  const [form, setForm] = useState({ name: '', phone: '', service: SERVICE_OPTIONS[0], date: '', time: '', notes: '' })
+  const [form, setForm] = useState({ name: '', phone: '', service: BOOKABLE_SERVICES[0], date: '', time: '', notes: '' })
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const { setDirty } = useUnsaved()
@@ -483,7 +511,7 @@ function AddAppointmentForm({ onDone }) {
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
           <label className="label">Service</label>
-          <select className="input" value={form.service} onChange={set('service')}>{SERVICE_OPTIONS.map((s) => <option key={s}>{s}</option>)}</select>
+          <select className="input" value={form.service} onChange={set('service')}>{BOOKABLE_SERVICES.map((s) => <option key={s}>{s}</option>)}</select>
         </div>
         <div>
           <label className="label">Date * <span className="font-normal text-slate-400">(DD-MM-YYYY)</span></label>
@@ -503,5 +531,121 @@ function AddAppointmentForm({ onDone }) {
         <button type="submit" disabled={busy} className="btn-primary">{busy ? <Loader2 size={18} className="animate-spin" /> : <Plus size={18} />} Save</button>
       </div>
     </form>
+  )
+}
+
+// ---- Block time off (admin availability) ----------------------------------
+// Pick one or more dates, then block the whole day or specific slots so clients
+// can't book them. Several dates can be marked unavailable in one action.
+function ManageAvailability() {
+  const [dates, setDates] = useState([])
+  const [pending, setPending] = useState('')
+  const [slots, setSlots] = useState([])
+  const [wholeDay, setWholeDay] = useState(true)
+  const [busy, setBusy] = useState(false)
+  const [msg, setMsg] = useState('')
+  const [err, setErr] = useState('')
+  const [blockedDays, setBlockedDays] = useState([])
+
+  useEffect(() => watchBlockedDays(setBlockedDays), [])
+
+  const addDate = () => {
+    if (!pending || dates.includes(pending)) return
+    setDates((d) => [...d, pending].sort())
+    setPending('')
+  }
+  const removeDate = (d) => setDates((arr) => arr.filter((x) => x !== d))
+  const toggleSlot = (t) => setSlots((arr) => (arr.includes(t) ? arr.filter((x) => x !== t) : [...arr, t]))
+
+  async function apply(action) {
+    setErr(''); setMsg('')
+    if (dates.length === 0) { setErr('Add at least one date first.'); return }
+    if (!wholeDay && slots.length === 0) { setErr('Pick time slots, or choose “Whole day”.'); return }
+    setBusy(true)
+    try {
+      const times = wholeDay ? [] : slots
+      if (action === 'block') await blockSlots(dates, times)
+      else await unblockSlots(dates, times)
+      setMsg(`${action === 'block' ? 'Marked unavailable' : 'Re-opened'} ${wholeDay ? 'the whole day' : `${slots.length} slot(s)`} on ${dates.length} date(s).`)
+      setDates([]); setSlots([]); setWholeDay(true)
+    } catch (_) {
+      setErr('Could not update availability. Please try again.')
+    }
+    setBusy(false)
+  }
+
+  return (
+    <div className="card animate-fade-in space-y-5 p-5">
+      <div>
+        <h2 className="flex items-center gap-2 font-bold text-slate-900"><Lock size={18} className="text-brand-600" /> Block time off</h2>
+        <p className="mt-1 text-sm text-slate-500">
+          Mark dates or specific slots as unavailable so clients can’t book them. Select several dates and apply them all at once.
+        </p>
+      </div>
+
+      {/* 1. Dates */}
+      <div>
+        <label className="label">1. Choose date(s)</label>
+        <div className="flex flex-wrap items-start gap-2">
+          <div className="w-full sm:w-56"><DateField value={pending} onChange={setPending} min={todayISO()} blockSunday /></div>
+          <button type="button" onClick={addDate} disabled={!pending} className="btn-outline disabled:opacity-50"><Plus size={16} /> Add date</button>
+        </div>
+        {dates.length > 0 && (
+          <div className="mt-3 flex flex-wrap gap-2">
+            {dates.map((d) => (
+              <span key={d} className="inline-flex items-center gap-1.5 rounded-full bg-brand-50 py-1 pl-3 pr-1.5 text-sm font-medium text-brand-700">
+                {fmtDate(d)}
+                <button type="button" onClick={() => removeDate(d)} className="grid h-5 w-5 place-items-center rounded-full hover:bg-brand-100"><X size={13} /></button>
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* 2. What to block */}
+      <div>
+        <label className="label">2. What to block</label>
+        <div className="flex flex-wrap gap-2">
+          <button type="button" onClick={() => { setWholeDay(true); setSlots([]) }} className={`rounded-full px-4 py-2 text-sm font-medium transition ${wholeDay ? 'bg-brand-600 text-white shadow' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>Whole day (all slots)</button>
+          <button type="button" onClick={() => setWholeDay(false)} className={`rounded-full px-4 py-2 text-sm font-medium transition ${!wholeDay ? 'bg-brand-600 text-white shadow' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>Specific slots</button>
+        </div>
+        {!wholeDay && (
+          <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
+            {SLOT_TIMES.map((t) => (
+              <button key={t} type="button" onClick={() => toggleSlot(t)} className={`rounded-xl border px-2 py-2 text-sm font-medium transition ${slots.includes(t) ? 'border-brand-600 bg-brand-600 text-white shadow' : 'border-slate-200 text-slate-700 hover:border-brand-400 hover:bg-brand-50'}`}>{formatSlot(t)}</button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {err && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{err}</p>}
+      {msg && <p className="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{msg}</p>}
+
+      <div className="flex flex-wrap justify-end gap-2">
+        <button type="button" disabled={busy} onClick={() => apply('unblock')} className="btn-outline"><RotateCcw size={16} /> Re-open</button>
+        <button type="button" disabled={busy} onClick={() => apply('block')} className="btn-primary">{busy ? <Loader2 size={18} className="animate-spin" /> : <Ban size={18} />} Mark unavailable</button>
+      </div>
+
+      {/* Currently blocked */}
+      {blockedDays.length > 0 && (
+        <div className="border-t border-slate-100 pt-4">
+          <p className="mb-2 text-sm font-semibold text-slate-700">Currently blocked</p>
+          <ul className="space-y-2">
+            {blockedDays.map((d) => {
+              const isFullDay = SLOT_TIMES.every((t) => d.blocked.includes(t))
+              return (
+                <li key={d.date} className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-slate-50 px-3 py-2 text-sm">
+                  <div className="min-w-0">
+                    <span className="font-medium text-slate-800">{fmtDate(d.date)}</span>
+                    <span className="ml-2 text-slate-500">{isFullDay ? 'Whole day' : d.blocked.slice().sort().map((t) => formatSlot(t)).join(', ')}</span>
+                  </div>
+                  <button type="button" onClick={() => unblockSlots([d.date], [])} className="inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-semibold text-brand-700 hover:bg-brand-50"><RotateCcw size={13} /> Re-open</button>
+                </li>
+              )
+            })}
+          </ul>
+        </div>
+      )}
+    </div>
   )
 }

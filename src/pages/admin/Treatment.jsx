@@ -2,7 +2,7 @@ import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { Stethoscope, Search, Loader2, Save, ArrowRight, Plus, CheckCircle2, BadgeCheck } from 'lucide-react'
 import { watchClients, watchTreatments, addTreatment, updateTreatment } from '../../lib/firestore'
-import { CLINICAL_SECTIONS, CLINICAL_KEYS } from '../../lib/assessmentSchema'
+import { CLINICAL_SECTIONS, CLINICAL_KEYS, formatAssessmentValue } from '../../lib/assessmentSchema'
 import { todayISO, fmtDate } from '../../lib/format'
 import DateField from '../../components/DateField'
 import AssessmentField from '../../components/AssessmentField'
@@ -136,7 +136,7 @@ function PatientSummary({ client }) {
               {facts.map(([k, label]) => (
                 <div key={k}>
                   <dt className="text-xs font-medium uppercase tracking-wide text-slate-400">{label}</dt>
-                  <dd className="mt-0.5 break-words text-sm text-slate-800">{String(client[k])}</dd>
+                  <dd className="mt-0.5 break-words text-sm text-slate-800">{formatAssessmentValue(client[k])}</dd>
                 </div>
               ))}
               {client.address && (
@@ -152,7 +152,7 @@ function PatientSummary({ client }) {
               {notes.map(([k, label]) => (
                 <div key={k}>
                   <p className="text-xs font-medium uppercase tracking-wide text-slate-400">{label}</p>
-                  <p className="mt-0.5 whitespace-pre-line text-sm text-slate-700">{client[k]}</p>
+                  <p className="mt-0.5 whitespace-pre-line text-sm text-slate-700">{formatAssessmentValue(client[k])}</p>
                 </div>
               ))}
             </div>
@@ -288,6 +288,19 @@ function TreatmentForm({ client, editId = '', onChangeClient, navigate }) {
         )}
       </div>
 
+      <div className="card p-5 text-sm leading-relaxed text-slate-600">
+        <h3 className="mb-2 text-base font-bold uppercase tracking-wide text-slate-900">Declaration</h3>
+        <p>
+          Physiotherapy involves physical evaluation and treatment by qualified therapists at Way to Wellness. During
+          treatment it may be necessary to expose and touch the area being treated; the patient may decline any part at
+          any time. Every effort is made to preserve modesty and keep the patient comfortable.
+        </p>
+        <label className="mt-3 flex items-start gap-2 font-medium text-slate-700">
+          <input id="treat-consent" type="checkbox" checked={consent} onChange={(e) => { setConsent(e.target.checked); touch() }} className="mt-0.5 h-4 w-4 rounded border-slate-300 text-brand-600" />
+          The procedure was explained and the patient consents to the assessment &amp; treatment.
+        </label>
+      </div>
+
       {CLINICAL_SECTIONS.map((s) => (
         <fieldset key={s.title} className="card p-5">
           <legend className="px-2 text-base font-bold text-brand-700">{s.title}</legend>
@@ -305,19 +318,6 @@ function TreatmentForm({ client, editId = '', onChangeClient, navigate }) {
           </div>
         </fieldset>
       ))}
-
-      <div className="card p-5 text-sm leading-relaxed text-slate-600">
-        <h3 className="mb-2 text-base font-bold uppercase tracking-wide text-slate-900">Declaration</h3>
-        <p>
-          Physiotherapy involves physical evaluation and treatment by qualified therapists at Way to Wellness. During
-          treatment it may be necessary to expose and touch the area being treated; the patient may decline any part at
-          any time. Every effort is made to preserve modesty and keep the patient comfortable.
-        </p>
-        <label className="mt-3 flex items-start gap-2 font-medium text-slate-700">
-          <input id="treat-consent" type="checkbox" checked={consent} onChange={(e) => { setConsent(e.target.checked); touch() }} className="mt-0.5 h-4 w-4 rounded border-slate-300 text-brand-600" />
-          The procedure was explained and the patient consents to the assessment &amp; treatment.
-        </label>
-      </div>
 
       {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}
       <div className="flex justify-end gap-2">

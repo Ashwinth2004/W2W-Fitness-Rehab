@@ -5,13 +5,13 @@ import DateField from './DateField'
 import PhoneField from './PhoneField'
 import { bookAppointment } from '../lib/firestore'
 import { notifyClinic } from '../lib/email'
-import { BUSINESS, whatsappLink } from '../lib/constants'
+import { BUSINESS, whatsappLink, BOOKABLE_SERVICES } from '../lib/constants'
 import { isValidMobile } from '../lib/validate'
 import { fmtDate } from '../lib/format'
 
-// Online booking is for Physiotherapy only. Other services are handled as
-// enquiries on the Contact page.
-const BOOKING_SERVICE = 'Physiotherapy'
+// Online booking covers Physiotherapy and Rehab. Other services (Yoga,
+// Lifestyle Fitness, Academy) are handled as enquiries on the Contact page.
+const BOOKING_SERVICE = BOOKABLE_SERVICES[0]
 
 const todayStr = () => new Date().toISOString().slice(0, 10)
 const maxStr = () => {
@@ -126,8 +126,21 @@ export default function BookingForm({ preset = {}, onDone }) {
           <input className="input" type="email" value={form.email} onChange={set('email')} placeholder="you@email.com" />
         </div>
         <div>
-          <label className="label">Service</label>
-          <input className="input cursor-not-allowed bg-slate-50 text-slate-600" value={BOOKING_SERVICE} readOnly />
+          <label className="label">Service *</label>
+          <div className="flex flex-wrap gap-2">
+            {BOOKABLE_SERVICES.map((s) => (
+              <button
+                type="button"
+                key={s}
+                onClick={() => setForm((f) => ({ ...f, service: s }))}
+                className={`rounded-full px-4 py-2 text-sm font-medium transition ${
+                  form.service === s ? 'bg-brand-600 text-white shadow' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                }`}
+              >
+                {s}
+              </button>
+            ))}
+          </div>
           <p className="mt-1 text-xs text-slate-400">
             For Yoga, Lifestyle Fitness or Academy, please <a href="/contact" className="text-brand-600 hover:underline">send an enquiry</a>.
           </p>

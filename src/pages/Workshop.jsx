@@ -50,7 +50,7 @@ export default function Workshop() {
           <span className="badge bg-white/10 text-brand-100">W2W Academy · Workshops</span>
           <h1 className="mt-4 font-extrabold leading-tight text-white">
             <span className="block text-5xl md:text-6xl">W2W</span>
-            <span className="mt-1 block text-2xl font-semibold text-brand-100 md:text-3xl">One-Day Workshop</span>
+            <span className="mt-1 block text-2xl font-semibold text-brand-100 md:text-3xl">Practical Workshop</span>
           </h1>
           <p className="mx-auto mt-4 max-w-2xl text-brand-100">
             Hands-on, practical workshops for physiotherapy students and professionals — led by experienced clinicians.
@@ -77,7 +77,7 @@ function ClosedState() {
           </span>
           <h2 className="mt-4 text-2xl font-bold">Registrations open soon</h2>
           <p className="mt-3 text-slate-600">
-            Our next W2W One-Day Workshop hasn’t opened yet. Follow us on Instagram or check back here — the moment a
+            Our next W2W Practical Workshop hasn’t opened yet. Follow us on Instagram or check back here — the moment a
             workshop opens, registration details and dates will appear on this page.
           </p>
           <a href={BUSINESS.instagram} target="_blank" rel="noreferrer" className="btn-outline mt-6">

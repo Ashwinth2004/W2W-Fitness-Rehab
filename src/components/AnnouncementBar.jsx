@@ -16,8 +16,8 @@ export default function AnnouncementBar() {
 
   const isOpen = Boolean(workshop)
   const message = isOpen
-    ? `W2W ONE DAY WORKSHOP — REGISTRATIONS OPEN NOW: ${workshop.title} · Limited slots — Register Today!`
-    : 'W2W ONE DAY WORKSHOP REGISTRATION — OPENS SOON · Stay tuned for dates & details!'
+    ? `W2W PRACTICAL WORKSHOP — REGISTRATIONS OPEN NOW: ${workshop.title} · Limited slots — Register Today!`
+    : 'W2W PRACTICAL WORKSHOP REGISTRATION — OPENS SOON · Stay tuned for dates & details!'
 
   // The track holds two identical copies; translating it -50% loops seamlessly.
   const Copy = ({ hidden }) => (

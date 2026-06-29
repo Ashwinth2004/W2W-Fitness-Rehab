@@ -206,7 +206,106 @@ export const SLOT_TIMES = [
 // Each appointment slot is 30 minutes long.
 export const SLOT_MINUTES = 30
 
-export const SERVICE_OPTIONS = SERVICES.map((s) => s.title)
+export const SERVICE_OPTIONS = [...SERVICES.map((s) => s.title), 'Rehab']
+
+// Services that can be booked as an appointment (website + admin).
+export const BOOKABLE_SERVICES = ['Physiotherapy', 'Rehab']
+
+// ============================================================================
+//  Clinical intake + assessment option lists (Clients & Treatment forms).
+//  Used by assessmentSchema.js, AssessmentField.jsx, the report PDF and the
+//  read-only detail views, so everything stays in sync.
+// ============================================================================
+
+// --- Client intake (front desk) -------------------------------------------
+export const WALKING_ROUTINE_OPTIONS = ['1–2k steps', '3–5k steps', '5–7k steps', '7–10k steps']
+export const EXERCISE_ROUTINE_OPTIONS = ['Yoga', 'Strength training', 'Only walking', 'Others']
+export const MEDICAL_HISTORY_OPTIONS = ['Diabetics', 'Hypertension', 'Thyroid', 'Other']
+
+// --- Treatment / examination (doctor) --------------------------------------
+export const PAIN_DURATION_UNITS = ['Days', 'Weeks', 'Months']
+export const PAIN_TYPE_OPTIONS = [
+  'Sharp / Shooting', 'Dull / Aching', 'Burning / Tingling', 'Throbbing / Pulsing', 'Deep / Heavy', 'Other',
+]
+export const ADL_IMPACT_OPTIONS = ["It doesn't affect my ADL", 'It is affecting my ADL']
+export const BUILT_OPTIONS = ['Ectomorph', 'Mesomorph', 'Endomorph']
+export const POS_NEG = ['+ve', '-ve']
+
+// Pain response — used under EVERY joint movement and on the spine.
+export const PAIN_RESPONSE = ['No', 'End-range Pain', 'Throughout ROM', 'Unable to Assess']
+// Spine ROM grading (lumbar & thoracic).
+export const SPINE_ROM_GRADES = ['Full', 'Mild Limitation', 'Moderate Limitation', 'Severe Limitation', 'Unable']
+
+// Joint-wise ROM reference (from the W2W ROM assessment sheet).
+//  type 'rom'   → each movement records AROM, PROM, Pain (normal = degrees)
+//  type 'spine' → each movement records a ROM grade + Pain (no AROM/PROM)
+export const JOINTS = [
+  { id: 'cervical', name: 'Cervical', type: 'rom', movements: [
+    { key: 'flex', name: 'Flexion', normal: '45°' }, { key: 'ext', name: 'Extension', normal: '45°' },
+    { key: 'latflex', name: 'Lateral Flexion', normal: '45°' }, { key: 'rot', name: 'Rotation', normal: '60–80°' },
+  ] },
+  { id: 'shoulder', name: 'Shoulder', type: 'rom', movements: [
+    { key: 'flex', name: 'Flexion', normal: '180°' }, { key: 'ext', name: 'Extension', normal: '60°' },
+    { key: 'abd', name: 'Abduction', normal: '180°' }, { key: 'add', name: 'Adduction', normal: '45°' },
+    { key: 'ir', name: 'Internal Rotation', normal: '70°' }, { key: 'er', name: 'External Rotation', normal: '90°' },
+  ] },
+  { id: 'elbow', name: 'Elbow', type: 'rom', movements: [
+    { key: 'flex', name: 'Flexion', normal: '150°' }, { key: 'ext', name: 'Extension', normal: '0°' },
+  ] },
+  { id: 'forearm', name: 'Forearm', type: 'rom', movements: [
+    { key: 'pro', name: 'Pronation', normal: '90°' }, { key: 'sup', name: 'Supination', normal: '90°' },
+  ] },
+  { id: 'wrist', name: 'Wrist', type: 'rom', movements: [
+    { key: 'flex', name: 'Flexion', normal: '80°' }, { key: 'ext', name: 'Extension', normal: '70°' },
+    { key: 'rd', name: 'Radial Deviation', normal: '20°' }, { key: 'ud', name: 'Ulnar Deviation', normal: '30°' },
+  ] },
+  { id: 'thumb', name: 'Thumb', type: 'rom', movements: [
+    { key: 'mcp', name: 'MCP Flexion', normal: '50°' }, { key: 'ip', name: 'IP Flexion', normal: '80°' },
+  ] },
+  { id: 'fingers', name: 'Fingers', type: 'rom', movements: [
+    { key: 'mcp', name: 'MCP Flexion', normal: '90°' }, { key: 'pip', name: 'PIP Flexion', normal: '100°' },
+    { key: 'dip', name: 'DIP Flexion', normal: '90°' },
+  ] },
+  { id: 'hip', name: 'Hip', type: 'rom', movements: [
+    { key: 'flex', name: 'Flexion', normal: '120°' }, { key: 'ext', name: 'Extension', normal: '20°' },
+    { key: 'abd', name: 'Abduction', normal: '45°' }, { key: 'add', name: 'Adduction', normal: '30°' },
+    { key: 'ir', name: 'Internal Rotation', normal: '45°' }, { key: 'er', name: 'External Rotation', normal: '45°' },
+  ] },
+  { id: 'knee', name: 'Knee', type: 'rom', movements: [
+    { key: 'flex', name: 'Flexion', normal: '135°' }, { key: 'ext', name: 'Extension', normal: '0°' },
+  ] },
+  { id: 'ankle', name: 'Ankle', type: 'rom', movements: [
+    { key: 'df', name: 'Dorsiflexion', normal: '20°' }, { key: 'pf', name: 'Plantarflexion', normal: '50°' },
+    { key: 'inv', name: 'Inversion', normal: '35°' }, { key: 'ev', name: 'Eversion', normal: '15°' },
+  ] },
+  { id: 'thoracic', name: 'Thoracic Spine', type: 'spine', movements: [
+    { key: 'flex', name: 'Flexion', normal: '' }, { key: 'ext', name: 'Extension', normal: '' },
+    { key: 'sf', name: 'Side Flexion', normal: '' }, { key: 'rot', name: 'Rotation', normal: '' },
+  ] },
+  { id: 'lumbar', name: 'Lumbar Spine', type: 'spine', movements: [
+    { key: 'flex', name: 'Flexion', normal: '60°' }, { key: 'ext', name: 'Extension', normal: '25°' },
+    { key: 'sf', name: 'Side Flexion', normal: '20°' }, { key: 'rot', name: 'Rotation', normal: '18°' },
+  ] },
+]
+
+// --- Functional activities -------------------------------------------------
+export const FUNCTIONAL_UPPER = [
+  'Overhead Reach', 'Reach Behind Neck', 'Reach Behind Back', 'Hand to Mouth', 'Lift/Carry Object',
+  'Push/Pull', 'Grip', 'Pinch', 'Fine Motor Tasks (Writing/Buttoning/Zipping)',
+]
+export const FUNCTIONAL_LOWER = [
+  'Sit to Stand', 'Squatting', 'Bending Forward', 'Walking', 'Stair Climbing', 'Running (if applicable)',
+  'Heel Raise', 'Toe Raise', 'Single-Leg Balance', 'Cross-Leg Sitting', 'Floor Transfers',
+]
+export const MOVEMENT_QUALITY = ['Normal', 'Compensated', 'Guarded', 'Poor Control']
+
+// --- Girth & limb length ---------------------------------------------------
+export const GIRTH_SITES = [
+  'Mid Arm', 'Maximum Forearm Girth', '10 cm Above Patella', 'Knee Joint Line (Mid-Patella)',
+  'Maximum Calf Girth', 'Figure-of-Eight (Ankle)',
+]
+export const GIRTH_FINDINGS = ['Normal', 'Swelling', 'Muscle Atrophy', 'Muscle Hypertrophy', 'Post-operative']
+export const LIMB_LENGTH_TYPES = ['True', 'Apparent', 'Both']
 
 // --- Prefilled WhatsApp helpers -------------------------------------------
 export function whatsappLink(message) {

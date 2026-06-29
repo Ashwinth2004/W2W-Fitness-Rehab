@@ -16,6 +16,7 @@ import {
   collection, doc, addDoc, setDoc, getDoc, getDocs, updateDoc, deleteDoc,
   query, where, orderBy, serverTimestamp, runTransaction, onSnapshot, writeBatch,
 } from 'firebase/firestore'
+import { SLOT_TIMES } from './constants'
 
 // ---------- Enquiries -------------------------------------------------------
 export async function createEnquiry(data) {
@@ -73,6 +74,65 @@ export function watchBookedTimes(date, cb) {
   )
 }
 
+// Live { booked, blocked } for one date. `blocked` = admin "time off" slots that
+// clients can't book (separate from `times`, which are real bookings).
+export function watchDayAvailability(date, cb) {
+  return onSnapshot(
+    doc(db, 'availability', date),
+    (snap) => {
+      const d = snap.exists() ? snap.data() : {}
+      cb({ booked: fullTimes(d.times || []), blocked: d.blocked || [] })
+    },
+    (err) => { console.warn('availability read failed:', err?.code || err); cb({ booked: [], blocked: [] }) }
+  )
+}
+
+// All availability docs that have at least one blocked slot (admin overview).
+export function watchBlockedDays(cb) {
+  return onSnapshot(
+    collection(db, 'availability'),
+    (snap) => {
+      const days = snap.docs
+        .map((d) => ({ date: d.id, blocked: d.data().blocked || [] }))
+        .filter((d) => d.blocked.length > 0)
+        .sort((a, b) => a.date.localeCompare(b.date))
+      cb(days)
+    },
+    (err) => { console.warn('availability list failed:', err?.code || err); cb([]) }
+  )
+}
+
+// Mark slots as unavailable ("time off") across one or more dates in a single
+// action. Empty/omitted `times` blocks the WHOLE day (all slots). Existing
+// bookings are untouched — we only add to the `blocked` array.
+export async function blockSlots(dates, times) {
+  const list = Array.isArray(dates) ? dates : [dates]
+  const slots = times && times.length ? times : SLOT_TIMES
+  const batch = writeBatch(db)
+  for (const date of list) {
+    const ref = doc(db, 'availability', date)
+    const snap = await getDoc(ref)
+    const prev = snap.exists() ? snap.data().blocked || [] : []
+    batch.set(ref, { blocked: Array.from(new Set([...prev, ...slots])) }, { merge: true })
+  }
+  await batch.commit()
+}
+
+// Re-open (un-block) slots across dates. Empty `times` re-opens the whole day.
+export async function unblockSlots(dates, times) {
+  const list = Array.isArray(dates) ? dates : [dates]
+  const batch = writeBatch(db)
+  for (const date of list) {
+    const ref = doc(db, 'availability', date)
+    const snap = await getDoc(ref)
+    if (!snap.exists()) continue
+    const prev = snap.data().blocked || []
+    const next = times && times.length ? prev.filter((t) => !times.includes(t)) : []
+    batch.set(ref, { blocked: next }, { merge: true })
+  }
+  await batch.commit()
+}
+
 /**
  * Books a slot atomically (instant auto-confirm). Throws 'SLOT_TAKEN' if the
  * time was grabbed by someone else first.
@@ -82,7 +142,9 @@ export async function bookAppointment({ date, time, ...rest }) {
   const apptRef = doc(collection(db, 'appointments'))
   await runTransaction(db, async (tx) => {
     const availSnap = await tx.get(availRef)
-    const times = availSnap.exists() ? availSnap.data().times || [] : []
+    const data = availSnap.exists() ? availSnap.data() : {}
+    const times = data.times || []
+    if ((data.blocked || []).includes(time)) throw new Error('SLOT_BLOCKED')
     if (times.filter((t) => t === time).length >= SLOT_LIMIT) throw new Error('SLOT_TAKEN')
     tx.set(availRef, { times: [...times, time] }, { merge: true })
     tx.set(apptRef, {

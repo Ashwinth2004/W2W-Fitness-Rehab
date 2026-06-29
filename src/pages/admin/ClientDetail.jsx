@@ -7,11 +7,11 @@ import {
 } from 'lucide-react'
 import {
   getClient, updateClient, deleteClient, watchClientNotes, addClientNote, deleteClientNote,
-  watchTreatments, deleteTreatment, updateTreatment, getClientNotesOnce, addAccountingEntry, getSignatureOnce,
+  watchTreatments, deleteTreatment, updateTreatment, getClientNotesOnce, addAccountingEntry,
 } from '../../lib/firestore'
 import { fmtDate, fmtDateTime, todayISO } from '../../lib/format'
 import { onlyDigits, isValidMobile } from '../../lib/validate'
-import { BASIC_SECTIONS, BASIC_KEYS } from '../../lib/assessmentSchema'
+import { BASIC_SECTIONS, BASIC_KEYS, formatAssessmentValue } from '../../lib/assessmentSchema'
 import ContactActions from '../../components/ContactActions'
 import DateField from '../../components/DateField'
 import AssessmentField from '../../components/AssessmentField'
@@ -20,10 +20,11 @@ import BodyPainSelector from '../../components/BodyPainSelector'
 import { generateClientReport } from '../../lib/pdf'
 
 const SESSION_GROUPS = [
-  ['Pain assessment', [['painArea', 'Area'], ['painDuration', 'Duration'], ['painType', 'Type'], ['painADL', 'Impact on ADL'], ['painAggravating', 'Aggravating'], ['painRelieving', 'Relieving'], ['vas', 'VAS (0–10)']]],
+  ['Pain assessment', [['painDuration', 'Duration'], ['painType', 'Type'], ['painADL', 'Impact on ADL'], ['painAggravating', 'Aggravating'], ['painRelieving', 'Relieving'], ['vas', 'VAS (0–10)']]],
   ['Objective', [['built', 'Built'], ['deformities', 'Deformities / Edema'], ['gait', 'Gait'], ['objectiveNotes', 'Notes']]],
-  ['On palpation', [['tenderness', 'Tenderness'], ['swelling', 'Swelling / Spasm'], ['crepitus', 'Crepitus']]],
-  ['On examination', [['rom', 'ROM'], ['endFeel', 'End feel'], ['grip', 'Grip'], ['muscleTone', 'Muscle tone'], ['girth', 'Girth'], ['limbLength', 'Limb length'], ['reflexes', 'Reflexes'], ['specialTests', 'Special tests']]],
+  ['On palpation', [['tenderness', 'Tenderness'], ['swelling', 'Swelling'], ['spasm', 'Spasm'], ['crepitus', 'Crepitus']]],
+  ['On examination', [['rom', 'ROM'], ['endFeel', 'End feel'], ['girth', 'Girth'], ['limbLength', 'Limb length'], ['specialTests', 'Special tests']]],
+  ['Functional', [['functionalUpper', 'Upper body'], ['functionalLower', 'Lower body'], ['movementQuality', 'Movement quality']]],
   ['Assessment & plan', [['opinion', 'Opinion'], ['treatmentOptions', 'Treatment options'], ['expectedRecovery', 'Expected recovery'], ['treatmentPlan', 'Treatment plan'], ['followUp', 'Follow up']]],
 ]
 const ACTIVITY = [['walking', 'Walking / steps'], ['exercise', 'Exercise'], ['deskWork', 'Desk work'], ['sleep', 'Sleep'], ['hydration', 'Hydration']]
@@ -125,7 +126,7 @@ export default function ClientDetail() {
           title="Medical History / Previous Reports"
           text={[
             client.pastHistory ? `Past medical history:\n${client.pastHistory}` : '',
-            client.presentHistory ? `Present medical history:\n${client.presentHistory}` : '',
+            formatAssessmentValue(client.presentHistory) ? `Present medical history:\n${formatAssessmentValue(client.presentHistory)}` : '',
             client.mechanism ? `Mechanism of injury:\n${client.mechanism}` : '',
           ].filter(Boolean).join('\n\n') || client.history}
           empty="No history recorded."
@@ -204,7 +205,9 @@ function SessionItem({ clientId, t, defaultOpen }) {
   const [editingNote, setEditingNote] = useState(false)
   const [noteText, setNoteText] = useState(t.note || '')
   const [savingNote, setSavingNote] = useState(false)
-  const groups = SESSION_GROUPS.map(([title, pairs]) => [title, pairs.filter(([k]) => t[k])]).filter(([, p]) => p.length)
+  const groups = SESSION_GROUPS
+    .map(([title, pairs]) => [title, pairs.filter(([k]) => formatAssessmentValue(t[k]) !== '')])
+    .filter(([, p]) => p.length)
 
   async function saveNote() {
     setSavingNote(true)
@@ -232,7 +235,7 @@ function SessionItem({ clientId, t, defaultOpen }) {
                 <p className="mb-1.5 text-xs font-bold uppercase tracking-wide text-brand-600">{title}</p>
                 <dl className="space-y-1">
                   {pairs.map(([k, label]) => (
-                    <div key={k} className="flex gap-2 text-sm"><dt className="shrink-0 text-slate-400">{label}:</dt><dd className="whitespace-pre-line text-slate-700">{String(t[k])}</dd></div>
+                    <div key={k} className="flex gap-2 text-sm"><dt className="shrink-0 text-slate-400">{label}:</dt><dd className="whitespace-pre-line text-slate-700">{formatAssessmentValue(t[k])}</dd></div>
                   ))}
                 </dl>
               </div>
@@ -334,14 +337,14 @@ function ReportModal({ client, treatments, onClose }) {
   async function go(action) {
     setBusy(action); setMsg('')
     try {
-      const [notes, sig] = await Promise.all([getClientNotesOnce(client.id), getSignatureOnce(client.id).catch(() => null)])
+      const notes = await getClientNotesOnce(client.id)
       // Combine the selected sessions (one, several, or all) into a single report.
       const sessions = treatments
         .filter((t) => selectedIds.includes(t.id))
         .sort((a, b) => (a.date || '').localeCompare(b.date || ''))
       const baseClient = { ...client, assessmentDate: sessions[0]?.date || todayISO() }
       const bill = withBilling ? { amount: Number(amount) || 0, paid: Number(paid) || 0, balance, mode } : null
-      const res = await generateClientReport(baseClient, { notes, progress: [], therapist, bill, action, sessions, signature: sig?.dataUrl || null })
+      const res = await generateClientReport(baseClient, { notes, progress: [], therapist, bill, action, sessions, signature: null })
       if (withBilling && record && !recorded && (bill.amount > 0 || bill.paid > 0)) {
         await addAccountingEntry({
           date: chargeDate || todayISO(),

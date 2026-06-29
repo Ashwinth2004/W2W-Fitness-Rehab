@@ -10,6 +10,7 @@ import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import { BUSINESS, qualificationFor, signatureFor } from './constants'
 import { REGIONS as PAIN_REGIONS, VIEW_W as PAIN_W, VIEW_H as PAIN_H, DEFAULT_R as PAIN_R } from './bodyRegions'
+import { formatAssessmentValue } from './assessmentSchema'
 import { fmtDate, fmt12h } from './format'
 
 const BRAND = [14, 139, 161] // #0e8ba1
@@ -231,7 +232,10 @@ function field(doc, y, label, value, block = false) {
 }
 
 function group(doc, y, title, pairs, blockKeys = []) {
-  const present = pairs.filter(([, v]) => v != null && v !== '')
+  // Format every value (handles arrays / ROM / girth / limb objects) and drop blanks.
+  const present = pairs
+    .map(([label, v]) => [label, formatAssessmentValue(v)])
+    .filter(([, v]) => v !== '')
   if (!present.length) return y
   y = sectionHeader(doc, y, title)
   for (const [label, value] of present) y = field(doc, y, label, value, blockKeys.includes(label))
@@ -277,7 +281,7 @@ export async function generateClientReport(client, opts = {}) {
   // Clinical assessment — rendered once, or repeated per selected session.
   const renderClinical = (src) => {
     y = group(doc, y, 'Pain Assessment', [
-      ['Area (side & site)', src.painArea], ['Duration', src.painDuration],
+      ['Duration', src.painDuration],
       ['Nature / type', src.painType], ['Impact on ADL', src.painADL],
       ['Aggravating factor', src.painAggravating], ['Relieving factor', src.painRelieving],
       ['VAS — pain score (0-10)', src.vas],
@@ -287,15 +291,18 @@ export async function generateClientReport(client, opts = {}) {
       ['Gait', src.gait], ['Notes', src.objectiveNotes],
     ], ['Notes'])
     y = group(doc, y, 'On Palpation', [
-      ['Tenderness', src.tenderness], ['Swelling / Spasm', src.swelling],
+      ['Tenderness', src.tenderness], ['Swelling', src.swelling], ['Spasm', src.spasm],
       ['Crepitus / Abnormal sounds', src.crepitus],
     ])
     y = group(doc, y, 'On Examination', [
-      ['ROM', src.rom], ['End feel', src.endFeel], ['Grip', src.grip],
-      ['Muscle tone', src.muscleTone], ['Girth measurements', src.girth],
-      ['Limb length discrepancies', src.limbLength], ['Reflexes', src.reflexes],
+      ['ROM', src.rom], ['End feel', src.endFeel],
+      ['Girth measurements', src.girth], ['Limb length', src.limbLength],
       ['Special tests & functional testing', src.specialTests],
-    ], ['ROM', 'Special tests & functional testing'])
+    ], ['ROM', 'Girth measurements', 'Limb length', 'Special tests & functional testing'])
+    y = group(doc, y, 'Functional Activities', [
+      ['Upper body', src.functionalUpper], ['Lower body', src.functionalLower],
+      ['Movement quality', src.movementQuality],
+    ], ['Upper body', 'Lower body'])
     y = group(doc, y, 'Assessment & Plan', [
       ['Opinion about the condition', src.opinion], ['Treatment options (with evidence)', src.treatmentOptions],
       ['Expected duration of recovery & outcomes', src.expectedRecovery],
