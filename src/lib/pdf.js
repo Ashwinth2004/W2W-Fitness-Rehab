@@ -281,8 +281,8 @@ export async function generateClientReport(client, opts = {}) {
   const renderClinical = (src) => {
     y = group(doc, y, 'History', [
       ['Past Medical History', src.pastHistory], ['Current chief complaints', src.complaint],
-      ['Mechanism of injury', src.mechanism],
-    ], ['Past Medical History', 'Current chief complaints', 'Mechanism of injury'])
+      ['Mechanism of injury', src.mechanism], ['Radiological report', src.radiology],
+    ], ['Past Medical History', 'Current chief complaints', 'Mechanism of injury', 'Radiological report'])
     y = group(doc, y, 'Pain Assessment', [
       ['Duration', src.painDuration],
       ['Nature / type', src.painType], ['Impact on ADL', src.painADL],

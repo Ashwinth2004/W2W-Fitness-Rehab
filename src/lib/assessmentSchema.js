@@ -53,6 +53,7 @@ export const CLINICAL_SECTIONS = [
     { k: 'pastHistory', label: 'Past Medical History (major illness, injury or surgery)', area: true },
     { k: 'complaint', label: 'Current chief complaints', area: true },
     { k: 'mechanism', label: 'Mechanism of injury', area: true },
+    { k: 'radiology', label: 'Radiological report (if any)', area: true },
   ] },
   { title: 'Pain Assessment', ghost: true, fields: [
     { k: 'painDuration', label: 'Duration', type: 'duration' },
@@ -79,19 +80,19 @@ export const CLINICAL_SECTIONS = [
     { k: 'endFeel', label: 'End Feel' },
     { k: 'girth', label: 'Girth measurements', type: 'girth', full: true },
     { k: 'limbLength', label: 'Limb length', type: 'limb', full: true },
-    { k: 'specialTests', label: 'Special tests & functional testing', area: true, full: true },
+    { k: 'specialTests', label: 'Special tests & functional testing', type: 'list', full: true },
   ] },
   { title: 'Functional Activities', ghost: true, fields: [
-    { k: 'functionalUpper', label: 'Upper body', type: 'multi', options: FUNCTIONAL_UPPER, full: true },
-    { k: 'functionalLower', label: 'Lower body', type: 'multi', options: FUNCTIONAL_LOWER, full: true },
+    { k: 'functionalUpper', label: 'Upper body', type: 'multi', options: FUNCTIONAL_UPPER, addable: true, full: true },
+    { k: 'functionalLower', label: 'Lower body', type: 'multi', options: FUNCTIONAL_LOWER, addable: true, full: true },
     { k: 'movementQuality', label: 'Movement quality', type: 'chips', options: MOVEMENT_QUALITY, full: true },
   ] },
   { title: 'Assessment & Plan', ghost: true, cols1: true, fields: [
     { k: 'opinion', label: 'Opinion about the patient & condition', area: true },
     { k: 'treatmentOptions', label: 'Treatment options (with evidence)', area: true },
     { k: 'expectedRecovery', label: 'Expected duration of recovery & outcomes', area: true },
-    { k: 'treatmentPlan', label: 'Treatment plan', area: true },
-    { k: 'followUp', label: 'Follow up', area: true },
+    { k: 'treatmentPlan', label: 'Treatment plan', type: 'list', full: true },
+    { k: 'followUp', label: 'Follow up', type: 'list', full: true },
   ] },
 ]
 

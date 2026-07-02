@@ -1,8 +1,10 @@
+import { useState } from 'react'
+import { X } from 'lucide-react'
 import PhoneField from './PhoneField'
-import { RomField, GirthField, LimbLengthField } from './ClinicalFields'
+import { RomField, GirthField, LimbLengthField, ListField } from './ClinicalFields'
 import { PAIN_DURATION_UNITS } from '../lib/constants'
 
-const STRUCTURED = ['chips', 'multi', 'posneg', 'duration', 'rom', 'girth', 'limb']
+const STRUCTURED = ['chips', 'multi', 'posneg', 'duration', 'rom', 'girth', 'limb', 'list']
 const chipCls = (on) =>
   `rounded-full px-3.5 py-2 text-sm font-medium transition ${on ? 'bg-brand-600 text-white shadow' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`
 const OTHER = /^other/i
@@ -25,13 +27,16 @@ function Chips({ f, value, onChange }) {
   )
 }
 
-// Multi-select chips, with optional "Other (mention)" free-text.
+// Multi-select chips, with optional "Other (mention)" free-text and, when
+// `addable`, the ability to type & save your own entries (removable chips).
 function Multi({ f, value, onChange }) {
   const arr = Array.isArray(value) ? value : []
   const otherOpt = f.other ? f.options.find((o) => OTHER.test(o)) : null
   const otherIdx = otherOpt ? arr.findIndex((x) => typeof x === 'string' && x.startsWith(otherOpt)) : -1
   const otherActive = otherIdx >= 0
   const otherText = otherActive && arr[otherIdx].length > otherOpt.length ? arr[otherIdx].slice(otherOpt.length).replace(/^[:\s—-]+/, '') : ''
+  const customs = arr.filter((v) => typeof v === 'string' && !f.options.includes(v) && !(otherOpt && v.startsWith(otherOpt)))
+  const [draft, setDraft] = useState('')
   const has = (o) => (o === otherOpt ? otherActive : arr.includes(o))
   const toggle = (o) => {
     if (o === otherOpt) onChange(otherActive ? arr.filter((_, i) => i !== otherIdx) : [...arr, otherOpt])
@@ -41,12 +46,25 @@ function Multi({ f, value, onChange }) {
     const entry = t ? `${otherOpt}: ${t}` : otherOpt
     onChange(otherActive ? arr.map((x, i) => (i === otherIdx ? entry : x)) : [...arr, entry])
   }
+  const addCustom = () => { const t = draft.trim(); if (t && !arr.includes(t)) onChange([...arr, t]); setDraft('') }
   return (
     <div>
       <div className="flex flex-wrap gap-2">
         {f.options.map((o) => <button type="button" key={o} className={chipCls(has(o))} onClick={() => toggle(o)}>{o}</button>)}
+        {customs.map((v) => (
+          <span key={v} className="inline-flex items-center gap-1 rounded-full bg-brand-600 py-2 pl-3.5 pr-1.5 text-sm font-medium text-white shadow">
+            {v}
+            <button type="button" onClick={() => onChange(arr.filter((x) => x !== v))} className="grid h-5 w-5 place-items-center rounded-full hover:bg-white/20"><X size={13} /></button>
+          </span>
+        ))}
       </div>
       {otherActive && <input className="input mt-2" placeholder="Please mention…" value={otherText} onChange={(e) => setOther(e.target.value)} />}
+      {f.addable && (
+        <div className="mt-2 flex gap-2">
+          <input className="input" value={draft} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addCustom() } }} placeholder="Add another…" />
+          <button type="button" onClick={addCustom} className="btn-outline shrink-0 text-sm">Add</button>
+        </div>
+      )}
     </div>
   )
 }
@@ -96,7 +114,7 @@ export default function AssessmentField({ f, value, ghost, onChange, big, invali
 
   // Structured pickers (chips / multi / +ve-ve / duration / ROM / girth / limb).
   if (STRUCTURED.includes(f.type)) {
-    const fullWrap = (f.full || ['rom', 'girth', 'limb'].includes(f.type)) ? 'sm:col-span-2' : ''
+    const fullWrap = (f.full || ['rom', 'girth', 'limb', 'list'].includes(f.type)) ? 'sm:col-span-2' : ''
     return (
       <div className={fullWrap} id={id}>
         <label className={lbl}>{f.label}</label>
@@ -108,6 +126,7 @@ export default function AssessmentField({ f, value, ghost, onChange, big, invali
           {f.type === 'rom' && <RomField value={value} onChange={onChange} />}
           {f.type === 'girth' && <GirthField value={value} onChange={onChange} />}
           {f.type === 'limb' && <LimbLengthField value={value} onChange={onChange} />}
+          {f.type === 'list' && <ListField value={value} onChange={onChange} />}
         </div>
       </div>
     )

@@ -20,7 +20,7 @@ import BodyPainSelector from '../../components/BodyPainSelector'
 import { generateClientReport } from '../../lib/pdf'
 
 const SESSION_GROUPS = [
-  ['History', [['pastHistory', 'Past medical history'], ['complaint', 'Chief complaint'], ['mechanism', 'Mechanism of injury']]],
+  ['History', [['pastHistory', 'Past medical history'], ['complaint', 'Chief complaint'], ['mechanism', 'Mechanism of injury'], ['radiology', 'Radiological report']]],
   ['Pain assessment', [['painDuration', 'Duration'], ['painType', 'Type'], ['painADL', 'Impact on ADL'], ['painAggravating', 'Aggravating'], ['painRelieving', 'Relieving'], ['vas', 'VAS (0–10)']]],
   ['Objective', [['built', 'Built'], ['deformities', 'Deformities / Edema'], ['gait', 'Gait'], ['objectiveNotes', 'Notes']]],
   ['On palpation', [['tenderness', 'Tenderness'], ['swelling', 'Swelling'], ['spasm', 'Spasm'], ['crepitus', 'Crepitus']]],

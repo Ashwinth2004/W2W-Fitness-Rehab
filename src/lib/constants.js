@@ -283,11 +283,13 @@ export const JOINTS = [
   ] },
   { id: 'thoracic', name: 'Thoracic Spine', type: 'spine', movements: [
     { key: 'flex', name: 'Flexion', normal: '' }, { key: 'ext', name: 'Extension', normal: '' },
-    { key: 'sf', name: 'Side Flexion', normal: '' }, { key: 'rot', name: 'Rotation', normal: '' },
+    { key: 'sf_r', name: 'Side Flexion (Right)', normal: '' }, { key: 'sf_l', name: 'Side Flexion (Left)', normal: '' },
+    { key: 'rot_r', name: 'Rotation (Right)', normal: '' }, { key: 'rot_l', name: 'Rotation (Left)', normal: '' },
   ] },
   { id: 'lumbar', name: 'Lumbar Spine', type: 'spine', movements: [
     { key: 'flex', name: 'Flexion', normal: '60°' }, { key: 'ext', name: 'Extension', normal: '25°' },
-    { key: 'sf', name: 'Side Flexion', normal: '20°' }, { key: 'rot', name: 'Rotation', normal: '18°' },
+    { key: 'sf_r', name: 'Side Flexion (Right)', normal: '20°' }, { key: 'sf_l', name: 'Side Flexion (Left)', normal: '20°' },
+    { key: 'rot_r', name: 'Rotation (Right)', normal: '18°' }, { key: 'rot_l', name: 'Rotation (Left)', normal: '18°' },
   ] },
 ]
 

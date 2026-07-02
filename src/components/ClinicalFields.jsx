@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { Plus, Trash2, Check, ArrowRight, Pencil } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { Plus, Trash2, Check, ArrowRight, Pencil, X } from 'lucide-react'
 import {
   JOINTS, PAIN_RESPONSE, SPINE_ROM_GRADES, GIRTH_SITES, GIRTH_FINDINGS, LIMB_LENGTH_TYPES,
 } from '../lib/constants'
@@ -271,6 +271,45 @@ export function LimbLengthField({ value, onChange }) {
       {res.label && (
         <p className={`rounded-lg px-3 py-2 text-sm ${res.label === 'Equal' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>{res.label}</p>
       )}
+    </div>
+  )
+}
+
+// Numbered list — stored as "1. a\n2. b" so it shows as numbered lines
+// everywhere (detail view + PDF) with no special formatting. Add / edit /
+// delete rows; auto-numbered as you type.
+export function ListField({ value, onChange, max = 12 }) {
+  const parse = (v) => String(v || '').split('\n').map((l) => l.replace(/^\s*\d+[.)]\s*/, '').trim()).filter(Boolean)
+  const [rows, setRows] = useState(() => { const p = parse(value); return p.length ? p : [''] })
+  const lastEmit = useRef(value)
+
+  // Re-sync when the parent loads a different value (e.g. editing a saved session).
+  useEffect(() => {
+    if (value !== lastEmit.current) { const p = parse(value); setRows(p.length ? p : ['']); lastEmit.current = value }
+  }, [value])
+
+  const emit = (next) => {
+    setRows(next)
+    const joined = next.map((s) => s.trim()).filter(Boolean).map((s, i) => `${i + 1}. ${s}`).join('\n')
+    lastEmit.current = joined
+    onChange(joined)
+  }
+  const setRow = (i, val) => emit(rows.map((r, idx) => (idx === i ? val : r)))
+  const add = () => { if (rows.length < max) emit([...rows, '']) }
+  const remove = (i) => { const n = rows.filter((_, idx) => idx !== i); emit(n.length ? n : ['']) }
+
+  return (
+    <div className="space-y-2">
+      {rows.map((r, i) => (
+        <div key={i} className="flex items-center gap-2">
+          <span className="w-5 shrink-0 text-right text-sm font-medium text-slate-400">{i + 1}.</span>
+          <input className="input" value={r} onChange={(e) => setRow(i, e.target.value)} placeholder={`Item ${i + 1}`} />
+          {rows.length > 1 && (
+            <button type="button" onClick={() => remove(i)} className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-slate-300 hover:bg-red-50 hover:text-red-500"><X size={15} /></button>
+          )}
+        </div>
+      ))}
+      {rows.length < max && <button type="button" onClick={add} className="btn-outline text-sm"><Plus size={15} /> Add</button>}
     </div>
   )
 }
