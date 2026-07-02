@@ -20,6 +20,7 @@ import BodyPainSelector from '../../components/BodyPainSelector'
 import { generateClientReport } from '../../lib/pdf'
 
 const SESSION_GROUPS = [
+  ['History', [['pastHistory', 'Past medical history'], ['complaint', 'Chief complaint'], ['mechanism', 'Mechanism of injury']]],
   ['Pain assessment', [['painDuration', 'Duration'], ['painType', 'Type'], ['painADL', 'Impact on ADL'], ['painAggravating', 'Aggravating'], ['painRelieving', 'Relieving'], ['vas', 'VAS (0–10)']]],
   ['Objective', [['built', 'Built'], ['deformities', 'Deformities / Edema'], ['gait', 'Gait'], ['objectiveNotes', 'Notes']]],
   ['On palpation', [['tenderness', 'Tenderness'], ['swelling', 'Swelling'], ['spasm', 'Spasm'], ['crepitus', 'Crepitus']]],
@@ -121,12 +122,13 @@ export default function ClientDetail() {
 
       {/* Complaint + history (basic details) */}
       <div className="grid gap-6 lg:grid-cols-2">
-        <InfoBlock title="Chief Complaint / Goal" text={client.complaint} empty="No complaint recorded." />
+        <InfoBlock title="Chief Complaint / Goal" text={treatments[0]?.complaint || client.complaint} empty="Recorded per treatment session below." />
         <InfoBlock
           title="Medical History / Previous Reports"
           text={[
-            client.pastHistory ? `Past medical history:\n${client.pastHistory}` : '',
             formatAssessmentValue(client.presentHistory) ? `Present medical history:\n${formatAssessmentValue(client.presentHistory)}` : '',
+            client.otherNotes ? `Other notes:\n${client.otherNotes}` : '',
+            client.pastHistory ? `Past medical history:\n${client.pastHistory}` : '',
             client.mechanism ? `Mechanism of injury:\n${client.mechanism}` : '',
           ].filter(Boolean).join('\n\n') || client.history}
           empty="No history recorded."

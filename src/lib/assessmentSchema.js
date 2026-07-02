@@ -43,14 +43,17 @@ export const BASIC_SECTIONS = [
     { k: 'activityNotes', label: 'Notes (optional)', area: true, full: true },
   ] },
   { title: 'History', ghost: true, cols1: true, fields: [
-    { k: 'pastHistory', label: 'Past Medical History (major illness, injury or surgery)', area: true },
     { k: 'presentHistory', label: 'Present Medical History', type: 'multi', options: MEDICAL_HISTORY_OPTIONS, other: true, full: true },
-    { k: 'complaint', label: 'Current chief complaints', area: true },
-    { k: 'mechanism', label: 'Mechanism of injury', area: true },
+    { k: 'otherNotes', label: 'Any other notes (optional)', area: true },
   ] },
 ]
 
 export const CLINICAL_SECTIONS = [
+  { title: 'History', ghost: true, cols1: true, fields: [
+    { k: 'pastHistory', label: 'Past Medical History (major illness, injury or surgery)', area: true },
+    { k: 'complaint', label: 'Current chief complaints', area: true },
+    { k: 'mechanism', label: 'Mechanism of injury', area: true },
+  ] },
   { title: 'Pain Assessment', ghost: true, fields: [
     { k: 'painDuration', label: 'Duration', type: 'duration' },
     { k: 'painType', label: 'Nature / type of pain', type: 'multi', options: PAIN_TYPE_OPTIONS, other: true, full: true },

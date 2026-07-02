@@ -124,16 +124,6 @@ export default function ClientForm({ clients = [], onCreated, onClose }) {
 
   return (
     <form onSubmit={(e) => { e.preventDefault(); submit('treatment') }} className="card animate-fade-in space-y-6 p-5 md:p-6">
-      {/* Declaration & consent — shown at the top, before filling the form */}
-      <div className="rounded-2xl border border-brand-100 bg-brand-50/60 p-4">
-        <p className="text-sm font-bold text-brand-700">Declaration &amp; Consent</p>
-        <p className="mt-2 text-sm leading-relaxed text-slate-600">{CONSENT_DECLARATION}</p>
-        <label className="mt-3 flex items-start gap-2 text-sm font-medium text-slate-700">
-          <input type="checkbox" checked={agreed} onChange={(e) => { setAgreed(e.target.checked); setDirty(true) }} className="mt-0.5 h-4 w-4 rounded border-slate-300 text-brand-600" />
-          <span>The information provided is accurate and the patient consents to the assessment &amp; treatment.</span>
-        </label>
-      </div>
-
       {!editing && (
         <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-4">
           <label className="label text-xs">Returning patient? Search by name, phone or ID</label>
@@ -200,6 +190,16 @@ export default function ClientForm({ clients = [], onCreated, onClose }) {
         <legend className="px-2 text-sm font-bold text-brand-700">Pain areas (tap on the body)</legend>
         <BodyPainSelector value={painAreas} onChange={(v) => { setPainAreas(v); setDirty(true) }} />
       </fieldset>
+
+      {/* Declaration & consent — shown at the end, after the pain-areas chart */}
+      <div className="rounded-2xl border border-brand-100 bg-brand-50/60 p-4">
+        <p className="text-sm font-bold text-brand-700">Declaration &amp; Consent</p>
+        <p className="mt-2 text-sm leading-relaxed text-slate-600">{CONSENT_DECLARATION}</p>
+        <label className="mt-3 flex items-start gap-2 text-sm font-medium text-slate-700">
+          <input type="checkbox" checked={agreed} onChange={(e) => { setAgreed(e.target.checked); setDirty(true) }} className="mt-0.5 h-4 w-4 rounded border-slate-300 text-brand-600" />
+          <span>The information provided is accurate and the patient consents to the assessment &amp; treatment.</span>
+        </label>
+      </div>
 
       {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}
 

@@ -275,11 +275,14 @@ export async function generateClientReport(client, opts = {}) {
     ['Hydration (water/day)', client.hydration], ['Notes', client.activityNotes],
   ], ['Notes'])
   y = group(doc, y, 'History', [
-    ['Past Medical History', client.pastHistory], ['Present Medical History', client.presentHistory],
-    ['Current chief complaints', client.complaint], ['Mechanism of injury', client.mechanism],
-  ], ['Past Medical History', 'Present Medical History', 'Current chief complaints', 'Mechanism of injury'])
+    ['Present Medical History', client.presentHistory], ['Other notes', client.otherNotes],
+  ], ['Other notes'])
   // Clinical assessment — rendered once, or repeated per selected session.
   const renderClinical = (src) => {
+    y = group(doc, y, 'History', [
+      ['Past Medical History', src.pastHistory], ['Current chief complaints', src.complaint],
+      ['Mechanism of injury', src.mechanism],
+    ], ['Past Medical History', 'Current chief complaints', 'Mechanism of injury'])
     y = group(doc, y, 'Pain Assessment', [
       ['Duration', src.painDuration],
       ['Nature / type', src.painType], ['Impact on ADL', src.painADL],
