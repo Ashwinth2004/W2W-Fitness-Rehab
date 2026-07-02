@@ -3,24 +3,12 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     // ---- Admin identity ----------------------------------------------------
-    // Two admin Firebase Auth accounts (by uid):
-    //   admin@w2w.in  (FULL_ADMIN_UID)  — full access to everything.
-    //   admin2@w2w.in (uid below)       — LIMITED: the first five modules only
-    //                                     (Enquiries, Appointments, Clients,
-    //                                     Treatment + Dashboard). It must NOT
-    //                                     reach Accounting, Blogs or Workshop
-    //                                     data — enforced here, not just in the
-    //                                     UI.
-    // A custom claim {admin: true} grants full access (for Admin-SDK additions).
-    // (Do NOT loosen isAdmin() to "request.auth != null" — that would let ANY
-    // signed-up user read patient PII.)
     function isFullAdmin() {
       return request.auth != null && (
         request.auth.uid == 'dPoj1JEQ57TSFYaniLPsB0rAjFu2'
         || request.auth.token.admin == true
       );
     }
-    // Any admin (full or limited) — for the shared, first-five-module data.
     function isAdmin() {
       return isFullAdmin() || (request.auth != null
         && request.auth.uid == 'jB0005vbkwOQiqNQBrm2Ikk6u3B3');
@@ -61,9 +49,8 @@ service cloud.firestore {
     }
 
     // Booked time strings only (no PII). Public read; public write constrained
-    // to a single `times` list of bounded length (no arbitrary payloads).
-    // NOTE: keep this to ONLY the `times` key — admin "time off" blocks live in
-    // the separate slotBlocks collection below, never in here, so that public
+    // to a single `times` list. Keep this to ONLY the `times` key — admin
+    // "time off" blocks live in slotBlocks below, never in here, so public
     // booking writes always satisfy this rule.
     match /availability/{date} {
       allow read: if true;
@@ -74,7 +61,7 @@ service cloud.firestore {
       );
     }
 
-    // Admin "time off" — slots the clinic has marked unavailable, per date
+    // Admin "time off" — slots the clinic marked unavailable, per date
     // (slotBlocks/{date} = { times: [...] }). Public reads it to grey out slots;
     // only the admin writes it.
     match /slotBlocks/{date} {
@@ -117,17 +104,14 @@ service cloud.firestore {
       allow write: if isFullAdmin();
     }
 
-    // Public seat counter (no PII) — confirmed seats. Public reads it to show
-    // remaining seats; only the full admin writes it (on approve/reject).
+    // Public seat counter (no PII) — confirmed seats.
     match /workshopStats/{id} {
       allow read: if true;
       allow write: if isFullAdmin();
     }
 
     // Workshop registrations contain PII — public create (validated); only the
-    // full admin (Workshop module) reads/manages them. Public create only; a
-    // repeat write to the same (deterministic) doc id is an update → denied,
-    // which enforces one registration per phone per workshop.
+    // full admin reads/manages them.
     match /workshopRegistrations/{id} {
       allow create: if isFullAdmin() || (
         data().size() <= 14 && data().status == 'pending'
@@ -140,11 +124,7 @@ service cloud.firestore {
       allow read, update, delete: if isFullAdmin();
     }
 
-    // Email-uniqueness guard for workshop registrations. Doc id is
-    // `{workshopId}__{email}`; the body is empty. Public can only CREATE (never
-    // update), so a second registration with the same email for the same
-    // workshop is denied — giving email uniqueness without exposing any PII for
-    // reads. Managed/cleared by the full admin only.
+    // Email-uniqueness guard for workshop registrations.
     match /workshopRegEmails/{id} {
       allow create: if isFullAdmin() || data().size() == 0;
       allow read, update, delete: if isFullAdmin();
