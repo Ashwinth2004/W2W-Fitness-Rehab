@@ -1,23 +1,27 @@
-import { Phone } from 'lucide-react'
-import { onlyDigits } from '../lib/validate'
+import { normalizeMobile } from '../lib/validate'
 
 /**
- * Mobile input that accepts digits only, max 10 (Indian mobile).
- * value/onChange are plain strings of digits.
+ * Mobile input for Indian numbers. Shows a fixed "+91" prefix and stores the
+ * plain 10-digit local number. Pasting a number that already carries the +91
+ * country code (12 digits) or a leading 0 is normalised automatically, so a
+ * copy-pasted "917200043621" becomes "7200043621" instead of being truncated.
+ * value/onChange are plain strings of digits (no country code).
  */
 export default function PhoneField({ value, onChange, id, placeholder = '10-digit mobile', required, invalid, big }) {
   const err = invalid ? '!border-red-400 ring-2 ring-red-200' : ''
   return (
-    <div className="relative">
-      <Phone className="pointer-events-none absolute left-3 top-3 text-slate-400" size={18} />
+    <div className="flex items-stretch">
+      <span className="inline-flex select-none items-center rounded-l-xl border border-r-0 border-slate-300 bg-slate-50 px-3 text-sm font-medium text-slate-500">
+        +91
+      </span>
       <input
         id={id}
-        className={`input pl-10 ${big ? 'text-[1.05rem]' : ''} ${err}`}
+        className={`input rounded-l-none ${big ? 'text-[1.05rem]' : ''} ${err}`}
         value={value}
-        onChange={(e) => onChange(onlyDigits(e.target.value).slice(0, 10))}
+        onChange={(e) => onChange(normalizeMobile(e.target.value))}
         inputMode="numeric"
         autoComplete="tel"
-        maxLength={10}
+        maxLength={13}
         placeholder={placeholder}
         required={required}
       />

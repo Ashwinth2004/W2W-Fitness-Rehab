@@ -70,6 +70,9 @@ export default function BookingForm({ preset = {}, onDone }) {
       if (err.message === 'SLOT_TAKEN') {
         setError('Sorry, that slot was just taken. Please pick another time.')
         setForm((f) => ({ ...f, time: '' }))
+      } else if (err.message === 'SLOT_BLOCKED') {
+        setError('Sorry, that time is unavailable. Please pick another slot.')
+        setForm((f) => ({ ...f, time: '' }))
       } else {
         setError('Something went wrong. Please try again or WhatsApp us.')
       }

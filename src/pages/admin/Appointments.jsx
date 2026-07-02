@@ -6,7 +6,7 @@ import {
 import {
   watchAppointments, addAppointmentByAdmin, setAppointmentStatus, cancelAppointment,
   rescheduleAppointment, setAppointmentRemarks, updateAppointment, getBookedTimes, deleteAppointment,
-  blockSlots, unblockSlots, watchBlockedDays,
+  blockSlots, unblockSlots, watchBlockedDays, migrateLegacyBlocks,
 } from '../../lib/firestore'
 import { fmt12h, fmtDate, todayISO, matchesDateFilter } from '../../lib/format'
 import { SERVICE_OPTIONS, BOOKABLE_SERVICES, SLOT_TIMES, BUSINESS } from '../../lib/constants'
@@ -41,6 +41,9 @@ export default function Appointments() {
   const [serviceFilter, setServiceFilter] = useState('All')
 
   useEffect(() => watchAppointments(setItems), [])
+  // One-time cleanup of any legacy `blocked` field left in availability docs
+  // (moved to the slotBlocks collection) so those dates can be booked again.
+  useEffect(() => { migrateLegacyBlocks() }, [])
 
   const today = todayISO()
   const groups = useMemo(() => {

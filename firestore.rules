@@ -62,6 +62,9 @@ service cloud.firestore {
 
     // Booked time strings only (no PII). Public read; public write constrained
     // to a single `times` list of bounded length (no arbitrary payloads).
+    // NOTE: keep this to ONLY the `times` key — admin "time off" blocks live in
+    // the separate slotBlocks collection below, never in here, so that public
+    // booking writes always satisfy this rule.
     match /availability/{date} {
       allow read: if true;
       allow write: if isAdmin() || (
@@ -69,6 +72,14 @@ service cloud.firestore {
         && data().times is list
         && data().times.size() <= 60
       );
+    }
+
+    // Admin "time off" — slots the clinic has marked unavailable, per date
+    // (slotBlocks/{date} = { times: [...] }). Public reads it to grey out slots;
+    // only the admin writes it.
+    match /slotBlocks/{date} {
+      allow read: if true;
+      allow write: if isAdmin();
     }
 
     // Running counter for unique client IDs — admin only.
