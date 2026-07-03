@@ -720,6 +720,29 @@ export async function getExpenseCategoriesOnce() {
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }))
 }
 
+// Reusable service charges (name + amount) for the Accounting charges dropdown.
+export function watchServiceCharges(cb) {
+  const q = query(collection(db, 'serviceCharges'), orderBy('name'))
+  return onSnapshot(q, (snap) => cb(snap.docs.map((d) => ({ id: d.id, ...d.data() }))), () => cb([]))
+}
+
+export async function getServiceChargesOnce() {
+  const snap = await getDocs(query(collection(db, 'serviceCharges'), orderBy('name')))
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+}
+
+export async function addServiceCharge(name, amount) {
+  return addDoc(collection(db, 'serviceCharges'), { name: String(name).trim(), amount: Number(amount) || 0, createdAt: serverTimestamp() })
+}
+
+export async function updateServiceCharge(id, name, amount) {
+  return updateDoc(doc(db, 'serviceCharges', id), { name: String(name).trim(), amount: Number(amount) || 0 })
+}
+
+export async function deleteServiceCharge(id) {
+  return deleteDoc(doc(db, 'serviceCharges', id))
+}
+
 // ---------- Patient signatures ---------------------------------------------
 // One per client at signatures/{clientId}; the drawn image is stored as a PNG
 // data URL. Reflected on the "Patient's signature" line of that client's reports.

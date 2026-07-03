@@ -4,14 +4,17 @@ import {
   watchAccounting, addAccountingEntry, updateAccountingEntry, deleteAccountingEntry,
   watchExpenses, addExpense, updateExpense, deleteExpense, watchClients,
   watchExpenseCategories, addExpenseCategory, getExpenseCategoriesOnce,
+  watchServiceCharges, getServiceChargesOnce, addServiceCharge,
 } from '../../lib/firestore'
 import { fmtDate, todayISO, matchesDateFilter } from '../../lib/format'
 import { onlyDigits } from '../../lib/validate'
+import { PRESET_SERVICE_CHARGES } from '../../lib/constants'
 import DateField from '../../components/DateField'
 import AdminFilter from '../../components/AdminFilter'
 import AdminPageHeader from '../../components/AdminPageHeader'
 import TherapistSelect from '../../components/TherapistSelect'
 import ExpenseSelect from '../../components/ExpenseSelect'
+import ServiceSelect from '../../components/ServiceSelect'
 import { useUnsaved } from '../../context/UnsavedContext'
 
 const inr = (n) => 'Rs. ' + Number(n || 0).toLocaleString('en-IN')
@@ -69,9 +72,25 @@ function Income() {
   const [filter, setFilter] = useState({ day: '', month: '' })
   const [open, setOpen] = useState(false)
   const [editRow, setEditRow] = useState(null)
+  const [services, setServices] = useState([])
 
   useEffect(() => watchAccounting(setRows), [])
   useEffect(() => watchClients(setClients), [])
+  useEffect(() => watchServiceCharges(setServices), [])
+
+  // Seed the default service charges once (best-effort; presets still show as a
+  // fallback in the dropdown even before this succeeds).
+  useEffect(() => {
+    if (localStorage.getItem('w2w_servicecharge_seeded') === '1') return
+    ;(async () => {
+      try {
+        const existing = await getServiceChargesOnce()
+        const have = new Set(existing.map((c) => (c.name || '').toLowerCase()))
+        await Promise.all(PRESET_SERVICE_CHARGES.filter((p) => !have.has(p.name.toLowerCase())).map((p) => addServiceCharge(p.name, p.amount)))
+        localStorage.setItem('w2w_servicecharge_seeded', '1')
+      } catch { /* ignore — presets still show as fallback */ }
+    })()
+  }, [])
 
   const list = rows.filter((r) => matchesDateFilter(r.date, filter))
   const charged = list.reduce((s, r) => s + Number(r.amount || 0), 0)
@@ -92,7 +111,7 @@ function Income() {
         <button onClick={() => { setEditRow(null); setOpen((v) => !v) }} className="btn-ghost px-3 py-1.5 text-sm">{open ? <X size={16} /> : <Plus size={16} />} {open ? 'Close' : 'Add charge'}</button>
       </div>
 
-      {(open || editRow) && <IncomeForm clients={clients} editing={editRow} onDone={() => { setOpen(false); setEditRow(null) }} />}
+      {(open || editRow) && <IncomeForm clients={clients} services={services} editing={editRow} onDone={() => { setOpen(false); setEditRow(null) }} />}
 
       <div className="card overflow-x-auto p-0">
         <table className="w-full text-sm">
@@ -130,7 +149,7 @@ function Income() {
   )
 }
 
-function IncomeForm({ clients, editing, onDone }) {
+function IncomeForm({ clients, services, editing, onDone }) {
   const [f, setF] = useState(() => editing
     ? { date: editing.date || todayISO(), clientName: editing.clientName || '', clientId: editing.clientId || '', service: editing.service || '', therapist: editing.therapist || '', amount: String(editing.amount ?? ''), paid: String(editing.paid ?? ''), mode: editing.mode || 'Cash' }
     : { date: todayISO(), clientName: '', clientId: '', service: '', therapist: '', amount: '', paid: '', mode: 'Cash' })
@@ -196,7 +215,14 @@ function IncomeForm({ clients, editing, onDone }) {
         )}
       </div>
 
-      <div><label className="label text-xs">Service</label><input className="input" value={f.service} onChange={set('service')} placeholder="Physiotherapy" /></div>
+      <div>
+        <label className="label text-xs">Service</label>
+        <ServiceSelect
+          value={f.service}
+          services={services}
+          onChange={(name, amount) => { setF((s) => ({ ...s, service: name, ...(amount != null ? { amount: String(amount) } : {}) })); setDirty(true) }}
+        />
+      </div>
 
       <div>
         <label className="label text-xs">Therapist</label>

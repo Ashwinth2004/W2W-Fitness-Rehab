@@ -312,6 +312,16 @@ export const GIRTH_SITES = [
 export const GIRTH_FINDINGS = ['Normal', 'Swelling', 'Muscle Atrophy', 'Muscle Hypertrophy', 'Post-operative']
 export const LIMB_LENGTH_TYPES = ['True', 'Apparent', 'Both']
 
+// Default service charges for the Accounting → Patient Charges dropdown. Seeded
+// into the `serviceCharges` collection once, then fully editable in the UI.
+export const PRESET_SERVICE_CHARGES = [
+  { name: 'Assessment', amount: 800 },
+  { name: 'Treatment', amount: 600 },
+  { name: 'Lifestyle fitness/rehab', amount: 600 },
+  { name: 'Monthly Rehab package', amount: 6000 },
+  { name: '3 month Rehab package', amount: 15000 },
+]
+
 // --- Prefilled WhatsApp helpers -------------------------------------------
 export function whatsappLink(message) {
   const text = encodeURIComponent(message || defaultWhatsappGreeting())

@@ -175,7 +175,6 @@ function TreatmentForm({ client, editId = '', onChangeClient, navigate }) {
   const [date, setDate] = useState(todayISO())
   const [nextSession, setNextSession] = useState('')
   const [therapist, setTherapist] = useState(client.therapist || 'Sakthi Saravanan')
-  const [consent, setConsent] = useState(false)
   const [busy, setBusy] = useState(false)
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState('')
@@ -198,7 +197,6 @@ function TreatmentForm({ client, editId = '', onChangeClient, navigate }) {
     setDate(t.date || todayISO())
     setNextSession(t.nextSession || '')
     setTherapist(t.therapist || '')
-    setConsent(Boolean(t.consent))
   }, [editId, treatments])
 
   const last = treatments[0] || null
@@ -216,14 +214,9 @@ function TreatmentForm({ client, editId = '', onChangeClient, navigate }) {
       requestAnimationFrame(() => document.getElementById('treat-therapist')?.scrollIntoView({ behavior: 'smooth', block: 'center' }))
       return
     }
-    if (!consent) {
-      setError('Please tick the consent confirmation before saving.')
-      requestAnimationFrame(() => document.getElementById('treat-consent')?.scrollIntoView({ behavior: 'smooth', block: 'center' }))
-      return
-    }
     setBusy(true)
     try {
-      const data = { date: date || todayISO(), therapist, nextSession: nextSession || '', consent }
+      const data = { date: date || todayISO(), therapist, nextSession: nextSession || '' }
       CLINICAL_KEYS.forEach((k) => { const v = form[k]; data[k] = typeof v === 'string' ? v.trim() : v })
       if (editId) await updateTreatment(client.id, editId, data)
       else await addTreatment(client.id, data)
@@ -246,7 +239,7 @@ function TreatmentForm({ client, editId = '', onChangeClient, navigate }) {
           <p className="mt-1 text-slate-500">Session {editId ? 'updated' : 'recorded'} for {client.name} ({client.clientId}).</p>
           <div className="mt-6 flex flex-wrap justify-center gap-2">
             <Link to={`/admin/clients/${client.id}`} className="btn-primary">Open patient &amp; generate report <ArrowRight size={16} /></Link>
-            <button onClick={() => { if (editId) navigate(`/admin/treatment?client=${client.id}`); else { setForm(blank()); setNextSession(''); setConsent(false); setSaved(false) } }} className="btn-outline">Add another session</button>
+            <button onClick={() => { if (editId) navigate(`/admin/treatment?client=${client.id}`); else { setForm(blank()); setNextSession(''); setSaved(false) } }} className="btn-outline">Add another session</button>
             <button onClick={onChangeClient} className="btn-ghost">Another patient</button>
           </div>
         </div>
@@ -286,19 +279,6 @@ function TreatmentForm({ client, editId = '', onChangeClient, navigate }) {
             Previous session: {fmtDate(last.date)}{last.therapist ? ` · ${last.therapist}` : ''} — its values show faintly below; press Tab in a field to keep them.
           </p>
         )}
-      </div>
-
-      <div className="card p-5 text-sm leading-relaxed text-slate-600">
-        <h3 className="mb-2 text-base font-bold uppercase tracking-wide text-slate-900">Declaration</h3>
-        <p>
-          Physiotherapy involves physical evaluation and treatment by qualified therapists at Way to Wellness. During
-          treatment it may be necessary to expose and touch the area being treated; the patient may decline any part at
-          any time. Every effort is made to preserve modesty and keep the patient comfortable.
-        </p>
-        <label className="mt-3 flex items-start gap-2 font-medium text-slate-700">
-          <input id="treat-consent" type="checkbox" checked={consent} onChange={(e) => { setConsent(e.target.checked); touch() }} className="mt-0.5 h-4 w-4 rounded border-slate-300 text-brand-600" />
-          The procedure was explained and the patient consents to the assessment &amp; treatment.
-        </label>
       </div>
 
       {CLINICAL_SECTIONS.map((s) => (

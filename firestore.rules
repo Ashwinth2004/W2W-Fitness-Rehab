@@ -138,5 +138,7 @@ service cloud.firestore {
     match /accounting/{id} { allow read, write: if isFullAdmin(); }
     match /expenses/{id} { allow read, write: if isFullAdmin(); }
     match /expenseCategories/{id} { allow read, write: if isFullAdmin(); }
+    // Service charges (name + amount) for the Accounting charges dropdown.
+    match /serviceCharges/{id} { allow read, write: if isFullAdmin(); }
   }
 }
