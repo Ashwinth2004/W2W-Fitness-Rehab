@@ -85,12 +85,6 @@ function Overview() {
   const received = inc.reduce((s, r) => s + Number(r.paid || 0), 0)
   const charged = inc.reduce((s, r) => s + Number(r.amount || 0), 0)
   const spent = exp.reduce((s, r) => s + Number(r.amount || 0), 0)
-  const cashIn = inc.filter((r) => isCash(r.mode)).reduce((s, r) => s + Number(r.paid || 0), 0)
-  const bankIn = received - cashIn
-  const cashOut = exp.filter((r) => isCash(r.mode)).reduce((s, r) => s + Number(r.amount || 0), 0)
-  const bankOut = spent - cashOut
-  const cashProfit = cashIn - cashOut
-  const bankProfit = bankIn - bankOut
   const netProfit = received - spent
 
   // Pie: expenses by category for the period.
@@ -117,12 +111,6 @@ function Overview() {
         <Stat label="Expenses" value={inr(spent)} tone="red" />
         <Stat label="Net profit" value={inr(netProfit)} tone={netProfit >= 0 ? 'emerald' : 'red'} />
         <Stat label="Charged (billed)" value={inr(charged)} tone="brand" />
-      </div>
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Stat label="Cash profit" value={inr(cashProfit)} tone={cashProfit >= 0 ? 'emerald' : 'red'} />
-        <Stat label="Bank profit" value={inr(bankProfit)} tone={bankProfit >= 0 ? 'emerald' : 'red'} />
-        <Stat label="Cash — in / out" value={`${inr(cashIn)} / ${inr(cashOut)}`} />
-        <Stat label="Bank — in / out" value={`${inr(bankIn)} / ${inr(bankOut)}`} />
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
