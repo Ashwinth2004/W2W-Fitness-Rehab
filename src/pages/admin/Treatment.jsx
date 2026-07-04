@@ -1,17 +1,24 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { Stethoscope, Search, Loader2, Save, ArrowRight, Plus, CheckCircle2, BadgeCheck } from 'lucide-react'
-import { watchClients, watchTreatments, addTreatment, updateTreatment } from '../../lib/firestore'
+import { Stethoscope, Search, Loader2, Save, ArrowRight, Plus, CheckCircle2, BadgeCheck, IndianRupee } from 'lucide-react'
+import {
+  watchClients, watchTreatments, addTreatment, updateTreatment, watchServiceCharges,
+  setAccountingForTreatment, deleteAccountingForTreatment,
+} from '../../lib/firestore'
 import { CLINICAL_SECTIONS, CLINICAL_KEYS, formatAssessmentValue } from '../../lib/assessmentSchema'
 import { todayISO, fmtDate } from '../../lib/format'
+import { onlyDigits } from '../../lib/validate'
 import DateField from '../../components/DateField'
 import AssessmentField from '../../components/AssessmentField'
 import VasScale from '../../components/VasScale'
 import BodyPainSelector from '../../components/BodyPainSelector'
 import TherapistSelect from '../../components/TherapistSelect'
+import ServiceSelect from '../../components/ServiceSelect'
 import ContactActions from '../../components/ContactActions'
 import AdminPageHeader from '../../components/AdminPageHeader'
 import { useUnsaved } from '../../context/UnsavedContext'
+
+const PAY_MODES = ['Cash', 'UPI', 'Card', 'Bank transfer', 'Other']
 
 const blank = () => Object.fromEntries(CLINICAL_KEYS.map((k) => [k, '']))
 
@@ -175,6 +182,8 @@ function TreatmentForm({ client, editId = '', onChangeClient, navigate }) {
   const [date, setDate] = useState(todayISO())
   const [nextSession, setNextSession] = useState('')
   const [therapist, setTherapist] = useState(client.therapist || 'Sakthi Saravanan')
+  const [bill, setBill] = useState({ service: client.service || '', amount: '', paid: '', mode: 'Cash' })
+  const [services, setServices] = useState([])
   const [busy, setBusy] = useState(false)
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState('')
@@ -183,7 +192,11 @@ function TreatmentForm({ client, editId = '', onChangeClient, navigate }) {
 
   const editLoaded = useRef(false)
   useEffect(() => watchTreatments(client.id, setTreatments), [client.id])
+  useEffect(() => watchServiceCharges(setServices), [])
   useEffect(() => () => setDirty(false), [setDirty])
+
+  const billBalance = Math.max(0, (Number(bill.amount) || 0) - (Number(bill.paid) || 0))
+  const setBillMoney = (k) => (e) => { setBill((b) => ({ ...b, [k]: onlyDigits(e.target.value).slice(0, 7) })); setDirty(true) }
 
   // Edit mode: load the chosen saved session into the form (once, when it arrives).
   useEffect(() => {
@@ -197,6 +210,12 @@ function TreatmentForm({ client, editId = '', onChangeClient, navigate }) {
     setDate(t.date || todayISO())
     setNextSession(t.nextSession || '')
     setTherapist(t.therapist || '')
+    setBill({
+      service: t.bill?.service || client.service || '',
+      amount: t.bill?.amount != null ? String(t.bill.amount) : '',
+      paid: t.bill?.paid != null ? String(t.bill.paid) : '',
+      mode: t.bill?.mode || 'Cash',
+    })
   }, [editId, treatments])
 
   const last = treatments[0] || null
@@ -216,10 +235,35 @@ function TreatmentForm({ client, editId = '', onChangeClient, navigate }) {
     }
     setBusy(true)
     try {
-      const data = { date: date || todayISO(), therapist, nextSession: nextSession || '' }
+      const billData = {
+        service: (bill.service || '').trim(),
+        amount: Number(bill.amount) || 0,
+        paid: Number(bill.paid) || 0,
+        balance: billBalance,
+        mode: bill.mode,
+      }
+      const data = { date: date || todayISO(), therapist, nextSession: nextSession || '', bill: billData }
       CLINICAL_KEYS.forEach((k) => { const v = form[k]; data[k] = typeof v === 'string' ? v.trim() : v })
+
+      let treatmentId = editId
       if (editId) await updateTreatment(client.id, editId, data)
-      else await addTreatment(client.id, data)
+      else { const ref = await addTreatment(client.id, data); treatmentId = ref.id }
+
+      // Mirror the charge into Accounting (best-effort — a limited admin without
+      // accounting access, or unpublished rules, must not break the save).
+      try {
+        if (billData.amount > 0 || billData.paid > 0) {
+          await setAccountingForTreatment(treatmentId, {
+            date: data.date,
+            clientId: client.clientId, clientDocId: client.id, clientName: client.name,
+            service: billData.service, therapist,
+            amount: billData.amount, paid: billData.paid, balance: billData.balance, mode: billData.mode,
+          })
+        } else {
+          await deleteAccountingForTreatment(treatmentId)
+        }
+      } catch (_) { /* accounting sync is best-effort */ }
+
       setDirty(false)
       setSaved(true)
     } catch (err) {
@@ -239,7 +283,7 @@ function TreatmentForm({ client, editId = '', onChangeClient, navigate }) {
           <p className="mt-1 text-slate-500">Session {editId ? 'updated' : 'recorded'} for {client.name} ({client.clientId}).</p>
           <div className="mt-6 flex flex-wrap justify-center gap-2">
             <Link to={`/admin/clients/${client.id}`} className="btn-primary">Open patient &amp; generate report <ArrowRight size={16} /></Link>
-            <button onClick={() => { if (editId) navigate(`/admin/treatment?client=${client.id}`); else { setForm(blank()); setNextSession(''); setSaved(false) } }} className="btn-outline">Add another session</button>
+            <button onClick={() => { if (editId) navigate(`/admin/treatment?client=${client.id}`); else { setForm(blank()); setNextSession(''); setBill({ service: client.service || '', amount: '', paid: '', mode: 'Cash' }); setSaved(false) } }} className="btn-outline">Add another session</button>
             <button onClick={onChangeClient} className="btn-ghost">Another patient</button>
           </div>
         </div>
@@ -307,6 +351,25 @@ function TreatmentForm({ client, editId = '', onChangeClient, navigate }) {
           <DateField value={nextSession} onChange={(iso) => { setNextSession(iso); touch() }} min={todayISO()} />
         </div>
         <p className="mt-1 text-xs text-slate-400">Same as the “Next session date” at the top — updating either keeps both in sync.</p>
+      </div>
+
+      {/* Charges & billing — saved with the session, mirrored to Accounting and the report */}
+      <div className="card p-5">
+        <h3 className="mb-3 flex items-center gap-2 text-base font-bold text-brand-700"><IndianRupee size={16} /> Charges &amp; Billing</h3>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div>
+            <label className="label text-sm">Service</label>
+            <ServiceSelect value={bill.service} services={services} onChange={(name, amount) => { setBill((b) => ({ ...b, service: name, ...(amount != null ? { amount: String(amount) } : {}) })); setDirty(true) }} />
+          </div>
+          <div><label className="label text-sm">Amount charged (Rs.)</label><input className="input" inputMode="numeric" value={bill.amount} onChange={setBillMoney('amount')} placeholder="0" /></div>
+          <div><label className="label text-sm">Amount paid (Rs.)</label><input className="input" inputMode="numeric" value={bill.paid} onChange={setBillMoney('paid')} placeholder="0" /></div>
+          <div><label className="label text-sm">Mode</label><select className="input" value={bill.mode} onChange={(e) => { setBill((b) => ({ ...b, mode: e.target.value })); touch() }}>{PAY_MODES.map((m) => <option key={m}>{m}</option>)}</select></div>
+        </div>
+        <div className="mt-3 flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2 text-sm">
+          <span className="text-slate-500">Balance due</span>
+          <span className={`font-bold ${billBalance > 0 ? 'text-red-600' : 'text-emerald-600'}`}>Rs. {billBalance.toLocaleString('en-IN')}</span>
+        </div>
+        <p className="mt-2 text-xs text-slate-400">Saved with this session and shown in Accounting &amp; the client report. Leave the amounts empty if there’s no charge.</p>
       </div>
 
       {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}

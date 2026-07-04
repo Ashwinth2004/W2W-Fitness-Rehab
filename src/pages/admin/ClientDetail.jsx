@@ -8,6 +8,7 @@ import {
 import {
   getClient, updateClient, deleteClient, watchClientNotes, addClientNote, deleteClientNote,
   watchTreatments, deleteTreatment, updateTreatment, getClientNotesOnce, addAccountingEntry,
+  deleteAccountingForTreatment,
 } from '../../lib/firestore'
 import { fmtDate, fmtDateTime, todayISO } from '../../lib/format'
 import { onlyDigits, isValidMobile } from '../../lib/validate'
@@ -245,6 +246,18 @@ function SessionItem({ clientId, t, defaultOpen }) {
           </div>
         )}
 
+        {/* Billing for this session */}
+        {t.bill && (Number(t.bill.amount) || Number(t.bill.paid)) ? (
+          <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 rounded-xl bg-brand-50/60 px-3 py-2 text-sm">
+            <span className="font-semibold text-brand-700">Billing</span>
+            {t.bill.service && <span className="text-slate-600">{t.bill.service}</span>}
+            <span className="text-slate-600">Charged Rs. {Number(t.bill.amount || 0).toLocaleString('en-IN')}</span>
+            <span className="text-emerald-600">Paid Rs. {Number(t.bill.paid || 0).toLocaleString('en-IN')}</span>
+            <span className={Number(t.bill.balance) > 0 ? 'text-red-600' : 'text-slate-500'}>Due Rs. {Number(t.bill.balance || 0).toLocaleString('en-IN')}</span>
+            {t.bill.mode && <span className="text-slate-500">· {t.bill.mode}</span>}
+          </div>
+        ) : null}
+
         {/* Per-session note */}
         <div className="mt-3 rounded-xl bg-slate-50 p-3">
           <p className="mb-1 text-xs font-bold uppercase tracking-wide text-slate-500">Session note</p>
@@ -266,7 +279,7 @@ function SessionItem({ clientId, t, defaultOpen }) {
 
         <div className="mt-3 flex justify-end gap-4">
           <Link to={`/admin/treatment?client=${clientId}&session=${t.id}`} className="inline-flex items-center gap-1 text-xs font-medium text-brand-600 hover:text-brand-700"><Pencil size={14} /> Edit session</Link>
-          <button onClick={() => window.confirm('Delete this treatment session?') && deleteTreatment(clientId, t.id)} className="inline-flex items-center gap-1 text-xs text-red-500 hover:text-red-700"><Trash2 size={14} /> Delete session</button>
+          <button onClick={() => { if (window.confirm('Delete this treatment session?')) { deleteTreatment(clientId, t.id); deleteAccountingForTreatment(t.id).catch(() => {}) } }} className="inline-flex items-center gap-1 text-xs text-red-500 hover:text-red-700"><Trash2 size={14} /> Delete session</button>
         </div>
       </div>
     </details>
@@ -320,11 +333,15 @@ function ReportModal({ client, treatments, onClose }) {
   const [selectedIds, setSelectedIds] = useState(() => treatments.map((t) => t.id)) // all by default
   const [therapist, setTherapist] = useState(client.therapist || 'Sakthi Saravanan')
   const [chargeDate, setChargeDate] = useState(todayISO())
-  const [amount, setAmount] = useState('')
-  const [paid, setPaid] = useState('')
-  const [mode, setMode] = useState('Cash')
+  // Pre-fill billing from the sessions' own charges (entered in the Treatment form).
+  const billSum = treatments.reduce((a, t) => ({ amount: a.amount + (Number(t.bill?.amount) || 0), paid: a.paid + (Number(t.bill?.paid) || 0) }), { amount: 0, paid: 0 })
+  const [amount, setAmount] = useState(billSum.amount ? String(billSum.amount) : '')
+  const [paid, setPaid] = useState(billSum.paid ? String(billSum.paid) : '')
+  const [mode, setMode] = useState(treatments.find((t) => t.bill?.mode)?.bill?.mode || 'Cash')
   const [withBilling, setWithBilling] = useState(true)
-  const [record, setRecord] = useState(true)
+  // Off by default: each session already records its charge in Accounting. Tick
+  // only to record a separate charge (e.g. when it wasn't billed in the session).
+  const [record, setRecord] = useState(false)
   const [busy, setBusy] = useState('')
   const [recorded, setRecorded] = useState(false)
   const [msg, setMsg] = useState('')
@@ -429,7 +446,7 @@ function ReportModal({ client, treatments, onClose }) {
               </div>
               <label className="mt-3 flex items-center gap-2 text-xs font-medium text-slate-600">
                 <input type="checkbox" checked={record} onChange={(e) => setRecord(e.target.checked)} className="h-4 w-4 rounded border-slate-300 text-brand-600" />
-                Record this charge in Accounting {recorded && <span className="text-emerald-600">· saved</span>}
+                Also record a separate charge in Accounting (sessions already record theirs) {recorded && <span className="text-emerald-600">· saved</span>}
               </label>
             </div>
           ) : (

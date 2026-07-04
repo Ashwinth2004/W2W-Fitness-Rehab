@@ -140,5 +140,7 @@ service cloud.firestore {
     match /expenseCategories/{id} { allow read, write: if isFullAdmin(); }
     // Service charges (name + amount) for the Accounting charges dropdown.
     match /serviceCharges/{id} { allow read, write: if isFullAdmin(); }
+    // Bank account names for tagging cash vs bank in Accounting.
+    match /bankAccounts/{id} { allow read, write: if isFullAdmin(); }
   }
 }

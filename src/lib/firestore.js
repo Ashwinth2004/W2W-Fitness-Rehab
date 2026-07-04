@@ -667,6 +667,34 @@ export async function deleteAccountingEntry(id) {
   return deleteDoc(doc(db, 'accounting', id))
 }
 
+// Billing entered in a Treatment session is mirrored to a deterministic
+// accounting doc (id `t_<treatmentId>`) so it shows in Accounting and stays in
+// sync when the session is edited. Deleted when the charge is cleared/removed.
+export async function setAccountingForTreatment(treatmentId, data) {
+  return setDoc(doc(db, 'accounting', `t_${treatmentId}`), {
+    ...data, type: 'income', treatmentId, source: 'treatment', updatedAt: serverTimestamp(),
+  }, { merge: true })
+}
+
+export async function deleteAccountingForTreatment(treatmentId) {
+  return deleteDoc(doc(db, 'accounting', `t_${treatmentId}`))
+}
+
+// Bank account names (for tagging cash vs bank in Accounting). Editable list.
+export function watchBankAccounts(cb) {
+  const q = query(collection(db, 'bankAccounts'), orderBy('name'))
+  return onSnapshot(q, (snap) => cb(snap.docs.map((d) => ({ id: d.id, ...d.data() }))), () => cb([]))
+}
+export async function addBankAccount(name) {
+  return addDoc(collection(db, 'bankAccounts'), { name: String(name).trim(), createdAt: serverTimestamp() })
+}
+export async function updateBankAccount(id, name) {
+  return updateDoc(doc(db, 'bankAccounts', id), { name: String(name).trim() })
+}
+export async function deleteBankAccount(id) {
+  return deleteDoc(doc(db, 'bankAccounts', id))
+}
+
 // ---------- Accounting: expenses (submodule) -------------------------------
 // Admin-defined: { date, name (salary/rent/eb…), amount, note }.
 export async function addExpense(data) {
