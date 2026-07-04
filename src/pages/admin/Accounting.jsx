@@ -7,7 +7,7 @@ import {
   watchAccounting, addAccountingEntry, updateAccountingEntry, deleteAccountingEntry,
   watchExpenses, addExpense, updateExpense, deleteExpense, watchClients,
   watchExpenseCategories, addExpenseCategory, getExpenseCategoriesOnce,
-  watchServiceCharges, getServiceChargesOnce, addServiceCharge, watchBankAccounts,
+  watchServiceCharges, getServiceChargesOnce, addServiceCharge,
 } from '../../lib/firestore'
 import { fmtDate, todayISO, matchesDateFilter } from '../../lib/format'
 import { onlyDigits } from '../../lib/validate'
@@ -18,7 +18,6 @@ import AdminPageHeader from '../../components/AdminPageHeader'
 import TherapistSelect from '../../components/TherapistSelect'
 import ExpenseSelect from '../../components/ExpenseSelect'
 import ServiceSelect from '../../components/ServiceSelect'
-import BankSelect from '../../components/BankSelect'
 import { useUnsaved } from '../../context/UnsavedContext'
 
 // A charge/expense counts as "cash" only when its mode is Cash; everything else
@@ -358,15 +357,13 @@ function IncomeForm({ clients, services, editing, onDone }) {
 function Expenses() {
   const [rows, setRows] = useState([])
   const [cats, setCats] = useState([])
-  const [banks, setBanks] = useState([])
   const [filter, setFilter] = useState({ day: '', month: '' })
-  const [f, setF] = useState({ date: todayISO(), name: '', amount: '', note: '', mode: 'Cash', bankAccount: '' })
+  const [f, setF] = useState({ date: todayISO(), name: '', amount: '', note: '', mode: 'Cash' })
   const [editId, setEditId] = useState(null)
   const { setDirty } = useUnsaved()
 
   useEffect(() => watchExpenses(setRows), [])
   useEffect(() => watchExpenseCategories(setCats), [])
-  useEffect(() => watchBankAccounts(setBanks), [])
   useEffect(() => () => setDirty(false), [setDirty])
 
   // One-time: move the built-in preset titles into the DB so every title in the
@@ -389,15 +386,14 @@ function Expenses() {
   const cashTotal = list.filter((r) => isCash(r.mode)).reduce((s, r) => s + Number(r.amount || 0), 0)
   const bankTotal = total - cashTotal
 
-  function reset() { setF({ date: todayISO(), name: '', amount: '', note: '', mode: 'Cash', bankAccount: '' }); setEditId(null); setDirty(false) }
-  function startEdit(r) { setF({ date: r.date || todayISO(), name: r.name || '', amount: String(r.amount ?? ''), note: r.note || '', mode: r.mode || 'Cash', bankAccount: r.bankAccount || '' }); setEditId(r.id) }
+  function reset() { setF({ date: todayISO(), name: '', amount: '', note: '', mode: 'Cash' }); setEditId(null); setDirty(false) }
+  function startEdit(r) { setF({ date: r.date || todayISO(), name: r.name || '', amount: String(r.amount ?? ''), note: r.note || '', mode: r.mode || 'Cash' }); setEditId(r.id) }
 
   async function save(e) {
     e.preventDefault()
     if (!f.name.trim() || !f.amount) return
     const data = {
-      date: f.date || todayISO(), name: f.name.trim(), amount: Number(f.amount) || 0, note: f.note.trim(),
-      mode: f.mode, bankAccount: f.mode === 'Bank' ? f.bankAccount.trim() : '',
+      date: f.date || todayISO(), name: f.name.trim(), amount: Number(f.amount) || 0, note: f.note.trim(), mode: f.mode,
     }
     if (editId) await updateExpense(editId, data)
     else await addExpense(data)
@@ -421,9 +417,6 @@ function Expenses() {
         </div>
         <div><label className="label text-xs">Amount (Rs.) *</label><input className="input" inputMode="numeric" value={f.amount} onChange={money((v) => { setF((s) => ({ ...s, amount: v })); setDirty(true) })} placeholder="0" /></div>
         <div><label className="label text-xs">Paid via</label><select className="input" value={f.mode} onChange={(e) => { setF((s) => ({ ...s, mode: e.target.value })); setDirty(true) }}><option>Cash</option><option>Bank</option></select></div>
-        {f.mode === 'Bank' && (
-          <div><label className="label text-xs">Bank account</label><BankSelect value={f.bankAccount} accounts={banks} onChange={(v) => { setF((s) => ({ ...s, bankAccount: v })); setDirty(true) }} /></div>
-        )}
         <div><label className="label text-xs">Note</label><input className="input" value={f.note} onChange={(e) => { setF((s) => ({ ...s, note: e.target.value })); setDirty(true) }} placeholder="Optional" /></div>
         <div className="flex items-end gap-2">
           <button className="btn-primary w-full">{editId ? <Save size={16} /> : <Plus size={16} />} {editId ? 'Save changes' : 'Add expense'}</button>
@@ -445,7 +438,7 @@ function Expenses() {
               <tr key={r.id} className="hover:bg-slate-50/60">
                 <td className="px-4 py-2.5 text-slate-600">{fmtDate(r.date)}</td>
                 <td className="font-medium text-slate-800">{r.name}</td>
-                <td className="text-slate-500">{r.mode || 'Cash'}{r.bankAccount ? ` · ${r.bankAccount}` : ''}</td>
+                <td className="text-slate-500">{r.mode || 'Cash'}</td>
                 <td className="text-slate-500">{r.note || '—'}</td>
                 <td className="text-right font-medium text-red-600">{inr(r.amount)}</td>
                 <td className="px-2 py-2.5">
