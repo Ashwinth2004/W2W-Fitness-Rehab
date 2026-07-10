@@ -2,13 +2,17 @@ import { Mic, Square } from 'lucide-react'
 import { useDictation } from '../lib/useDictation'
 
 // Inline voice-to-text button that appends recognised speech via onText().
-// On iPhone/iPad (where the browser speech API is blocked) it shows a hint to
-// use the phone keyboard's mic instead — so it's never a dead button.
+// On iPhone/iPad (browser speech API blocked) it shows a clear hint to use the
+// phone keyboard's mic — so it's never a dead button.
 export default function MicButton({ onText, label = 'Speak', size = 'md' }) {
   const { listening, error, supported, toggle } = useDictation(onText)
 
   if (!supported) {
-    return <span className="inline-flex items-center gap-1 text-xs font-medium text-slate-400" title="On iPhone/iPad, tap the box and use your keyboard's microphone">🎤 use keyboard mic</span>
+    return (
+      <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-3 py-1.5 text-xs font-medium text-amber-800">
+        🎤 Tap the box &amp; use your keyboard mic
+      </span>
+    )
   }
 
   const pad = size === 'sm' ? 'px-2.5 py-1 text-xs' : 'px-3 py-1.5 text-sm'
@@ -26,10 +30,13 @@ export default function MicButton({ onText, label = 'Speak', size = 'md' }) {
       </button>
       {error === 'denied' && (
         <span className="max-w-xs text-xs text-red-500">
-          Microphone is blocked. Tap the <strong>🔒 / ⓘ</strong> next to the web address → <strong>Permissions / Site settings</strong> → <strong>Microphone → Allow</strong>, then reload. (You only do this once.)
+          Mic blocked. Tap the <strong>🔒 / ⓘ</strong> left of the web address → <strong>Site settings → Microphone → Allow</strong>, then reload.
         </span>
       )}
-      {error === 'error' && <span className="text-xs text-red-500">Mic error — try again, and tap “Allow” when the browser asks.</span>}
+      {error === 'service' && (
+        <span className="max-w-xs text-xs text-red-500">Speech service unavailable — check your internet connection and try again.</span>
+      )}
+      {error === 'error' && <span className="text-xs text-red-500">Mic error — try again.</span>}
     </span>
   )
 }

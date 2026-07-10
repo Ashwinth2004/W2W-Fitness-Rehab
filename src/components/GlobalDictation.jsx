@@ -57,7 +57,8 @@ export default function GlobalDictation() {
         <span className="max-w-[250px] rounded-lg bg-slate-900/90 px-3 py-2 text-xs font-medium text-white shadow">
           {error === 'denied'
             ? 'Mic blocked. Tap the 🔒/ⓘ next to the web address → Site settings → Microphone → Allow, then reload. (Once only.)'
-            : error === 'error' ? 'Mic error — try again, and tap “Allow” when asked.' : hint}
+            : error === 'service' ? 'Speech service unavailable — check your internet connection and try again.'
+            : error === 'error' ? 'Mic error — try again.' : hint}
         </span>
       )}
       <button

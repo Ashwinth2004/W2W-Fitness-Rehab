@@ -6,24 +6,26 @@ import { useEffect, useRef, useState } from 'react'
 export const SR = typeof window !== 'undefined' ? (window.SpeechRecognition || window.webkitSpeechRecognition) : null
 
 // onText(finalTranscript) is called with each recognised phrase.
+// error: '' | 'denied' (permission) | 'service' (speech backend / offline) | 'error'
 export function useDictation(onText) {
   const [listening, setListening] = useState(false)
-  const [error, setError] = useState('') // '' | 'denied' | 'error'
+  const [error, setError] = useState('')
   const recRef = useRef(null)
   const wantRef = useRef(false)
+  const timerRef = useRef(null)
   const cbRef = useRef(onText)
   cbRef.current = onText
 
-  const stop = () => {
-    wantRef.current = false
-    try { recRef.current?.stop() } catch (_) {}
-    setListening(false)
+  // Detach handlers and abort any live recognition (so manual stop / restart is clean).
+  const cleanup = () => {
+    clearTimeout(timerRef.current)
+    const rec = recRef.current
+    recRef.current = null
+    if (rec) { try { rec.onend = null; rec.onerror = null; rec.onresult = null; rec.abort() } catch (_) {} }
   }
 
-  const start = () => {
+  const begin = () => {
     if (!SR) { setError('error'); return }
-    setError('')
-    wantRef.current = true
     let rec
     try { rec = new SR() } catch (_) { setError('error'); return }
     rec.lang = 'en-IN'
@@ -35,17 +37,27 @@ export function useDictation(onText) {
       if (s.trim()) cbRef.current?.(s.trim())
     }
     rec.onerror = (e) => {
-      if (e.error === 'not-allowed' || e.error === 'service-not-allowed') { setError('denied'); wantRef.current = false; setListening(false) }
-      else if (e.error !== 'no-speech' && e.error !== 'aborted') setError('error')
+      const err = e.error
+      if (err === 'not-allowed') { setError('denied'); wantRef.current = false; setListening(false) }
+      else if (err === 'service-not-allowed' || err === 'network') { setError('service'); wantRef.current = false; setListening(false) }
+      else if (err === 'no-speech' || err === 'aborted') { /* normal — ignore */ }
+      else setError('error')
     }
-    // Mobile browsers stop after each pause — restart while the user keeps it on.
-    rec.onend = () => { if (wantRef.current) { try { rec.start() } catch (_) { setListening(false) } } else setListening(false) }
+    // Mobile/desktop recognition ends on each pause — restart (fresh instance) while wanted.
+    rec.onend = () => {
+      recRef.current = null
+      if (wantRef.current) timerRef.current = setTimeout(begin, 350)
+      else setListening(false)
+    }
     recRef.current = rec
-    try { rec.start(); setListening(true) } catch (_) { setListening(false) }
+    try { rec.start(); setListening(true); setError('') } catch (_) { /* start throws if already starting; onend will retry */ }
   }
 
+  const start = () => { setError(''); wantRef.current = true; cleanup(); begin() }
+  const stop = () => { wantRef.current = false; setListening(false); cleanup() }
   const toggle = () => (listening ? stop() : start())
-  useEffect(() => () => { wantRef.current = false; try { recRef.current?.stop() } catch (_) {} }, [])
+
+  useEffect(() => () => { wantRef.current = false; cleanup() }, [])
 
   return { listening, error, supported: !!SR, toggle, start, stop }
 }
