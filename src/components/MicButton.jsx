@@ -5,7 +5,7 @@ import { useDictation } from '../lib/useDictation'
 // On iPhone/iPad (browser speech API blocked) it shows a clear hint to use the
 // phone keyboard's mic — so it's never a dead button.
 export default function MicButton({ onText, label = 'Speak', size = 'md' }) {
-  const { listening, error, supported, toggle } = useDictation(onText)
+  const { listening, error, detail, supported, toggle } = useDictation(onText)
 
   if (!supported) {
     return (
@@ -34,9 +34,10 @@ export default function MicButton({ onText, label = 'Speak', size = 'md' }) {
         </span>
       )}
       {error === 'service' && (
-        <span className="max-w-xs text-xs text-red-500">Speech service unavailable — check your internet connection and try again.</span>
+        <span className="max-w-xs text-xs text-red-500">Couldn’t start the mic — check your internet, close other apps/tabs using the mic, then try again.</span>
       )}
       {error === 'error' && <span className="text-xs text-red-500">Mic error — try again.</span>}
+      {error && detail && <span className="text-[10px] text-slate-400">[{detail}]</span>}
     </span>
   )
 }

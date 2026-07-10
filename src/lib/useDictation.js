@@ -1,63 +1,93 @@
 import { useEffect, useRef, useState } from 'react'
 
 // Browser-native speech-to-text (free). Chrome/Edge on Windows/Mac/Android
-// support it; Apple blocks it in all iPhone/iPad browsers, so `supported` is
-// false there and the UI should tell the user to use the keyboard mic instead.
+// support it; Apple blocks it in all iPhone/iPad browsers.
 export const SR = typeof window !== 'undefined' ? (window.SpeechRecognition || window.webkitSpeechRecognition) : null
 
-// onText(finalTranscript) is called with each recognised phrase.
-// error: '' | 'denied' (permission) | 'service' (speech backend / offline) | 'error'
+// Only ONE recognition may run in the whole page (Chrome errors otherwise).
+let ACTIVE = null
+
+// onText(finalTranscript) fires for each recognised phrase.
+// error: '' | 'denied' (permission) | 'service' (mic busy / offline / backend) | 'error'
 export function useDictation(onText) {
   const [listening, setListening] = useState(false)
   const [error, setError] = useState('')
+  const [detail, setDetail] = useState('') // raw error code, shown for diagnosis
   const recRef = useRef(null)
   const wantRef = useRef(false)
+  const permRef = useRef(false)
   const timerRef = useRef(null)
   const cbRef = useRef(onText)
   cbRef.current = onText
 
-  // Detach handlers and abort any live recognition (so manual stop / restart is clean).
-  const cleanup = () => {
+  const clearRec = () => {
     clearTimeout(timerRef.current)
     const rec = recRef.current
     recRef.current = null
-    if (rec) { try { rec.onend = null; rec.onerror = null; rec.onresult = null; rec.abort() } catch (_) {} }
+    if (rec) {
+      try { rec.onstart = null; rec.onend = null; rec.onerror = null; rec.onresult = null; rec.abort() } catch (_) {}
+      if (ACTIVE === rec) ACTIVE = null
+    }
   }
 
-  const begin = () => {
-    if (!SR) { setError('error'); return }
+  const beginSR = () => {
+    if (ACTIVE) { try { ACTIVE.abort() } catch (_) {} ACTIVE = null }
     let rec
     try { rec = new SR() } catch (_) { setError('error'); return }
     rec.lang = 'en-IN'
-    rec.interimResults = false
     rec.continuous = true
-    rec.onresult = (ev) => {
+    rec.interimResults = true
+    rec.onstart = () => { setListening(true); setError('') }
+    rec.onresult = (e) => {
       let s = ''
-      for (let i = ev.resultIndex; i < ev.results.length; i++) if (ev.results[i].isFinal) s += ev.results[i][0].transcript
+      for (let i = e.resultIndex; i < e.results.length; i++) if (e.results[i].isFinal) s += e.results[i][0].transcript
       if (s.trim()) cbRef.current?.(s.trim())
     }
     rec.onerror = (e) => {
-      const err = e.error
-      if (err === 'not-allowed') { setError('denied'); wantRef.current = false; setListening(false) }
-      else if (err === 'service-not-allowed' || err === 'network') { setError('service'); wantRef.current = false; setListening(false) }
-      else if (err === 'no-speech' || err === 'aborted') { /* normal — ignore */ }
+      const er = e.error
+      if (er === 'no-speech' || er === 'aborted') return // normal — the onend restart handles it
+      setDetail(`sr:${er}`)
+      if (er === 'not-allowed') { setError(permRef.current ? 'service' : 'denied'); wantRef.current = false; setListening(false) }
+      else if (er === 'service-not-allowed' || er === 'network') { setError('service'); wantRef.current = false; setListening(false) }
       else setError('error')
     }
-    // Mobile/desktop recognition ends on each pause — restart (fresh instance) while wanted.
     rec.onend = () => {
+      if (ACTIVE === rec) ACTIVE = null
       recRef.current = null
-      if (wantRef.current) timerRef.current = setTimeout(begin, 350)
+      if (wantRef.current) timerRef.current = setTimeout(() => { if (wantRef.current) beginSR() }, 350)
       else setListening(false)
     }
     recRef.current = rec
-    try { rec.start(); setListening(true); setError('') } catch (_) { /* start throws if already starting; onend will retry */ }
+    ACTIVE = rec
+    try { rec.start() } catch (_) { /* onend will retry */ }
   }
 
-  const start = () => { setError(''); wantRef.current = true; cleanup(); begin() }
-  const stop = () => { wantRef.current = false; setListening(false); cleanup() }
-  const toggle = () => (listening ? stop() : start())
+  const start = async () => {
+    if (!SR) { setError('error'); return }
+    setError(''); setDetail('')
+    wantRef.current = true
+    clearRec()
+    // Reliable permission gate + mic warm-up (better signal than the speech API's
+    // own flaky "not-allowed"). If this grants, the recognition below is trusted.
+    if (navigator.mediaDevices?.getUserMedia) {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+        stream.getTracks().forEach((t) => t.stop())
+        permRef.current = true
+      } catch (e) {
+        setDetail(`gum:${e?.name || 'err'}`)
+        setError(e && (e.name === 'NotAllowedError' || e.name === 'SecurityError') ? 'denied' : 'service')
+        wantRef.current = false
+        return
+      }
+    }
+    if (wantRef.current) beginSR()
+  }
 
-  useEffect(() => () => { wantRef.current = false; cleanup() }, [])
+  const stop = () => { wantRef.current = false; setListening(false); clearRec() }
+  const toggle = () => { if (listening) stop(); else start() }
 
-  return { listening, error, supported: !!SR, toggle, start, stop }
+  useEffect(() => () => { wantRef.current = false; clearRec() }, [])
+
+  return { listening, error, detail, supported: !!SR, toggle, start, stop }
 }
