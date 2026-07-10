@@ -63,11 +63,37 @@ function summarizeJoint(joint, data) {
   return parts.join('; ') || (data.note ? '' : '—')
 }
 
+// Grid ROM → readable text (used when switching to Type/Speak mode so nothing is lost).
+function romToText(v) {
+  if (!v || typeof v !== 'object' || !Array.isArray(v.joints)) return ''
+  const lines = []
+  for (const jid of v.joints) {
+    const j = JOINTS.find((x) => x.id === jid)
+    const d = v.exam?.[jid]
+    if (!j || !d) continue
+    const s = summarizeJoint(j, d)
+    if ((s && s !== '—') || d.note) lines.push(`${j.name}: ${s && s !== '—' ? s : ''}${d.note ? ` | Note: ${d.note}` : ''}`.trim())
+  }
+  return lines.join('\n')
+}
+const modeBtn = (on) => `rounded-full px-3.5 py-1.5 text-sm font-medium transition ${on ? 'bg-brand-600 text-white shadow' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`
+
 export function RomField({ value, onChange }) {
   const v = value && typeof value === 'object' ? value : { joints: [], exam: {} }
   const joints = v.joints || []
   const exam = v.exam || {}
   const [active, setActive] = useState(null)
+  const [mode, setMode] = useState(() => (typeof value === 'string' && value.trim()) ? 'text' : 'grid')
+  const switchMode = (next) => {
+    if (next === mode) return
+    if (next === 'text') {
+      onChange(typeof value === 'string' ? value : romToText(value))
+    } else {
+      if (typeof value === 'string' && value.trim() && !window.confirm('Switch to the grid? Your typed ROM text will be cleared.')) return
+      onChange({ joints: [], exam: {} })
+    }
+    setMode(next)
+  }
 
   const openJoint = (jid) => {
     if (!joints.includes(jid)) onChange({ ...v, joints: [...joints, jid], exam })
@@ -104,6 +130,21 @@ export function RomField({ value, onChange }) {
 
   return (
     <div className="space-y-3">
+      {/* Choose how to record ROM: the tap-to-enter grid, or free type/speak. */}
+      <div className="flex flex-wrap gap-2">
+        <button type="button" onClick={() => switchMode('grid')} className={modeBtn(mode === 'grid')}>Grid (tap to enter)</button>
+        <button type="button" onClick={() => switchMode('text')} className={modeBtn(mode === 'text')}>Type / Speak</button>
+      </div>
+
+      {mode === 'text' ? (
+        <textarea
+          className="input min-h-[130px]"
+          value={typeof value === 'string' ? value : ''}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder="Type or dictate the ROM findings — e.g. 'Knee: flexion 100°, extension 0°, pain end-range. Shoulder: abduction 150°, flexion 160°.'"
+        />
+      ) : (
+      <>
       {/* Joint picker — one assessed at a time. Green = saved with data. */}
       <div className="flex flex-wrap gap-2">
         {JOINTS.map((j) => {
@@ -199,6 +240,8 @@ export function RomField({ value, onChange }) {
             )
           })}
         </div>
+      )}
+      </>
       )}
     </div>
   )

@@ -6,6 +6,7 @@ import {
 } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import { UnsavedProvider, useUnsaved } from '../../context/UnsavedContext'
+import GlobalDictation from '../../components/GlobalDictation'
 import { canAccessPath } from '../../lib/roles'
 import { watchEnquiries } from '../../lib/firestore'
 
@@ -179,6 +180,9 @@ function AdminShell() {
           <Outlet />
         </main>
       </div>
+
+      {/* Free voice-to-text mic (dictates into the last-tapped text box). */}
+      <GlobalDictation />
     </div>
   )
 }

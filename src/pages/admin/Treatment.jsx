@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { Stethoscope, Search, Loader2, Save, ArrowRight, Plus, CheckCircle2, BadgeCheck, IndianRupee } from 'lucide-react'
+import { Stethoscope, Search, Loader2, Save, ArrowRight, Plus, CheckCircle2, BadgeCheck, IndianRupee, Sparkles } from 'lucide-react'
 import {
   watchClients, watchTreatments, addTreatment, updateTreatment, watchServiceCharges,
   setAccountingForTreatment, deleteAccountingForTreatment,
@@ -8,6 +8,7 @@ import {
 import { CLINICAL_SECTIONS, CLINICAL_KEYS, formatAssessmentValue } from '../../lib/assessmentSchema'
 import { todayISO, fmtDate } from '../../lib/format'
 import { onlyDigits } from '../../lib/validate'
+import { parseAssessment } from '../../lib/smartFill'
 import DateField from '../../components/DateField'
 import AssessmentField from '../../components/AssessmentField'
 import VasScale from '../../components/VasScale'
@@ -184,6 +185,9 @@ function TreatmentForm({ client, editId = '', onChangeClient, navigate }) {
   const [therapist, setTherapist] = useState(client.therapist || 'Sakthi Saravanan')
   const [bill, setBill] = useState({ service: client.service || '', amount: '', paid: '', mode: 'Cash' })
   const [services, setServices] = useState([])
+  const [smartOpen, setSmartOpen] = useState(false)
+  const [smartText, setSmartText] = useState('')
+  const [smartMsg, setSmartMsg] = useState('')
   const [busy, setBusy] = useState(false)
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState('')
@@ -224,6 +228,18 @@ function TreatmentForm({ client, editId = '', onChangeClient, navigate }) {
 
   const set = (k) => (val) => { setForm((f) => ({ ...f, [k]: val })); setDirty(true) }
   const touch = () => setDirty(true)
+
+  // Smart Fill: parse the dictated/pasted consult and best-guess fill the form.
+  function applySmart() {
+    const { patch, filled } = parseAssessment(smartText)
+    if (!filled.length) {
+      setSmartMsg("Couldn't detect any fields. Try clear words like “pain sharp”, “VAS 6”, “knee flexion 100”, “built mesomorph”, “plan: dry needling”.")
+      return
+    }
+    setForm((f) => ({ ...f, ...patch }))
+    setDirty(true)
+    setSmartMsg(`Filled: ${filled.join(', ')}. Please review everything below and correct as needed before saving.`)
+  }
 
   async function save(e) {
     e.preventDefault(); setError('')
@@ -322,6 +338,33 @@ function TreatmentForm({ client, editId = '', onChangeClient, navigate }) {
           <p className="text-sm text-slate-400">
             Previous session: {fmtDate(last.date)}{last.therapist ? ` · ${last.therapist}` : ''} — its values show faintly below; press Tab in a field to keep them.
           </p>
+        )}
+      </div>
+
+      {/* Smart Fill — dictate/paste the whole consult, then auto-fill the form */}
+      <div className="card p-5">
+        <button type="button" onClick={() => setSmartOpen((v) => !v)} className="flex w-full items-center justify-between gap-2">
+          <span className="flex items-center gap-2 text-base font-bold text-brand-700"><Sparkles size={17} /> Speak / paste the whole consult → auto-fill</span>
+          <span className="text-xs font-medium text-slate-400">{smartOpen ? 'Hide' : 'Show'}</span>
+        </button>
+        {smartOpen && (
+          <div className="mt-3 space-y-2">
+            <p className="text-xs text-slate-500">
+              Dictate (use the floating mic, or your phone keyboard mic) or paste the full consultation here, then tap
+              <span className="font-semibold"> Auto-fill</span>. It fills a best guess for the dropdowns and text below — always review before saving.
+            </p>
+            <textarea
+              className="input min-h-[130px]"
+              value={smartText}
+              onChange={(e) => setSmartText(e.target.value)}
+              placeholder="e.g. 'Complaint: right knee pain 3 weeks after football. Pain sharp, VAS 6, aggravated by stairs, relieved by rest. Built mesomorph. Swelling present, no crepitus. Knee flexion 100, extension 0, pain end-range. Plan: dry needling, quads strengthening. Follow up in 5 days.'"
+            />
+            <div className="flex flex-wrap items-center gap-2">
+              <button type="button" onClick={applySmart} className="btn-primary"><Sparkles size={16} /> Auto-fill form</button>
+              <button type="button" onClick={() => { setSmartText(''); setSmartMsg('') }} className="btn-ghost">Clear</button>
+            </div>
+            {smartMsg && <p className="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{smartMsg}</p>}
+          </div>
         )}
       </div>
 
