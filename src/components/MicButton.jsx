@@ -13,7 +13,7 @@ export default function MicButton({ onText, label = 'Speak', size = 'md' }) {
 
   const pad = size === 'sm' ? 'px-2.5 py-1 text-xs' : 'px-3 py-1.5 text-sm'
   return (
-    <span className="inline-flex items-center gap-2">
+    <span className="inline-flex flex-wrap items-center gap-2">
       <button
         type="button"
         onClick={toggle}
@@ -24,8 +24,12 @@ export default function MicButton({ onText, label = 'Speak', size = 'md' }) {
         {listening ? <Square size={14} /> : <Mic size={15} />}
         {listening ? 'Listening… tap to stop' : label}
       </button>
-      {error === 'denied' && <span className="text-xs text-red-500">Allow mic access in the browser</span>}
-      {error === 'error' && <span className="text-xs text-red-500">Mic error — try again</span>}
+      {error === 'denied' && (
+        <span className="max-w-xs text-xs text-red-500">
+          Microphone is blocked. Tap the <strong>🔒 / ⓘ</strong> next to the web address → <strong>Permissions / Site settings</strong> → <strong>Microphone → Allow</strong>, then reload. (You only do this once.)
+        </span>
+      )}
+      {error === 'error' && <span className="text-xs text-red-500">Mic error — try again, and tap “Allow” when the browser asks.</span>}
     </span>
   )
 }

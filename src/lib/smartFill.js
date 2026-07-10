@@ -1,65 +1,128 @@
 // ============================================================================
 //  Smart Fill — a FREE, keyword-based parser that turns a dictated/pasted
 //  consultation note into best-guess values for the treatment form. No AI, no
-//  cost. It recognises option keywords, numbers, "Label: value" sections,
-//  girth/limb measurements and joint ROM. Everything it fills is a SUGGESTION
-//  for the clinician to review.
+//  cost. Covers every field & option in the treatment module, with synonyms.
+//  Everything it fills is a SUGGESTION for the clinician to review.
 // ============================================================================
 import {
-  BUILT_OPTIONS, PAIN_TYPE_OPTIONS, ADL_IMPACT_OPTIONS,
-  FUNCTIONAL_UPPER, FUNCTIONAL_LOWER, JOINTS, GIRTH_SITES, LIMB_LENGTH_TYPES,
+  PAIN_TYPE_OPTIONS, ADL_IMPACT_OPTIONS, FUNCTIONAL_UPPER, FUNCTIONAL_LOWER,
+  JOINTS, GIRTH_SITES, LIMB_LENGTH_TYPES, SPINE_ROM_GRADES,
 } from './constants'
 
 const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 const includesAny = (t, words) => words.some((w) => t.includes(w))
-function posNeg(t, term) {
-  if (!t.includes(term)) return null
-  const negated = new RegExp(`(no|nil|without|absent)\\s+${term}|${term}\\s+(is\\s+)?(absent|negative|nil|-ve)`).test(t)
-  return negated ? '-ve' : '+ve'
+function posNegAny(t, terms) {
+  for (const term of terms) {
+    if (!t.includes(term)) continue
+    const neg = new RegExp(`(no|nil|without|absent)\\s+${term}|${term}\\s+(is\\s+)?(absent|negative|nil|-ve|not present)`).test(t)
+    return neg ? '-ve' : '+ve'
+  }
+  return null
 }
 function toList(value) {
   const items = String(value).split(/[;,\n]|\band\b/).map((s) => s.trim()).filter(Boolean)
   return items.map((s, i) => `${i + 1}. ${s}`).join('\n')
 }
-const numNear = (seg, word) => {
-  const m = seg.match(new RegExp(`${word}[^\\d]{0,6}(\\d{1,3}(?:\\.\\d)?)`))
-  return m ? m[1] : ''
-}
+const numNear = (seg, word) => { const m = seg.match(new RegExp(`${word}[^\\d]{0,6}(\\d{1,3}(?:\\.\\d)?)`)); return m ? m[1] : '' }
 
-// Girth site → spoken keywords
+// ---- Option synonym tables ------------------------------------------------
+const BUILT_KW = [
+  ['Ectomorph', ['ectomorph', 'ecto ', 'lean build', 'thin build', 'slender build', 'slim build']],
+  ['Mesomorph', ['mesomorph', 'meso ', 'athletic build', 'muscular build', 'well built', 'well-built']],
+  ['Endomorph', ['endomorph', 'endo ', 'heavy build', 'stocky build', 'obese build', 'heavy set']],
+]
+const PAIN_TYPE_KW = [
+  ['Sharp / Shooting', ['sharp', 'shooting', 'stabbing', 'lancinating', 'pricking']],
+  ['Dull / Aching', ['dull', 'aching', 'ache', 'sore', 'soreness']],
+  ['Burning / Tingling', ['burning', 'tingling', 'pins and needles', 'paresthesia', 'paraesthesia', 'numbness', 'numb']],
+  ['Throbbing / Pulsing', ['throbbing', 'pulsing', 'pulsating', 'pounding']],
+  ['Deep / Heavy', ['deep', 'heavy', 'dragging', 'pressure like', 'pressure-like']],
+]
+const MOVEMENT_SYN = {
+  flexion: ['flexion', 'flex'],
+  extension: ['extension', 'ext'],
+  'lateral flexion': ['lateral flexion', 'side flexion', 'side bend', 'side-bend', 'lateral bend'],
+  rotation: ['rotation', 'rot'],
+  abduction: ['abduction', 'abduct', 'abd'],
+  adduction: ['adduction', 'adduct'],
+  'internal rotation': ['internal rotation', 'medial rotation', 'internal rot', 'ir'],
+  'external rotation': ['external rotation', 'lateral rotation', 'external rot', 'er'],
+  pronation: ['pronation', 'pronate'],
+  supination: ['supination', 'supinate'],
+  'radial deviation': ['radial deviation', 'radial dev', 'rd'],
+  'ulnar deviation': ['ulnar deviation', 'ulnar dev', 'ud'],
+  'mcp flexion': ['mcp flexion', 'mcp flex', 'mcp'],
+  'ip flexion': ['ip flexion', 'ip flex'],
+  'pip flexion': ['pip flexion', 'pip flex', 'pip'],
+  'dip flexion': ['dip flexion', 'dip flex', 'dip'],
+  dorsiflexion: ['dorsiflexion', 'dorsi flexion', 'dorsi flex', 'df'],
+  plantarflexion: ['plantarflexion', 'plantar flexion', 'plantar flex', 'pf'],
+  inversion: ['inversion', 'invert', 'inv'],
+  eversion: ['eversion', 'evert'],
+}
+function movementSyns(name) {
+  const base = MOVEMENT_SYN[name.toLowerCase().replace(/\s*\(.*\)\s*/, '').trim()] || [name.toLowerCase()]
+  const side = name.match(/\((right|left)\)/i)
+  if (side) { const s = side[1].toLowerCase(); return base.flatMap((b) => [`${b} ${s}`, `${s} ${b}`]) }
+  return base
+}
 const GIRTH_KW = {
-  'Mid Arm': ['mid arm', 'mid-arm', 'midarm'],
-  'Maximum Forearm Girth': ['forearm'],
-  '10 cm Above Patella': ['above patella', '10 cm above', 'ten cm above'],
-  'Knee Joint Line (Mid-Patella)': ['knee joint', 'mid-patella', 'mid patella'],
-  'Maximum Calf Girth': ['calf'],
-  'Figure-of-Eight (Ankle)': ['figure of eight', 'figure-of-eight', 'figure of 8', 'ankle girth'],
+  'Mid Arm': ['mid arm', 'mid-arm', 'midarm', 'arm girth', 'biceps girth', 'upper arm'],
+  'Maximum Forearm Girth': ['forearm girth', 'forearm'],
+  '10 cm Above Patella': ['above patella', '10 cm above', 'ten cm above', 'thigh girth', 'quadriceps girth', 'quad girth'],
+  'Knee Joint Line (Mid-Patella)': ['knee joint', 'mid-patella', 'mid patella', 'knee girth', 'joint line'],
+  'Maximum Calf Girth': ['calf girth', 'calf'],
+  'Figure-of-Eight (Ankle)': ['figure of eight', 'figure-of-eight', 'figure of 8', 'figure eight', 'ankle girth'],
 }
 const GIRTH_FINDING_KW = [
-  ['Muscle Atrophy', ['atrophy', 'wasting']],
-  ['Muscle Hypertrophy', ['hypertrophy']],
-  ['Swelling', ['swelling', 'swollen']],
-  ['Post-operative', ['post-op', 'post operative', 'postoperative']],
+  ['Muscle Atrophy', ['atrophy', 'wasting', 'wasted']],
+  ['Muscle Hypertrophy', ['hypertrophy', 'hypertrophied']],
+  ['Swelling', ['swelling', 'swollen', 'edema', 'oedema']],
+  ['Post-operative', ['post-op', 'post operative', 'postoperative', 'post-surgical']],
 ]
+// Spoken names for each joint (so "lumbar", "neck" etc. are recognised).
+const JOINT_KW = {
+  cervical: ['cervical', 'neck'],
+  shoulder: ['shoulder'],
+  elbow: ['elbow'],
+  forearm: ['forearm'],
+  wrist: ['wrist'],
+  thumb: ['thumb'],
+  fingers: ['fingers', 'finger'],
+  hip: ['hip'],
+  knee: ['knee'],
+  ankle: ['ankle'],
+  thoracic: ['thoracic spine', 'thoracic', 'dorsal spine', 'mid back'],
+  lumbar: ['lumbar spine', 'lumbar', 'low back', 'lower back'],
+}
+// Words that start a new finding — used to stop short "Label: value" captures
+// (e.g. Aggravating/Relieving) from swallowing the rest of a run-on sentence.
+const HARD_STOPS = [
+  'shoulder', 'elbow', 'wrist', 'hip', 'knee', 'ankle', 'cervical', 'neck', 'lumbar', 'thoracic', 'forearm', 'thumb', 'fingers',
+  'flexion', 'extension', 'abduction', 'adduction', 'rotation', 'deviation', 'pronation', 'supination', 'dorsiflexion', 'plantarflexion', 'inversion', 'eversion',
+  'swelling', 'swollen', 'edema', 'oedema', 'effusion', 'spasm', 'tightness', 'crepitus', 'crackling', 'clicking', 'grinding', 'tenderness', 'girth', 'limb length',
+  'built', 'vas', 'pain score', 'compensated', 'guarded', 'impression', 'diagnosis', 'prognosis', 'follow up', 'review', 'plan',
+]
+const HARD_STOPS_RE = new RegExp(`\\b(${HARD_STOPS.map(escapeRe).join('|')})\\b`, 'i')
 
 // Labelled "key: value" sections (value stops at the next label or a full stop).
 const LABEL_DEFS = [
-  { key: 'complaint', kind: 'text', label: 'Complaint', names: ['chief complaint', 'complaint', 'c/o'] },
-  { key: 'pastHistory', kind: 'text', label: 'Past history', names: ['past medical history', 'past history', 'pmh'] },
-  { key: 'mechanism', kind: 'text', label: 'Mechanism', names: ['mechanism of injury', 'mechanism', 'mode of injury'] },
-  { key: 'radiology', kind: 'text', label: 'Radiology', names: ['radiological report', 'radiology', 'x-ray', 'x ray', 'mri', 'ct scan'] },
-  { key: 'painAggravating', kind: 'text', label: 'Aggravating', names: ['aggravating factor', 'aggravating', 'aggravated by'] },
-  { key: 'painRelieving', kind: 'text', label: 'Relieving', names: ['relieving factor', 'relieving', 'relieved by'] },
-  { key: 'deformities', kind: 'text', label: 'Deformities', names: ['deformities', 'deformity'] },
-  { key: 'gait', kind: 'text', label: 'Gait', names: ['gait'] },
-  { key: 'endFeel', kind: 'text', label: 'End feel', names: ['end feel', 'end-feel'] },
-  { key: 'tenderness', kind: 'text', label: 'Tenderness', names: ['tenderness'] },
-  { key: 'specialTests', kind: 'list', label: 'Special tests', names: ['special tests', 'special test'] },
-  { key: 'opinion', kind: 'text', label: 'Opinion', names: ['opinion', 'impression', 'diagnosis'] },
-  { key: 'treatmentOptions', kind: 'text', label: 'Treatment options', names: ['treatment options'] },
-  { key: 'expectedRecovery', kind: 'text', label: 'Expected recovery', names: ['expected recovery', 'prognosis'] },
-  { key: 'treatmentPlan', kind: 'list', label: 'Treatment plan', names: ['treatment plan', 'plan'] },
-  { key: 'objectiveNotes', kind: 'text', label: 'Notes', names: ['objective notes'] },
+  { key: 'complaint', kind: 'text', label: 'Complaint', names: ['chief complaint', 'complaint', 'presenting complaint', 'c/o'] },
+  { key: 'pastHistory', kind: 'text', label: 'Past history', names: ['past medical history', 'past history', 'previous history', 'pmh', 'h/o'] },
+  { key: 'mechanism', kind: 'text', label: 'Mechanism', names: ['mechanism of injury', 'mechanism', 'mode of injury', 'moi'] },
+  { key: 'radiology', kind: 'text', label: 'Radiology', names: ['radiological report', 'radiology', 'radiological findings', 'x-ray', 'x ray', 'xray', 'mri', 'ct scan', 'usg', 'ultrasound'] },
+  { key: 'painAggravating', kind: 'text', label: 'Aggravating', stopEarly: true, names: ['aggravating factor', 'aggravating factors', 'aggravating', 'aggravated by', 'worse with', 'worse on'] },
+  { key: 'painRelieving', kind: 'text', label: 'Relieving', stopEarly: true, names: ['relieving factor', 'relieving factors', 'relieving', 'relieved by', 'better with', 'eased by'] },
+  { key: 'deformities', kind: 'text', label: 'Deformities', stopEarly: true, names: ['deformities', 'deformity', 'edema', 'wasting'] },
+  { key: 'gait', kind: 'text', label: 'Gait', stopEarly: true, names: ['gait pattern', 'gait'] },
+  { key: 'endFeel', kind: 'text', label: 'End feel', stopEarly: true, names: ['end feel', 'end-feel'] },
+  { key: 'tenderness', kind: 'text', label: 'Tenderness', stopEarly: true, names: ['tenderness', 'tender over', 'tender at'] },
+  { key: 'specialTests', kind: 'list', label: 'Special tests', names: ['special tests', 'special test', 'provocative tests'] },
+  { key: 'opinion', kind: 'text', label: 'Opinion', names: ['opinion', 'impression', 'diagnosis', 'provisional diagnosis'] },
+  { key: 'treatmentOptions', kind: 'text', label: 'Treatment options', names: ['treatment options', 'management options'] },
+  { key: 'expectedRecovery', kind: 'text', label: 'Expected recovery', names: ['expected recovery', 'prognosis', 'expected outcome'] },
+  { key: 'treatmentPlan', kind: 'list', label: 'Treatment plan', names: ['treatment plan', 'management plan', 'plan of care', 'plan'] },
+  { key: 'objectiveNotes', kind: 'text', label: 'Notes', names: ['objective notes', 'observation'] },
 ]
 
 function extractLabels(orig, patch, mark) {
@@ -77,7 +140,12 @@ function extractLabels(orig, patch, mark) {
     if (!def || def.key in patch) continue
     const nextStart = found[i + 1]?.start ?? orig.length
     const dot = orig.indexOf('.', cur.valStart)
-    const boundary = dot >= 0 && dot < nextStart ? dot : nextStart
+    let boundary = dot >= 0 && dot < nextStart ? dot : nextStart
+    // Short fields (Aggravating/Relieving/…) stop at the next clinical keyword.
+    if (def.stopEarly) {
+      const rel = orig.slice(cur.valStart + 2).search(HARD_STOPS_RE)
+      if (rel >= 0) boundary = Math.min(boundary, cur.valStart + 2 + rel)
+    }
     const val = orig.slice(cur.valStart, boundary).trim().replace(/[,;]+$/, '')
     if (!val) continue
     patch[def.key] = def.kind === 'list' ? toList(val) : val
@@ -93,71 +161,69 @@ export function parseAssessment(raw) {
   const mark = (label) => { if (!filled.includes(label)) filled.push(label) }
 
   // Built
-  for (const b of BUILT_OPTIONS) if (t.includes(b.toLowerCase())) { patch.built = b; mark('Built'); break }
+  for (const [opt, kws] of BUILT_KW) if (includesAny(t, kws)) { patch.built = opt; mark('Built'); break }
 
   // Pain type (multi)
-  const painMap = [
-    ['Sharp / Shooting', ['sharp', 'shooting']],
-    ['Dull / Aching', ['dull', 'aching', 'ache']],
-    ['Burning / Tingling', ['burning', 'tingling', 'tingle']],
-    ['Throbbing / Pulsing', ['throbbing', 'pulsing', 'pulsating']],
-    ['Deep / Heavy', ['deep', 'heavy']],
-  ]
-  const painTypes = painMap.filter(([, ws]) => includesAny(t, ws)).map(([o]) => o).filter((o) => PAIN_TYPE_OPTIONS.includes(o))
+  const painTypes = PAIN_TYPE_KW.filter(([, ws]) => includesAny(t, ws)).map(([o]) => o).filter((o) => PAIN_TYPE_OPTIONS.includes(o))
   if (painTypes.length) { patch.painType = painTypes; mark('Pain type') }
 
   // ADL impact
-  if (includesAny(t, ["doesn't affect", 'does not affect', 'not affecting', 'not affect', 'no effect on adl'])) { patch.painADL = ADL_IMPACT_OPTIONS[0]; mark('ADL impact') }
-  else if (includesAny(t, ['affecting adl', 'affects adl', 'affecting his', 'affecting her', 'affecting daily', 'impact on adl', 'affecting activities', 'affecting activity'])) { patch.painADL = ADL_IMPACT_OPTIONS[1]; mark('ADL impact') }
+  if (includesAny(t, ["doesn't affect", 'does not affect', 'not affecting', 'not affect', 'no effect on adl', 'no impact on adl', 'adl not affected', 'independent in adl'])) { patch.painADL = ADL_IMPACT_OPTIONS[0]; mark('ADL impact') }
+  else if (includesAny(t, ['affecting adl', 'affects adl', 'affecting his', 'affecting her', 'affecting daily', 'impact on adl', 'affecting activities', 'affecting activity', 'difficulty in adl', 'difficulty with adl', 'adl affected', 'affecting function'])) { patch.painADL = ADL_IMPACT_OPTIONS[1]; mark('ADL impact') }
 
   // Duration + VAS
   const dm = t.match(/(\d+)\s*(day|week|month)/)
   if (dm) { patch.painDuration = `${dm[1]} ${{ day: 'Days', week: 'Weeks', month: 'Months' }[dm[2]]}`; mark('Duration') }
-  const vm = t.match(/vas[^\d]{0,6}(\d{1,2})/) || t.match(/(\d{1,2})\s*\/\s*10/)
+  const vm = t.match(/(?:vas|nprs|pain score|pain scale)[^\d]{0,8}(\d{1,2})/) || t.match(/(\d{1,2})\s*(?:\/|out of)\s*10/)
   if (vm) { patch.vas = String(Math.min(10, Number(vm[1]))); mark('VAS') }
 
   // Palpation
-  const sw = posNeg(t, 'swelling'); if (sw) { patch.swelling = sw; mark('Swelling') }
-  const sp = posNeg(t, 'spasm'); if (sp) { patch.spasm = sp; mark('Spasm') }
-  if (t.includes('crepitus') || t.includes('crackling') || t.includes('clicking')) {
-    patch.crepitus = /(no|absent|negative)[^.]{0,12}crepitus|crepitus[^.]{0,12}(absent|negative)/.test(t) ? '-ve' : '+ve'
+  const sw = posNegAny(t, ['swelling', 'swollen', 'edema', 'oedema', 'effusion']); if (sw) { patch.swelling = sw; mark('Swelling') }
+  const sp = posNegAny(t, ['spasm', 'muscle spasm', 'muscle tightness']); if (sp) { patch.spasm = sp; mark('Spasm') }
+  if (includesAny(t, ['crepitus', 'crackling', 'clicking', 'grinding', 'crepitation'])) {
+    patch.crepitus = /(no|absent|negative)[^.]{0,14}(crepitus|crackling|clicking|grinding)|(crepitus|crackling|clicking|grinding)[^.]{0,14}(absent|negative)/.test(t) ? '-ve' : '+ve'
     mark('Crepitus')
   }
 
   // Movement quality
-  if (t.includes('compensated')) { patch.movementQuality = 'Compensated'; mark('Movement quality') }
-  else if (t.includes('guarded')) { patch.movementQuality = 'Guarded'; mark('Movement quality') }
-  else if (includesAny(t, ['poor control', 'poor motor control'])) { patch.movementQuality = 'Poor Control'; mark('Movement quality') }
-  else if (includesAny(t, ['movement normal', 'quality normal', 'good control', 'normal movement'])) { patch.movementQuality = 'Normal'; mark('Movement quality') }
+  if (includesAny(t, ['compensated', 'compensation', 'trick movement', 'substitution'])) { patch.movementQuality = 'Compensated'; mark('Movement quality') }
+  else if (includesAny(t, ['guarded', 'guarding', 'apprehensive'])) { patch.movementQuality = 'Guarded'; mark('Movement quality') }
+  else if (includesAny(t, ['poor control', 'poor motor control', 'incoordination', 'dyscoordination'])) { patch.movementQuality = 'Poor Control'; mark('Movement quality') }
+  else if (includesAny(t, ['movement normal', 'quality normal', 'good control', 'well controlled', 'normal movement'])) { patch.movementQuality = 'Normal'; mark('Movement quality') }
 
   // Functional activities (loose match on the option's leading word)
-  const matchFunctional = (opts) => opts.filter((o) => {
-    const key = o.toLowerCase().split('(')[0].split('/')[0].trim()
-    return key.length > 3 && t.includes(key)
-  })
-  const fu = matchFunctional(FUNCTIONAL_UPPER); if (fu.length) { patch.functionalUpper = fu; mark('Functional (upper)') }
-  const fl = matchFunctional(FUNCTIONAL_LOWER); if (fl.length) { patch.functionalLower = fl; mark('Functional (lower)') }
+  const matchFunctional = (opts) => opts.filter((o) => { const key = o.toLowerCase().split('(')[0].split('/')[0].trim(); return key.length > 3 && t.includes(key) })
+  const fUp = matchFunctional(FUNCTIONAL_UPPER); if (fUp.length) { patch.functionalUpper = fUp; mark('Functional (upper)') }
+  const fLo = matchFunctional(FUNCTIONAL_LOWER); if (fLo.length) { patch.functionalLower = fLo; mark('Functional (lower)') }
 
-  // ROM by joint (numbers + pain response, scoped to each joint's mention)
-  const positions = JOINTS.map((j) => ({ j, idx: t.indexOf(` ${j.name.toLowerCase()}`) })).filter((x) => x.idx >= 0).sort((a, b) => a.idx - b.idx)
+  // ROM by joint (scoped to each joint's mention; joints have spoken synonyms)
+  const positions = JOINTS.map((j) => {
+    const kws = JOINT_KW[j.id] || [j.name.toLowerCase()]
+    let idx = -1
+    for (const k of kws) { const p = t.indexOf(` ${k}`); if (p >= 0 && (idx < 0 || p < idx)) idx = p }
+    return { j, idx }
+  }).filter((x) => x.idx >= 0).sort((a, b) => a.idx - b.idx)
   const joints = []
   const exam = {}
   for (let i = 0; i < positions.length; i++) {
     const { j, idx } = positions[i]
-    const seg = t.slice(idx, i + 1 < positions.length ? positions[i + 1].idx : Math.min(t.length, idx + 220))
+    const seg = t.slice(idx, i + 1 < positions.length ? positions[i + 1].idx : Math.min(t.length, idx + 240))
     const mv = {}
-    if (j.type !== 'spine') {
-      for (const mMove of j.movements) {
-        const kw = mMove.name.toLowerCase().split('(')[0].trim()
-        const found = seg.match(new RegExp(`${escapeRe(kw)}[^\\d]{0,15}(\\d{1,3})`))
-        if (found) mv[mMove.key] = { arom: found[1] }
+    for (const mMove of j.movements) {
+      const syns = movementSyns(mMove.name).map(escapeRe).join('|')
+      if (j.type === 'spine') {
+        const gm = seg.match(new RegExp(`\\b(${syns})\\b[^.]{0,22}?(full|mild|moderate|severe|unable)`))
+        if (gm) { const grade = SPINE_ROM_GRADES.find((g) => g.toLowerCase().startsWith(gm[2])); if (grade) mv[mMove.key] = { grade } }
+      } else {
+        const nm = seg.match(new RegExp(`\\b(${syns})\\b[^\\d]{0,15}(\\d{1,3})`))
+        if (nm) mv[mMove.key] = { arom: nm[2] }
       }
     }
     let pain = ''
-    if (/throughout/.test(seg)) pain = 'Throughout ROM'
-    else if (/end.?range/.test(seg)) pain = 'End-range Pain'
-    else if (/unable to assess/.test(seg)) pain = 'Unable to Assess'
-    else if (/(no pain|painless|pain free)/.test(seg)) pain = 'No'
+    if (/throughout|entire range|whole range|full range/.test(seg)) pain = 'Throughout ROM'
+    else if (/end.?range|end of range|terminal/.test(seg)) pain = 'End-range Pain'
+    else if (/unable to assess|cannot assess|not assessed/.test(seg)) pain = 'Unable to Assess'
+    else if (/no pain|painless|pain[\s-]?free/.test(seg)) pain = 'No'
     if (pain) Object.keys(mv).forEach((k) => { mv[k].pain = pain })
     if (Object.keys(mv).length) { joints.push(j.id); exam[j.id] = { note: '', mv } }
   }
@@ -166,11 +232,9 @@ export function parseAssessment(raw) {
   // Girth (one or more sites)
   const girth = []
   for (const site of GIRTH_SITES) {
-    const kws = GIRTH_KW[site] || [site.toLowerCase()]
-    const kw = kws.find((k) => t.includes(k))
+    const kw = (GIRTH_KW[site] || [site.toLowerCase()]).find((k) => t.includes(k))
     if (!kw) continue
-    const idx = t.indexOf(kw)
-    const seg = t.slice(idx, idx + 90)
+    const seg = t.slice(t.indexOf(kw), t.indexOf(kw) + 90)
     const right = numNear(seg, 'right') || numNear(seg, ' r ')
     const left = numNear(seg, 'left') || numNear(seg, ' l ')
     if (!right && !left) continue
@@ -179,7 +243,7 @@ export function parseAssessment(raw) {
   }
   if (girth.length) { patch.girth = girth; mark('Girth') }
 
-  // Limb length ("true"/"apparent" may sit just before; numbers come after)
+  // Limb length
   if (t.includes('limb length')) {
     const idx = t.indexOf('limb length')
     const typeSeg = t.slice(Math.max(0, idx - 25), idx + 40)
@@ -193,9 +257,9 @@ export function parseAssessment(raw) {
     if ((type && LIMB_LENGTH_TYPES.includes(type)) || right || left) { patch.limbLength = { type, right, left }; mark('Limb length') }
   }
 
-  // Follow up (e.g. "review in 5 days", "follow up after 1 week")
-  const fum = t.match(/(?:follow.?up|review)\b[^.\d]{0,20}(\d+)\s*(day|week|month)/)
-  if (fum) { patch.followUp = `1. Review after ${fum[1]} ${{ day: 'days', week: 'weeks', month: 'months' }[fum[2]]}`; mark('Follow up') }
+  // Follow up
+  const fum = t.match(/(?:follow.?up|review|revisit|next visit|come back|next review)\b[^.\d]{0,20}(\d+)\s*(day|week|month)/)
+  if (fum) { const n = fum[1]; patch.followUp = `1. Review after ${n} ${fum[2]}${n === '1' ? '' : 's'}`; mark('Follow up') }
 
   // Labelled sections
   extractLabels(orig, patch, mark)

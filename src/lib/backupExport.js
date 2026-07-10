@@ -16,7 +16,7 @@ const ROOT_COLLECTIONS = [
   'enquiries', 'availability', 'slotBlocks', 'appointments', 'counters', 'clients',
   'testimonials', 'posts', 'reels', 'workshops', 'workshopStats',
   'workshopRegistrations', 'workshopRegEmails', 'therapists',
-  'accounting', 'expenses', 'expenseCategories', 'serviceCharges', 'signatures',
+  'accounting', 'expenses', 'expenseCategories', 'serviceCharges', 'bankAccounts', 'signatures',
 ]
 
 // Subcollections to read under each client document. `treatments` is current;
