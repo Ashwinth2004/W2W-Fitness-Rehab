@@ -54,7 +54,7 @@ export function useDictation(onText) {
     rec.onend = () => {
       if (ACTIVE === rec) ACTIVE = null
       recRef.current = null
-      if (wantRef.current) timerRef.current = setTimeout(() => { if (wantRef.current) beginSR() }, 350)
+      if (wantRef.current) timerRef.current = setTimeout(() => { if (wantRef.current) beginSR() }, 120)
       else setListening(false)
     }
     recRef.current = rec

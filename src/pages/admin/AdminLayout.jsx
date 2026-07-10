@@ -181,8 +181,8 @@ function AdminShell() {
         </main>
       </div>
 
-      {/* Free voice-to-text mic (dictates into the last-tapped text box). */}
-      <GlobalDictation />
+      {/* Free voice-to-text mic — Treatment module only. */}
+      {location.pathname.startsWith('/admin/treatment') && <GlobalDictation />}
     </div>
   )
 }
