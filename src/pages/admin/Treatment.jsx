@@ -15,6 +15,7 @@ import VasScale from '../../components/VasScale'
 import BodyPainSelector from '../../components/BodyPainSelector'
 import TherapistSelect from '../../components/TherapistSelect'
 import ServiceSelect from '../../components/ServiceSelect'
+import MicButton from '../../components/MicButton'
 import ContactActions from '../../components/ContactActions'
 import AdminPageHeader from '../../components/AdminPageHeader'
 import { useUnsaved } from '../../context/UnsavedContext'
@@ -360,6 +361,7 @@ function TreatmentForm({ client, editId = '', onChangeClient, navigate }) {
               placeholder="e.g. 'Complaint: right knee pain 3 weeks after football. Pain sharp, VAS 6, aggravated by stairs, relieved by rest. Built mesomorph. Swelling present, no crepitus. Knee flexion 100, extension 0, pain end-range. Plan: dry needling, quads strengthening. Follow up in 5 days.'"
             />
             <div className="flex flex-wrap items-center gap-2">
+              <MicButton onText={(txt) => { setSmartText((p) => (p ? `${p} ${txt}` : txt)); setDirty(true) }} label="Speak" />
               <button type="button" onClick={applySmart} className="btn-primary"><Sparkles size={16} /> Auto-fill form</button>
               <button type="button" onClick={() => { setSmartText(''); setSmartMsg('') }} className="btn-ghost">Clear</button>
             </div>

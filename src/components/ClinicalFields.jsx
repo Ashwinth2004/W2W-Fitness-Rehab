@@ -3,6 +3,7 @@ import { Plus, Trash2, Check, ArrowRight, Pencil, X } from 'lucide-react'
 import {
   JOINTS, PAIN_RESPONSE, SPINE_ROM_GRADES, GIRTH_SITES, GIRTH_FINDINGS, LIMB_LENGTH_TYPES,
 } from '../lib/constants'
+import MicButton from './MicButton'
 
 // Shared bits ---------------------------------------------------------------
 export function Pills({ options, value, onChange, multi = false }) {
@@ -137,12 +138,15 @@ export function RomField({ value, onChange }) {
       </div>
 
       {mode === 'text' ? (
-        <textarea
-          className="input min-h-[130px]"
-          value={typeof value === 'string' ? value : ''}
-          onChange={(e) => onChange(e.target.value)}
-          placeholder="Type or dictate the ROM findings — e.g. 'Knee: flexion 100°, extension 0°, pain end-range. Shoulder: abduction 150°, flexion 160°.'"
-        />
+        <div className="space-y-2">
+          <textarea
+            className="input min-h-[130px]"
+            value={typeof value === 'string' ? value : ''}
+            onChange={(e) => onChange(e.target.value)}
+            placeholder="Type or dictate the ROM findings — e.g. 'Knee: flexion 100°, extension 0°, pain end-range. Shoulder: abduction 150°, flexion 160°.'"
+          />
+          <MicButton onText={(txt) => onChange(`${typeof value === 'string' && value ? `${value} ` : ''}${txt}`)} label="Speak ROM" size="sm" />
+        </div>
       ) : (
       <>
       {/* Joint picker — one assessed at a time. Green = saved with data. */}
