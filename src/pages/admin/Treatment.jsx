@@ -189,6 +189,7 @@ function TreatmentForm({ client, editId = '', onChangeClient, navigate }) {
   const [smartOpen, setSmartOpen] = useState(false)
   const [smartText, setSmartText] = useState('')
   const [smartMsg, setSmartMsg] = useState('')
+  const [aiBusy, setAiBusy] = useState(false)
   const [busy, setBusy] = useState(false)
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState('')
@@ -230,7 +231,7 @@ function TreatmentForm({ client, editId = '', onChangeClient, navigate }) {
   const set = (k) => (val) => { setForm((f) => ({ ...f, [k]: val })); setDirty(true) }
   const touch = () => setDirty(true)
 
-  // Smart Fill: parse the dictated/pasted consult and best-guess fill the form.
+  // Smart Fill (offline, keyword-based): best-guess fill from the consult text.
   function applySmart() {
     const { patch, filled } = parseAssessment(smartText)
     if (!filled.length) {
@@ -240,6 +241,31 @@ function TreatmentForm({ client, editId = '', onChangeClient, navigate }) {
     setForm((f) => ({ ...f, ...patch }))
     setDirty(true)
     setSmartMsg(`Filled: ${filled.join(', ')}. Please review everything below and correct as needed before saving.`)
+  }
+
+  // AI Auto-fill: send the consult to the Groq-powered backend and apply the
+  // validated result. Understands natural speech (no "proper inputs" needed).
+  async function aiFill() {
+    if (!smartText.trim()) { setSmartMsg('Type or dictate the consultation first, then tap AI Auto-fill.'); return }
+    setAiBusy(true); setSmartMsg('')
+    try {
+      const res = await fetch('/api/ai-autofill', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: smartText }) })
+      const data = await res.json()
+      if (data.error) {
+        setSmartMsg(data.error === 'not-configured'
+          ? 'AI isn’t set up yet — add GROQ_API_KEY in Vercel (see instructions). Meanwhile, “Offline fill” works.'
+          : 'AI couldn’t process that — try again, or use “Offline fill”.')
+      } else if (!data.keys?.length) {
+        setSmartMsg('AI found nothing to fill — try describing the findings a bit more.')
+      } else {
+        setForm((f) => ({ ...f, ...data.patch }))
+        setDirty(true)
+        setSmartMsg(`AI filled ${data.keys.length} field group(s). Please review below and save.`)
+      }
+    } catch (_) {
+      setSmartMsg('Couldn’t reach the AI (check internet). You can use “Offline fill” instead.')
+    }
+    setAiBusy(false)
   }
 
   async function save(e) {
@@ -351,8 +377,9 @@ function TreatmentForm({ client, editId = '', onChangeClient, navigate }) {
         {smartOpen && (
           <div className="mt-3 space-y-2">
             <p className="text-xs text-slate-500">
-              Dictate (use the floating mic, or your phone keyboard mic) or paste the full consultation here, then tap
-              <span className="font-semibold"> Auto-fill</span>. It fills a best guess for the dropdowns and text below — always review before saving.
+              Dictate (floating mic or your phone keyboard mic) or paste the full consultation here, then tap
+              <span className="font-semibold"> AI Auto-fill</span> — it understands natural speech and fills the dropdowns, ROM, girth and text below.
+              (<span className="font-semibold">Offline fill</span> is a no-internet keyword fallback.) Always review before saving.
             </p>
             <textarea
               className="input min-h-[130px]"
@@ -362,7 +389,10 @@ function TreatmentForm({ client, editId = '', onChangeClient, navigate }) {
             />
             <div className="flex flex-wrap items-center gap-2">
               <MicButton onText={(txt) => { setSmartText((p) => (p ? `${p} ${txt}` : txt)); setDirty(true) }} label="Speak" />
-              <button type="button" onClick={applySmart} className="btn-primary"><Sparkles size={16} /> Auto-fill form</button>
+              <button type="button" onClick={aiFill} disabled={aiBusy} className="btn-primary">
+                {aiBusy ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />} {aiBusy ? 'Thinking…' : 'AI Auto-fill'}
+              </button>
+              <button type="button" onClick={applySmart} className="btn-outline">Offline fill</button>
               <button type="button" onClick={() => { setSmartText(''); setSmartMsg('') }} className="btn-ghost">Clear</button>
             </div>
             {smartMsg && <p className="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{smartMsg}</p>}
