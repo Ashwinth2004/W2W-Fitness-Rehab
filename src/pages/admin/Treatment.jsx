@@ -186,7 +186,7 @@ function TreatmentForm({ client, editId = '', onChangeClient, navigate }) {
   const [therapist, setTherapist] = useState(client.therapist || 'Sakthi Saravanan')
   const [bill, setBill] = useState({ service: client.service || '', amount: '', paid: '', mode: 'Cash' })
   const [services, setServices] = useState([])
-  const [smartOpen, setSmartOpen] = useState(false)
+  const [smartOpen, setSmartOpen] = useState(true)
   const [smartText, setSmartText] = useState('')
   const [smartMsg, setSmartMsg] = useState('')
   const [aiBusy, setAiBusy] = useState(false)
@@ -250,20 +250,25 @@ function TreatmentForm({ client, editId = '', onChangeClient, navigate }) {
     setAiBusy(true); setSmartMsg('')
     try {
       const res = await fetch('/api/ai-autofill', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: smartText }) })
+      if (!res.ok) { setSmartMsg(`AI request failed (HTTP ${res.status}). Try again in a moment, or use “Offline fill”.`); setAiBusy(false); return }
       const data = await res.json()
-      if (data.error) {
-        setSmartMsg(data.error === 'not-configured'
-          ? 'AI isn’t set up yet — add GROQ_API_KEY in Vercel (see instructions). Meanwhile, “Offline fill” works.'
-          : 'AI couldn’t process that — try again, or use “Offline fill”.')
+      if (data.error === 'not-configured') {
+        setSmartMsg('AI isn’t set up yet — add GROQ_API_KEY in Vercel → Settings → Environment Variables, then Redeploy. Meanwhile “Offline fill” works.')
+      } else if (data.error === 'ai-failed') {
+        setSmartMsg(data.status === 401
+          ? 'The GROQ_API_KEY in Vercel is invalid — create a fresh key at console.groq.com and update it in Vercel.'
+          : `AI service error (HTTP ${data.status || '?'}). Try again shortly.`)
+      } else if (data.error) {
+        setSmartMsg('AI couldn’t process that — try again, or use “Offline fill”.')
       } else if (!data.keys?.length) {
         setSmartMsg('AI found nothing to fill — try describing the findings a bit more.')
       } else {
         setForm((f) => ({ ...f, ...data.patch }))
         setDirty(true)
-        setSmartMsg(`AI filled ${data.keys.length} field group(s). Please review below and save.`)
+        setSmartMsg(`✓ AI filled ${data.keys.length} field group(s). Please review below and save.`)
       }
     } catch (_) {
-      setSmartMsg('Couldn’t reach the AI (check internet). You can use “Offline fill” instead.')
+      setSmartMsg('Couldn’t reach the AI — the server may be redeploying; try again in a minute, or use “Offline fill”.')
     }
     setAiBusy(false)
   }
@@ -368,24 +373,32 @@ function TreatmentForm({ client, editId = '', onChangeClient, navigate }) {
         )}
       </div>
 
-      {/* Smart Fill — dictate/paste the whole consult, then auto-fill the form */}
-      <div className="card p-5">
-        <button type="button" onClick={() => setSmartOpen((v) => !v)} className="flex w-full items-center justify-between gap-2">
-          <span className="flex items-center gap-2 text-base font-bold text-brand-700"><Sparkles size={17} /> Speak / paste the whole consult → auto-fill</span>
-          <span className="text-xs font-medium text-slate-400">{smartOpen ? 'Hide' : 'Show'}</span>
+      {/* AI Assistant — dictate/paste the whole consult, then auto-fill the form */}
+      <div className="overflow-hidden rounded-2xl border-2 border-brand-300 bg-gradient-to-br from-brand-50 to-white shadow-soft ring-1 ring-brand-100">
+        <button
+          type="button"
+          onClick={() => setSmartOpen((v) => !v)}
+          className="flex w-full items-center justify-between gap-2 bg-gradient-to-r from-brand-600 to-brand-500 px-4 py-3 text-left text-white sm:px-5"
+        >
+          <span className="flex flex-wrap items-center gap-2 font-bold">
+            <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-white/20"><Sparkles size={16} /></span>
+            AI Assistant — speak or paste the consult
+            <span className="rounded-full bg-white/25 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide">auto-fill</span>
+          </span>
+          <span className="shrink-0 text-xs font-semibold opacity-90">{smartOpen ? 'Hide ▲' : 'Show ▼'}</span>
         </button>
         {smartOpen && (
-          <div className="mt-3 space-y-2">
-            <p className="text-xs text-slate-500">
-              Dictate (floating mic or your phone keyboard mic) or paste the full consultation here, then tap
-              <span className="font-semibold"> AI Auto-fill</span> — it understands natural speech and fills the dropdowns, ROM, girth and text below.
-              (<span className="font-semibold">Offline fill</span> is a no-internet keyword fallback.) Always review before saving.
+          <div className="space-y-3 p-4 sm:p-5">
+            <p className="text-xs text-slate-600">
+              Dictate (mic below or your phone keyboard mic) or paste the full consultation, then tap
+              <span className="font-semibold text-brand-700"> AI Auto-fill</span> — it understands natural speech and fills the
+              dropdowns, ROM, girth and text below. (<span className="font-semibold">Offline fill</span> = no-internet fallback.) Always review before saving.
             </p>
             <textarea
-              className="input min-h-[130px]"
+              className="input min-h-[130px] bg-white"
               value={smartText}
               onChange={(e) => setSmartText(e.target.value)}
-              placeholder="e.g. 'Complaint: right knee pain 3 weeks after football. Pain sharp, VAS 6, aggravated by stairs, relieved by rest. Built mesomorph. Swelling present, no crepitus. Knee flexion 100, extension 0, pain end-range. Plan: dry needling, quads strengthening. Follow up in 5 days.'"
+              placeholder="e.g. 'Right knee pain 3 weeks after football. Pain sharp, 6 out of 10, worse on stairs, better with rest. Mesomorph build. Mild swelling, no crepitus. Knee flexion 100, extension 0, pain at end range. Plan: dry needling, quads strengthening. Review in 5 days.'"
             />
             <div className="flex flex-wrap items-center gap-2">
               <MicButton onText={(txt) => { setSmartText((p) => (p ? `${p} ${txt}` : txt)); setDirty(true) }} label="Speak" />
@@ -395,7 +408,7 @@ function TreatmentForm({ client, editId = '', onChangeClient, navigate }) {
               <button type="button" onClick={applySmart} className="btn-outline">Offline fill</button>
               <button type="button" onClick={() => { setSmartText(''); setSmartMsg('') }} className="btn-ghost">Clear</button>
             </div>
-            {smartMsg && <p className="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{smartMsg}</p>}
+            {smartMsg && <p className="rounded-lg bg-white px-3 py-2 text-sm font-medium text-slate-700 ring-1 ring-brand-100">{smartMsg}</p>}
           </div>
         )}
       </div>

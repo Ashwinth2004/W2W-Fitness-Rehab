@@ -1,20 +1,43 @@
 // Vercel serverless function — AI auto-fill for the Treatment module.
 // Sends the dictated/typed consult to Groq (Llama 3.3) and returns a validated
-// `patch` object matching the treatment form's field shapes. The API key lives
-// ONLY in the GROQ_API_KEY environment variable (never in the app / repo).
-import {
-  JOINTS, GIRTH_SITES, GIRTH_FINDINGS, LIMB_LENGTH_TYPES, SPINE_ROM_GRADES, PAIN_RESPONSE,
-  BUILT_OPTIONS, PAIN_TYPE_OPTIONS, ADL_IMPACT_OPTIONS, MOVEMENT_QUALITY,
-  FUNCTIONAL_UPPER, FUNCTIONAL_LOWER, PAIN_DURATION_UNITS,
-} from '../src/lib/constants.js'
-
+// `patch` matching the treatment form's field shapes. Self-contained (no imports)
+// so it never fails to bundle. The API key lives ONLY in GROQ_API_KEY (env).
 const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions'
 const MODEL = 'llama-3.3-70b-versatile'
+
+// --- option lists (kept in sync with src/lib/constants.js) -----------------
+const BUILT_OPTIONS = ['Ectomorph', 'Mesomorph', 'Endomorph']
+const PAIN_TYPE_OPTIONS = ['Sharp / Shooting', 'Dull / Aching', 'Burning / Tingling', 'Throbbing / Pulsing', 'Deep / Heavy', 'Other']
+const ADL_IMPACT_OPTIONS = ["It doesn't affect my ADL", 'It is affecting my ADL']
+const PAIN_RESPONSE = ['No', 'End-range Pain', 'Throughout ROM', 'Unable to Assess']
+const SPINE_ROM_GRADES = ['Full', 'Mild Limitation', 'Moderate Limitation', 'Severe Limitation', 'Unable']
+const MOVEMENT_QUALITY = ['Normal', 'Compensated', 'Guarded', 'Poor Control']
+const FUNCTIONAL_UPPER = ['Overhead Reach', 'Reach Behind Neck', 'Reach Behind Back', 'Hand to Mouth', 'Lift/Carry Object', 'Push/Pull', 'Grip', 'Pinch', 'Fine Motor Tasks (Writing/Buttoning/Zipping)']
+const FUNCTIONAL_LOWER = ['Sit to Stand', 'Squatting', 'Bending Forward', 'Walking', 'Stair Climbing', 'Running (if applicable)', 'Heel Raise', 'Toe Raise', 'Single-Leg Balance', 'Cross-Leg Sitting', 'Floor Transfers']
+const GIRTH_SITES = ['Mid Arm', 'Maximum Forearm Girth', '10 cm Above Patella', 'Knee Joint Line (Mid-Patella)', 'Maximum Calf Girth', 'Figure-of-Eight (Ankle)']
+const GIRTH_FINDINGS = ['Normal', 'Swelling', 'Muscle Atrophy', 'Muscle Hypertrophy', 'Post-operative']
+const LIMB_LENGTH_TYPES = ['True', 'Apparent', 'Both']
+const PAIN_DURATION_UNITS = ['Days', 'Weeks', 'Months']
+const JOINTS = [
+  { id: 'cervical', type: 'rom', movements: [['flex', 'Flexion'], ['ext', 'Extension'], ['latflex', 'Lateral Flexion'], ['rot', 'Rotation']] },
+  { id: 'shoulder', type: 'rom', movements: [['flex', 'Flexion'], ['ext', 'Extension'], ['abd', 'Abduction'], ['add', 'Adduction'], ['ir', 'Internal Rotation'], ['er', 'External Rotation']] },
+  { id: 'elbow', type: 'rom', movements: [['flex', 'Flexion'], ['ext', 'Extension']] },
+  { id: 'forearm', type: 'rom', movements: [['pro', 'Pronation'], ['sup', 'Supination']] },
+  { id: 'wrist', type: 'rom', movements: [['flex', 'Flexion'], ['ext', 'Extension'], ['rd', 'Radial Deviation'], ['ud', 'Ulnar Deviation']] },
+  { id: 'thumb', type: 'rom', movements: [['mcp', 'MCP Flexion'], ['ip', 'IP Flexion']] },
+  { id: 'fingers', type: 'rom', movements: [['mcp', 'MCP Flexion'], ['pip', 'PIP Flexion'], ['dip', 'DIP Flexion']] },
+  { id: 'hip', type: 'rom', movements: [['flex', 'Flexion'], ['ext', 'Extension'], ['abd', 'Abduction'], ['add', 'Adduction'], ['ir', 'Internal Rotation'], ['er', 'External Rotation']] },
+  { id: 'knee', type: 'rom', movements: [['flex', 'Flexion'], ['ext', 'Extension']] },
+  { id: 'ankle', type: 'rom', movements: [['df', 'Dorsiflexion'], ['pf', 'Plantarflexion'], ['inv', 'Inversion'], ['ev', 'Eversion']] },
+  { id: 'thoracic', type: 'spine', movements: [['flex', 'Flexion'], ['ext', 'Extension'], ['sf_r', 'Side Flexion (Right)'], ['sf_l', 'Side Flexion (Left)'], ['rot_r', 'Rotation (Right)'], ['rot_l', 'Rotation (Left)']] },
+  { id: 'lumbar', type: 'spine', movements: [['flex', 'Flexion'], ['ext', 'Extension'], ['sf_r', 'Side Flexion (Right)'], ['sf_l', 'Side Flexion (Left)'], ['rot_r', 'Rotation (Right)'], ['rot_l', 'Rotation (Left)']] },
+]
+
 const TEXT_KEYS = ['complaint', 'pastHistory', 'mechanism', 'radiology', 'painAggravating', 'painRelieving', 'deformities', 'gait', 'endFeel', 'tenderness', 'objectiveNotes', 'opinion', 'treatmentOptions', 'expectedRecovery']
 const LIST_KEYS = ['specialTests', 'treatmentPlan', 'followUp']
 
 function buildPrompt() {
-  const jointsRef = JOINTS.map((j) => `  ${j.id} (${j.type}): ${j.movements.map((m) => `${m.key}=${m.name}`).join(', ')}`).join('\n')
+  const jointsRef = JOINTS.map((j) => `  ${j.id} (${j.type}): ${j.movements.map(([k, n]) => `${k}=${n}`).join(', ')}`).join('\n')
   return `You are a physiotherapy clinical scribe. From the clinician's consultation note, extract a SINGLE JSON object for the treatment form.
 Rules:
 - Only include a field if the note clearly provides that information. Omit everything else. Never invent values.
@@ -41,7 +64,6 @@ Joints (id (type): movementKey=name):
 ${jointsRef}`
 }
 
-// ---- server-side validation (keep only clean, in-schema values) -----------
 const inSet = (v, set) => (typeof v === 'string' && set.includes(v) ? v : null)
 const posneg = (v) => (typeof v === 'string' && (v === '-ve' || v.startsWith('+ve')) ? v : null)
 const cm = (v) => { const s = String(v ?? '').replace(/[^\d.]/g, ''); return s || '' }
@@ -78,13 +100,13 @@ function sanitize(raw) {
       const data = raw.rom.exam[j.id]
       if (!data || typeof data !== 'object' || !data.mv) continue
       const mv = {}
-      for (const m of j.movements) {
-        const v = data.mv[m.key]
+      for (const [key] of j.movements) {
+        const v = data.mv[key]
         if (!v || typeof v !== 'object') continue
         const cell = {}
         if (j.type === 'spine') { const g = inSet(v.grade, SPINE_ROM_GRADES); if (g) cell.grade = g } else { if (v.arom) cell.arom = String(v.arom).replace(/[^\d]/g, ''); if (v.prom) cell.prom = String(v.prom).replace(/[^\d]/g, '') }
         const pain = inSet(v.pain, PAIN_RESPONSE); if (pain) cell.pain = pain
-        if (Object.keys(cell).length) mv[m.key] = cell
+        if (Object.keys(cell).length) mv[key] = cell
       }
       if (Object.keys(mv).length) { joints.push(j.id); exam[j.id] = { note: typeof data.note === 'string' ? data.note : '', mv } }
     }
@@ -109,21 +131,17 @@ export default async function handler(req, res) {
         model: MODEL,
         temperature: 0.1,
         response_format: { type: 'json_object' },
-        messages: [
-          { role: 'system', content: buildPrompt() },
-          { role: 'user', content: text },
-        ],
+        messages: [{ role: 'system', content: buildPrompt() }, { role: 'user', content: text }],
       }),
     })
     if (!r.ok) {
       const detail = await r.text().catch(() => '')
-      return res.status(200).json({ error: 'ai-failed', detail: detail.slice(0, 300) })
+      return res.status(200).json({ error: 'ai-failed', status: r.status, detail: detail.slice(0, 300) })
     }
     const data = await r.json()
     let raw = {}
     try { raw = JSON.parse(data?.choices?.[0]?.message?.content || '{}') } catch (_) { raw = {} }
-    const patch = sanitize(raw)
-    return res.status(200).json({ patch, keys: Object.keys(patch) })
+    return res.status(200).json({ patch: sanitize(raw), keys: Object.keys(sanitize(raw)) })
   } catch (err) {
     return res.status(200).json({ error: 'exception', detail: String(err?.message || err).slice(0, 300) })
   }
