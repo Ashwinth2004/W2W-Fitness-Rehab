@@ -18,6 +18,7 @@ import DateField from '../../components/DateField'
 import AssessmentField from '../../components/AssessmentField'
 import TherapistSelect from '../../components/TherapistSelect'
 import BodyPainSelector from '../../components/BodyPainSelector'
+import RehabBadge from '../../components/RehabBadge'
 import { generateClientReport } from '../../lib/pdf'
 
 const SESSION_GROUPS = [
@@ -80,12 +81,13 @@ export default function ClientDetail() {
             </div>
             <div>
               <h1 className="text-2xl font-bold text-slate-900">{client.name}</h1>
-              <p className="flex items-center gap-1.5 text-sm font-medium text-brand-600"><BadgeCheck size={15} /> {client.clientId}</p>
+              <p className="flex items-center gap-1.5 text-sm font-medium text-brand-600"><BadgeCheck size={15} /> {client.clientId}<RehabBadge client={client} /></p>
               <div className="mt-2"><ContactActions phone={client.phone} showNumber /></div>
             </div>
           </div>
           <div className="flex flex-wrap justify-center gap-2 md:justify-start">
             <Link to={`/admin/treatment?client=${id}`} className="btn-outline"><Stethoscope size={16} /> New Treatment</Link>
+            <Link to={`/admin/rehab?client=${id}`} className="btn-outline"><Activity size={16} /> Rehab &amp; Exercises</Link>
             <button onClick={() => setReporting(true)} className="btn-primary"><FileDown size={18} /> Generate Report</button>
             <button onClick={() => setEditing(true)} className="btn-ghost"><Pencil size={16} /> Update Registration</button>
             <button onClick={handleDelete} className="btn-ghost text-red-500 hover:bg-red-50"><Trash2 size={16} /></button>

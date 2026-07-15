@@ -4,7 +4,7 @@ import PhoneField from './PhoneField'
 import { RomField, GirthField, LimbLengthField, ListField } from './ClinicalFields'
 import { PAIN_DURATION_UNITS } from '../lib/constants'
 
-const STRUCTURED = ['chips', 'multi', 'posneg', 'duration', 'rom', 'girth', 'limb', 'list']
+const STRUCTURED = ['chips', 'multi', 'posneg', 'duration', 'rom', 'girth', 'limb', 'list', 'programs']
 const chipCls = (on) =>
   `rounded-full px-3.5 py-2 text-sm font-medium transition ${on ? 'bg-brand-600 text-white shadow' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`
 const OTHER = /^other/i
@@ -101,6 +101,25 @@ function Duration({ value, onChange }) {
   )
 }
 
+// Which program(s) the client is registered for — a single choice among
+// W2W Treatment / W2W Fitness & Rehab / Both, stored as an array so the rest
+// of the app (e.g. the rehab "R" badge) can just check `.includes(...)`.
+const PROGRAM_OPTIONS = ['W2W Treatment', 'W2W Fitness & Rehab', 'Both']
+function Programs({ value, onChange }) {
+  const arr = Array.isArray(value) ? value : []
+  const isBoth = arr.includes('W2W Treatment') && arr.includes('W2W Fitness & Rehab')
+  const current = isBoth ? 'Both' : arr[0] || ''
+  function pick(opt) {
+    if (opt === 'Both') onChange(['W2W Treatment', 'W2W Fitness & Rehab'])
+    else onChange([opt])
+  }
+  return (
+    <div className="flex flex-wrap gap-2">
+      {PROGRAM_OPTIONS.map((o) => <button type="button" key={o} className={chipCls(current === o)} onClick={() => pick(o)}>{o}</button>)}
+    </div>
+  )
+}
+
 // One assessment field. `ghost` shows a returning patient's previous value
 // faintly (Tab to accept). `big` enlarges the text; `invalid` shows a red
 // border to flag a required/invalid field.
@@ -127,6 +146,7 @@ export default function AssessmentField({ f, value, ghost, onChange, big, invali
           {f.type === 'girth' && <GirthField value={value} onChange={onChange} />}
           {f.type === 'limb' && <LimbLengthField value={value} onChange={onChange} />}
           {f.type === 'list' && <ListField value={value} onChange={onChange} />}
+          {f.type === 'programs' && <Programs value={value} onChange={onChange} />}
         </div>
       </div>
     )

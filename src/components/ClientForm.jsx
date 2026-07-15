@@ -11,13 +11,14 @@ import AssessmentField from './AssessmentField'
 import BodyPainSelector from './BodyPainSelector'
 
 // New clients default to Physiotherapy as the primary service (changeable in the dropdown).
-const blankForm = () => ({ ...Object.fromEntries(BASIC_KEYS.map((k) => [k, ''])), service: 'Physiotherapy' })
+// `programs` defaults to W2W Treatment unless the caller (e.g. the Rehab module) overrides it.
+const blankForm = (programs = ['W2W Treatment']) => ({ ...Object.fromEntries(BASIC_KEYS.map((k) => [k, ''])), service: 'Physiotherapy', programs })
 
 // Front-desk client intake — Basic Details only. The clinical assessment is
 // done by the physiotherapist in the Treatment module. onCreated(id) is called
 // with the client id (new or returning) so the caller can open Treatment.
-export default function ClientForm({ clients = [], onCreated, onClose }) {
-  const [form, setForm] = useState(blankForm)
+export default function ClientForm({ clients = [], onCreated, onClose, defaultPrograms }) {
+  const [form, setForm] = useState(() => blankForm(defaultPrograms))
   const [regDate, setRegDate] = useState(todayISO())
   const [existing, setExisting] = useState(null)
   const [editing, setEditing] = useState(false)
@@ -61,7 +62,7 @@ export default function ClientForm({ clients = [], onCreated, onClose }) {
     else if (e.key === 'ArrowUp') { e.preventDefault(); setActive((i) => Math.max(0, i - 1)) }
     else if (e.key === 'Enter') { e.preventDefault(); if (matches[active]) selectReturning(matches[active]) }
   }
-  function clearReturning() { setExisting(null); setEditing(false); setForm(blankForm()); setPainAreas([]) }
+  function clearReturning() { setExisting(null); setEditing(false); setForm(blankForm(defaultPrograms)); setPainAreas([]) }
   function startEdit() {
     const next = blankForm()
     BASIC_KEYS.forEach((k) => { next[k] = existing[k] ?? '' })

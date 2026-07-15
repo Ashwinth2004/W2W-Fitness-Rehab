@@ -3,6 +3,12 @@
 // ============================================================================
 import { fmtDate } from './format'
 
+// Rehab & Exercises is still being finished. It's fully live in local dev
+// (`vite --port`, so it can be built/tested end-to-end) but any BUILT bundle —
+// including what Vercel deploys live — shows a "Coming soon" placeholder
+// instead, until this is flipped to `true` for launch.
+export const REHAB_MODULE_LIVE = import.meta.env.DEV
+
 export const BUSINESS = {
   name: 'W2W Fitness & Rehab',
   shortName: 'W2W',
@@ -320,6 +326,20 @@ export const PRESET_SERVICE_CHARGES = [
   { name: 'Lifestyle fitness/rehab', amount: 600 },
   { name: 'Monthly Rehab package', amount: 6000 },
   { name: '3 month Rehab package', amount: 15000 },
+]
+
+// Rehab & Fitness packages — upserted (by name) into `serviceCharges` once by
+// ensureRehabPackagesSeeded(), then fully editable/renameable/favoritable in
+// the UI. `classes` (where known) drives the Rehab module's default plan
+// length when a package is picked.
+export const REHAB_FITNESS_PACKAGES = [
+  { name: 'Monthly Rehab', amount: 6000, classes: 12 },
+  { name: 'Three Month Rehab', amount: 15000, classes: 36 },
+  { name: 'Per Class', amount: 600, classes: 1 },
+  { name: 'Monthly Lifestyle Fitness (without extension)', amount: 6000 },
+  { name: '3 Month Fitness (without extension)', amount: 15000 },
+  { name: '3 Month Fitness (with extension)', amount: 20000 },
+  { name: 'Yearly Lifestyle Fitness', amount: 84000 },
 ]
 
 // --- Prefilled WhatsApp helpers -------------------------------------------

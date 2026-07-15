@@ -18,6 +18,7 @@ import ServiceSelect from '../../components/ServiceSelect'
 import MicButton from '../../components/MicButton'
 import ContactActions from '../../components/ContactActions'
 import AdminPageHeader from '../../components/AdminPageHeader'
+import RehabBadge from '../../components/RehabBadge'
 import { useUnsaved } from '../../context/UnsavedContext'
 
 const PAY_MODES = ['Cash', 'UPI', 'Card', 'Bank transfer', 'Other']
@@ -98,7 +99,7 @@ function ClientPicker({ clients, onPick, onNew, note }) {
                   </div>
                   <div className="min-w-0">
                     <p className="truncate font-semibold text-slate-900">{c.name}</p>
-                    <p className="flex items-center gap-1 text-xs font-medium text-brand-600"><BadgeCheck size={13} /> {c.clientId}</p>
+                    <p className="flex items-center gap-1 text-xs font-medium text-brand-600"><BadgeCheck size={13} /> {c.clientId}<RehabBadge client={c} /></p>
                   </div>
                 </div>
               </div>
@@ -349,7 +350,7 @@ function TreatmentForm({ client, editId = '', onChangeClient, navigate }) {
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-brand-50 p-4">
           <div>
             <p className="text-lg font-bold text-slate-900">{client.name}</p>
-            <p className="text-sm text-slate-500">{client.clientId} · {client.phone}</p>
+            <p className="flex items-center text-sm text-slate-500">{client.clientId}<RehabBadge client={client} /> · {client.phone}</p>
           </div>
           <button type="button" onClick={() => guard(onChangeClient)} className="btn-ghost px-3 py-1.5 text-sm">Change patient</button>
         </div>

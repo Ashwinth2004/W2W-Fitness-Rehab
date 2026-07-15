@@ -7,6 +7,7 @@ import ContactActions from '../../components/ContactActions'
 import AdminFilter from '../../components/AdminFilter'
 import ClientForm from '../../components/ClientForm'
 import AdminPageHeader from '../../components/AdminPageHeader'
+import RehabBadge from '../../components/RehabBadge'
 
 export default function Clients() {
   const [clients, setClients] = useState([])
@@ -80,7 +81,7 @@ export default function Clients() {
                   </div>
                   <div className="min-w-0">
                     <p className="truncate font-semibold text-slate-900">{c.name}</p>
-                    <p className="flex items-center gap-1 text-xs font-medium text-brand-600"><BadgeCheck size={13} /> {c.clientId}</p>
+                    <p className="flex items-center gap-1 text-xs font-medium text-brand-600"><BadgeCheck size={13} /> {c.clientId}<RehabBadge client={c} /></p>
                   </div>
                 </div>
               </div>

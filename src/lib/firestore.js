@@ -16,7 +16,7 @@ import {
   collection, doc, addDoc, setDoc, getDoc, getDocs, updateDoc, deleteDoc,
   query, where, orderBy, serverTimestamp, runTransaction, onSnapshot, writeBatch, deleteField,
 } from 'firebase/firestore'
-import { SLOT_TIMES } from './constants'
+import { SLOT_TIMES, REHAB_FITNESS_PACKAGES } from './constants'
 
 // ---------- Enquiries -------------------------------------------------------
 export async function createEnquiry(data) {
@@ -680,6 +680,18 @@ export async function deleteAccountingForTreatment(treatmentId) {
   return deleteDoc(doc(db, 'accounting', `t_${treatmentId}`))
 }
 
+// Same mirroring for a Rehab plan's billed package (doc id `r_<planId>`, kept
+// distinct from treatment's `t_<id>` so the two never collide).
+export async function setAccountingForRehabPlan(planId, data) {
+  return setDoc(doc(db, 'accounting', `r_${planId}`), {
+    ...data, type: 'income', rehabPlanId: planId, source: 'rehab', updatedAt: serverTimestamp(),
+  }, { merge: true })
+}
+
+export async function deleteAccountingForRehabPlan(planId) {
+  return deleteDoc(doc(db, 'accounting', `r_${planId}`))
+}
+
 // Bank account names (for tagging cash vs bank in Accounting). Editable list.
 export function watchBankAccounts(cb) {
   const q = query(collection(db, 'bankAccounts'), orderBy('name'))
@@ -759,16 +771,40 @@ export async function getServiceChargesOnce() {
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }))
 }
 
-export async function addServiceCharge(name, amount) {
-  return addDoc(collection(db, 'serviceCharges'), { name: String(name).trim(), amount: Number(amount) || 0, createdAt: serverTimestamp() })
+// `extra` optionally carries { classes, favorite } — classes (a rehab/fitness
+// package's session count) and favorite (starred to the top of the dropdown).
+export async function addServiceCharge(name, amount, extra = {}) {
+  return addDoc(collection(db, 'serviceCharges'), { name: String(name).trim(), amount: Number(amount) || 0, ...extra, createdAt: serverTimestamp() })
 }
 
-export async function updateServiceCharge(id, name, amount) {
-  return updateDoc(doc(db, 'serviceCharges', id), { name: String(name).trim(), amount: Number(amount) || 0 })
+export async function updateServiceCharge(id, name, amount, extra = {}) {
+  return updateDoc(doc(db, 'serviceCharges', id), { name: String(name).trim(), amount: Number(amount) || 0, ...extra })
+}
+
+export async function setServiceChargeFavorite(id, favorite) {
+  return updateDoc(doc(db, 'serviceCharges', id), { favorite })
 }
 
 export async function deleteServiceCharge(id) {
   return deleteDoc(doc(db, 'serviceCharges', id))
+}
+
+// One-time (per browser) upsert of the Rehab & Fitness package price list into
+// `serviceCharges`, so they show in every service dropdown pre-priced and
+// ready to favorite/edit. Safe to call from multiple pages — guarded by both
+// a localStorage flag and a name-based existence check.
+export async function ensureRehabPackagesSeeded() {
+  if (typeof localStorage !== 'undefined' && localStorage.getItem('w2w_rehabpkg_seeded_v1') === '1') return
+  try {
+    const existing = await getServiceChargesOnce()
+    const byName = new Map(existing.map((c) => [(c.name || '').toLowerCase(), c]))
+    for (const p of REHAB_FITNESS_PACKAGES) {
+      const found = byName.get(p.name.toLowerCase())
+      if (!found) await addServiceCharge(p.name, p.amount, p.classes ? { classes: p.classes } : {})
+      else if (p.classes && found.classes == null) await updateServiceCharge(found.id, found.name, found.amount, { classes: p.classes })
+    }
+    if (typeof localStorage !== 'undefined') localStorage.setItem('w2w_rehabpkg_seeded_v1', '1')
+  } catch { /* rules may need publishing / offline — admin can add packages manually */ }
 }
 
 // ---------- Patient signatures ---------------------------------------------
@@ -824,4 +860,30 @@ export async function updateTreatment(clientId, id, data) {
 
 export async function deleteTreatment(clientId, id) {
   return deleteDoc(doc(db, 'clients', clientId, 'treatments', id))
+}
+
+// ---------- Rehab exercise plans (Rehab & Exercises module) ----------------
+// Stored under clients/{id}/rehabPlans — one doc per prescribed plan, holding
+// the day-wise exercise list. { startDate, totalDays, therapist, reason, note,
+// days: [{ day, date, home, exercises: [...] }], createdAt, updatedAt }.
+export async function addRehabPlan(clientId, data) {
+  const ref = await addDoc(collection(db, 'clients', clientId, 'rehabPlans'), {
+    ...data,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  })
+  return ref.id
+}
+
+export function watchRehabPlans(clientId, cb) {
+  const q = query(collection(db, 'clients', clientId, 'rehabPlans'), orderBy('createdAt', 'desc'))
+  return onSnapshot(q, (snap) => cb(snap.docs.map((d) => ({ id: d.id, ...d.data() }))))
+}
+
+export async function updateRehabPlan(clientId, id, data) {
+  return updateDoc(doc(db, 'clients', clientId, 'rehabPlans', id), { ...data, updatedAt: serverTimestamp() })
+}
+
+export async function deleteRehabPlan(clientId, id) {
+  return deleteDoc(doc(db, 'clients', clientId, 'rehabPlans', id))
 }

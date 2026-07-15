@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { NavLink, Outlet, useNavigate, useLocation, Link } from 'react-router-dom'
 import {
   LayoutDashboard, Inbox, CalendarDays, Users, FileText, Newspaper,
-  GraduationCap, LogOut, Menu, X, ExternalLink, Wallet, Stethoscope, Download,
+  GraduationCap, LogOut, Menu, X, ExternalLink, Wallet, Stethoscope, Download, Dumbbell,
 } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import { UnsavedProvider, useUnsaved } from '../../context/UnsavedContext'
@@ -16,6 +16,7 @@ const nav = [
   { to: '/admin/appointments', label: 'Appointments', icon: CalendarDays },
   { to: '/admin/clients', label: 'Clients', icon: Users },
   { to: '/admin/treatment', label: 'Treatment', icon: Stethoscope },
+  { to: '/admin/rehab', label: 'Rehab & Exercises', icon: Dumbbell },
   // Signatures module hidden for now (client signature not needed currently).
   // Re-enable by restoring this nav item — the route & page still exist.
   // { to: '/admin/signatures', label: 'Signatures', icon: PenLine },

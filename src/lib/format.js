@@ -33,6 +33,15 @@ export function fmt12h(t) {
 
 export const todayISO = () => format(new Date(), 'yyyy-MM-dd')
 
+// Add N days to an ISO date string, returning a new ISO string ('' if invalid).
+export function addDaysISO(iso, days) {
+  const d = toDate(iso)
+  if (!d) return ''
+  const nd = new Date(d)
+  nd.setDate(nd.getDate() + days)
+  return format(nd, 'yyyy-MM-dd')
+}
+
 // Normalise any date-like value to 'yyyy-MM-dd' (for filtering).
 export const isoOf = (value) => { const d = toDate(value); return d ? format(d, 'yyyy-MM-dd') : '' }
 

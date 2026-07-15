@@ -23,6 +23,7 @@ export const BASIC_SECTIONS = [
   { title: 'Registration', fields: [
     { k: 'name', label: 'Name *' },
     { k: 'phone', label: 'Contact number *', type: 'phone' },
+    { k: 'programs', label: 'Registered for', type: 'programs', full: true },
     { k: 'gender', label: 'Gender', type: 'select', options: ['Male', 'Female', 'Other'] },
     { k: 'age', label: 'Age', num: true, maxLen: 2 },
     { k: 'occupation', label: 'Occupation / Sports' },

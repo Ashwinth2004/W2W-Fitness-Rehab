@@ -7,7 +7,7 @@ import {
   watchAccounting, addAccountingEntry, updateAccountingEntry, deleteAccountingEntry,
   watchExpenses, addExpense, updateExpense, deleteExpense, watchClients,
   watchExpenseCategories, addExpenseCategory, getExpenseCategoriesOnce,
-  watchServiceCharges, getServiceChargesOnce, addServiceCharge,
+  watchServiceCharges, getServiceChargesOnce, addServiceCharge, ensureRehabPackagesSeeded,
 } from '../../lib/firestore'
 import { fmtDate, todayISO, matchesDateFilter } from '../../lib/format'
 import { onlyDigits } from '../../lib/validate'
@@ -18,6 +18,7 @@ import AdminPageHeader from '../../components/AdminPageHeader'
 import TherapistSelect from '../../components/TherapistSelect'
 import ExpenseSelect from '../../components/ExpenseSelect'
 import ServiceSelect from '../../components/ServiceSelect'
+import PackagePriceList from '../../components/PackagePriceList'
 import { useUnsaved } from '../../context/UnsavedContext'
 
 // A charge/expense counts as "cash" only when its mode is Cash; everything else
@@ -193,6 +194,9 @@ function Income() {
     })()
   }, [])
 
+  // One-time upsert of the Rehab & Fitness package price list (editable/favoritable after).
+  useEffect(() => { ensureRehabPackagesSeeded() }, [])
+
   const list = rows.filter((r) => matchesDateFilter(r.date, filter))
   const charged = list.reduce((s, r) => s + Number(r.amount || 0), 0)
   const paid = list.reduce((s, r) => s + Number(r.paid || 0), 0)
@@ -260,6 +264,11 @@ function IncomeForm({ clients, services, editing, onDone }) {
   const balance = Math.max(0, (Number(f.amount) || 0) - (Number(f.paid) || 0))
   useEffect(() => () => setDirty(false), [setDirty])
 
+  function pickService(name, amount) {
+    setF((s) => ({ ...s, service: name, ...(amount != null ? { amount: String(amount) } : {}) }))
+    setDirty(true)
+  }
+
   const matches = f.clientName && !f.clientId
     ? clients.filter((c) => [c.name, c.phone, c.clientId].filter(Boolean).join(' ').toLowerCase().includes(f.clientName.toLowerCase())).slice(0, 6)
     : []
@@ -321,7 +330,8 @@ function IncomeForm({ clients, services, editing, onDone }) {
         <ServiceSelect
           value={f.service}
           services={services}
-          onChange={(name, amount) => { setF((s) => ({ ...s, service: name, ...(amount != null ? { amount: String(amount) } : {}) })); setDirty(true) }}
+          showClasses={false}
+          onChange={pickService}
         />
       </div>
 
@@ -337,6 +347,9 @@ function IncomeForm({ clients, services, editing, onDone }) {
         <button className="btn-primary w-full"><Save size={16} /> {editing ? 'Update' : 'Save'} (Due {inr(balance)})</button>
         {editing && <button type="button" onClick={onDone} className="btn-ghost shrink-0">Cancel</button>}
       </div>
+
+      <PackagePriceList services={services} value={f.service} onPick={pickService} className="sm:col-span-2 lg:col-span-4" />
+      <button className="btn-primary sm:col-span-2 lg:col-span-4"><Save size={16} /> {editing ? 'Update' : 'Save'} (Due {inr(balance)})</button>
     </form>
   )
 }
