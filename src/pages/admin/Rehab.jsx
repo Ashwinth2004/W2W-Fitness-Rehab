@@ -54,14 +54,16 @@ function isPlanComplete(p) {
 // — so the client-facing site never exposes the in-progress workflow.
 function RehabComingSoon() {
   return (
-    <div className="space-y-5">
+    <div className="flex min-h-[calc(100vh-8rem)] flex-col">
       <AdminPageHeader title="Rehab & Exercises" />
-      <div className="card mx-auto max-w-lg p-10 text-center">
-        <div className="mx-auto grid h-16 w-16 place-items-center rounded-full bg-brand-50 text-brand-600"><Dumbbell size={32} /></div>
-        <h2 className="mt-4 text-xl font-bold text-slate-900">Currently under development</h2>
-        <p className="mt-2 text-sm text-slate-500">
-          This module is being built by the <span className="font-semibold text-brand-600">AK Digital Solution</span> development team and isn't live yet. It'll appear here once ready.
-        </p>
+      <div className="grid flex-1 place-items-center">
+        <div className="card mx-auto w-full max-w-xl p-10 text-center sm:p-14">
+          <div className="mx-auto grid h-24 w-24 place-items-center rounded-full bg-brand-50 text-brand-600"><Dumbbell size={48} /></div>
+          <h2 className="mt-6 text-3xl font-extrabold text-slate-900 sm:text-4xl">Currently under development</h2>
+          <p className="mx-auto mt-4 max-w-md text-base leading-relaxed text-slate-500">
+            This module is being built by the <span className="font-semibold text-brand-600">AK Digital Solution</span> development team and isn't live yet. It'll appear here once ready.
+          </p>
+        </div>
       </div>
     </div>
   )

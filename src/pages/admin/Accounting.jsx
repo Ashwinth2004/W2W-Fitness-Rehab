@@ -18,7 +18,6 @@ import AdminPageHeader from '../../components/AdminPageHeader'
 import TherapistSelect from '../../components/TherapistSelect'
 import ExpenseSelect from '../../components/ExpenseSelect'
 import ServiceSelect from '../../components/ServiceSelect'
-import PackagePriceList from '../../components/PackagePriceList'
 import { useUnsaved } from '../../context/UnsavedContext'
 
 // A charge/expense counts as "cash" only when its mode is Cash; everything else
@@ -347,9 +346,6 @@ function IncomeForm({ clients, services, editing, onDone }) {
         <button className="btn-primary w-full"><Save size={16} /> {editing ? 'Update' : 'Save'} (Due {inr(balance)})</button>
         {editing && <button type="button" onClick={onDone} className="btn-ghost shrink-0">Cancel</button>}
       </div>
-
-      <PackagePriceList services={services} value={f.service} onPick={pickService} className="sm:col-span-2 lg:col-span-4" />
-      <button className="btn-primary sm:col-span-2 lg:col-span-4"><Save size={16} /> {editing ? 'Update' : 'Save'} (Due {inr(balance)})</button>
     </form>
   )
 }
