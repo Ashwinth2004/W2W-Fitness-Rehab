@@ -3,11 +3,10 @@
 // ============================================================================
 import { fmtDate } from './format'
 
-// Rehab & Exercises is still being finished. It's fully live in local dev
-// (`vite --port`, so it can be built/tested end-to-end) but any BUILT bundle —
-// including what Vercel deploys live — shows a "Coming soon" placeholder
-// instead, until this is flipped to `true` for launch.
-export const REHAB_MODULE_LIVE = import.meta.env.DEV
+// Rehab & Exercises is launched — flip back to `import.meta.env.DEV` (or
+// `false`) to pull the real module and show the "Coming soon" placeholder
+// again on any deployed build without touching the rest of the code.
+export const REHAB_MODULE_LIVE = true
 
 export const BUSINESS = {
   name: 'W2W Fitness & Rehab',
