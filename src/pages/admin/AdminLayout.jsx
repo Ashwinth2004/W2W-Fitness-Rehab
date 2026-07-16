@@ -115,17 +115,31 @@ function AdminShell() {
 
   // `mini` renders the icon-only, collapsed layout (desktop only — the mobile
   // drawer always renders full-width regardless of the desktop preference).
-  const renderSidebar = (mini) => (
+  // `showToggle` puts the collapse/expand button in the header — only for the
+  // real desktop sidebar, not the mobile drawer (which closes its own way).
+  const renderSidebar = (mini, showToggle) => (
     <div className="flex h-full flex-col">
-      <Link to="/admin" className={`flex items-center gap-3 px-5 py-5 ${mini ? 'justify-center px-0' : ''}`} onClick={go('/admin')}>
-        <img src="/w2w-fitness-rehab-logo.webp" alt="W2W Fitness & Rehab logo" className="h-11 w-11 shrink-0 rounded-full bg-white object-contain" />
-        {!mini && (
-          <div className="leading-tight">
-            <p className="font-display font-bold text-white">W2W Admin</p>
-            <p className="text-[11px] text-brand-300">Fitness &amp; Rehab</p>
-          </div>
+      <div className={mini ? 'flex flex-col items-center gap-2 px-2 py-4' : 'flex items-center justify-between gap-2 px-5 py-5'}>
+        <Link to="/admin" onClick={go('/admin')} className={mini ? '' : 'flex min-w-0 items-center gap-3'}>
+          <img src="/w2w-fitness-rehab-logo.webp" alt="W2W Fitness & Rehab logo" className="h-11 w-11 shrink-0 rounded-full bg-white object-contain" />
+          {!mini && (
+            <div className="min-w-0 leading-tight">
+              <p className="truncate font-display font-bold text-white">W2W Admin</p>
+              <p className="truncate text-[11px] text-brand-300">Fitness &amp; Rehab</p>
+            </div>
+          )}
+        </Link>
+        {showToggle && (
+          <button
+            onClick={() => setCollapsed((v) => !v)}
+            title={mini ? 'Expand sidebar' : 'Collapse sidebar'}
+            aria-label={mini ? 'Expand sidebar' : 'Collapse sidebar'}
+            className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-white/10 text-white transition hover:bg-white/20"
+          >
+            {mini ? <ChevronRight size={15} /> : <ChevronLeft size={15} />}
+          </button>
         )}
-      </Link>
+      </div>
       <nav className="flex-1 space-y-1 px-3 py-2">
         {visibleNav.map((n) => (
           <NavLink
@@ -173,23 +187,15 @@ function AdminShell() {
     <div className="flex min-h-screen bg-slate-50">
       {/* Desktop sidebar — fixed in place while the content scrolls. Width
           (and what renders inside) responds to the collapsed preference. */}
-      <aside className={`relative hidden shrink-0 bg-brand-950 transition-[width] duration-200 lg:sticky lg:top-0 lg:block lg:h-screen lg:overflow-y-auto ${collapsed ? 'lg:w-20' : 'lg:w-64'}`}>
-        {renderSidebar(collapsed)}
-        <button
-          onClick={() => setCollapsed((v) => !v)}
-          title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-          aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-          className="absolute -right-3 top-9 hidden h-6 w-6 items-center justify-center rounded-full border border-slate-200 bg-white text-brand-600 shadow-md hover:bg-brand-50 lg:flex"
-        >
-          {collapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
-        </button>
+      <aside className={`hidden shrink-0 bg-brand-950 transition-[width] duration-200 lg:sticky lg:top-0 lg:block lg:h-screen lg:overflow-y-auto ${collapsed ? 'lg:w-20' : 'lg:w-64'}`}>
+        {renderSidebar(collapsed, true)}
       </aside>
 
       {/* Mobile drawer — always full-width, independent of the desktop preference */}
       {open && (
         <>
           <div className="fixed inset-0 z-40 bg-slate-900/50 lg:hidden" onClick={() => setOpen(false)} />
-          <aside className="fixed inset-y-0 left-0 z-50 w-64 bg-brand-950 lg:hidden">{renderSidebar(false)}</aside>
+          <aside className="fixed inset-y-0 left-0 z-50 w-64 bg-brand-950 lg:hidden">{renderSidebar(false, false)}</aside>
         </>
       )}
 

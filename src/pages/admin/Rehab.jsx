@@ -14,7 +14,7 @@ import {
 } from '../../lib/rehabExercises'
 import { getCustomExercises, addCustomExercise } from '../../lib/customExercises'
 import { useFavorites } from '../../lib/useFavorites'
-import { avatarRingClass } from '../../lib/patientAvatar'
+import PatientAvatar from '../../components/PatientAvatar'
 import { todayISO, fmtDate, addDaysISO } from '../../lib/format'
 import { onlyDigits } from '../../lib/validate'
 import { REHAB_MODULE_LIVE } from '../../lib/constants'
@@ -129,11 +129,19 @@ function RehabApp() {
   )
 }
 
+const isRehabClient = (c) => Array.isArray(c?.programs) && c.programs.includes('W2W Fitness & Rehab')
+
 function RehabClientPicker({ clients, onPick, onNew, note }) {
   const [q, setQ] = useState('')
+  // Default to rehab-registered patients only — showing every Treatment-only
+  // client here too was cluttered and easy to mis-pick. "Show all clients"
+  // below reveals everyone when a Treatment-only patient needs a plan too.
+  const [showAll, setShowAll] = useState(false)
+  const rehabClients = clients.filter(isRehabClient)
+  const pool = showAll ? clients : rehabClients
   const filtered = q
-    ? clients.filter((c) => [c.name, c.phone, c.clientId, c.email].filter(Boolean).join(' ').toLowerCase().includes(q.toLowerCase()))
-    : clients
+    ? pool.filter((c) => [c.name, c.phone, c.clientId, c.email].filter(Boolean).join(' ').toLowerCase().includes(q.toLowerCase()))
+    : pool
 
   return (
     <div className="space-y-5">
@@ -164,7 +172,9 @@ function RehabClientPicker({ clients, onPick, onNew, note }) {
       {clients.length === 0 ? (
         <p className="card py-12 text-center text-sm text-slate-400">No patients yet. Register your first patient above.</p>
       ) : filtered.length === 0 ? (
-        <p className="card py-12 text-center text-sm text-slate-400">No patients match “{q}”.</p>
+        <p className="card py-12 text-center text-sm text-slate-400">
+          {showAll ? `No patients match “${q}”.` : rehabClients.length === 0 ? 'No patients registered for W2W Fitness & Rehab yet.' : `No rehab patients match “${q}”.`}
+        </p>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {filtered.map((c) => (
@@ -178,9 +188,7 @@ function RehabClientPicker({ clients, onPick, onNew, note }) {
             >
               <div className="flex items-start justify-between">
                 <div className="flex items-center gap-3">
-                  <div className={`grid h-11 w-11 shrink-0 place-items-center rounded-full bg-brand-100 font-bold text-brand-700 ${avatarRingClass(c)}`}>
-                    {c.name?.[0]?.toUpperCase() || '?'}
-                  </div>
+                  <PatientAvatar client={c} />
                   <div className="min-w-0">
                     <p className="truncate font-semibold text-slate-900">{c.name}</p>
                     <p className="flex items-center gap-1 text-xs font-medium text-brand-600"><BadgeCheck size={13} /> {c.clientId}<RehabBadge client={c} /></p>
@@ -193,6 +201,14 @@ function RehabClientPicker({ clients, onPick, onNew, note }) {
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {clients.length > 0 && rehabClients.length !== clients.length && (
+        <div className="text-center">
+          <button type="button" onClick={() => setShowAll((v) => !v)} className="text-sm font-medium text-brand-600 hover:underline">
+            {showAll ? 'Show rehab patients only ▲' : 'Not seeing who you need? Show all clients too ▾'}
+          </button>
         </div>
       )}
     </div>
@@ -723,6 +739,7 @@ function RehabPlanner({ client, editId = '', onChangeClient, navigate }) {
               <p className="text-lg font-bold text-slate-900">{client.name}</p>
               <p className="flex items-center text-sm text-slate-500">{client.clientId}<RehabBadge client={client} /> · {client.phone}</p>
             </div>
+            <Link to={`/admin/clients/${client.id}`} className="btn-outline shrink-0 px-3 py-1.5 text-xs">View Profile <ArrowRight size={14} /></Link>
           </div>
 
           {activePlans.length > 0 && (

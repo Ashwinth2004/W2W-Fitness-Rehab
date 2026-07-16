@@ -6,3 +6,4 @@ export function avatarRingClass(client) {
   const isRehab = Array.isArray(client?.programs) && client.programs.includes('W2W Fitness & Rehab')
   return isRehab ? 'border-2 border-red-500' : 'border-2 border-brand-600'
 }
+

@@ -19,7 +19,7 @@ import AssessmentField from '../../components/AssessmentField'
 import TherapistSelect from '../../components/TherapistSelect'
 import BodyPainSelector from '../../components/BodyPainSelector'
 import RehabBadge from '../../components/RehabBadge'
-import { avatarRingClass } from '../../lib/patientAvatar'
+import PatientAvatar from '../../components/PatientAvatar'
 import { generateClientReport } from '../../lib/pdf'
 
 const SESSION_GROUPS = [
@@ -77,9 +77,7 @@ export default function ClientDetail() {
       <div className="card p-5 md:p-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="flex items-center gap-4">
-            <div className={`grid h-16 w-16 shrink-0 place-items-center rounded-full bg-brand-100 text-2xl font-bold text-brand-700 ${avatarRingClass(client)}`}>
-              {client.name?.[0]?.toUpperCase()}
-            </div>
+            <PatientAvatar client={client} size="lg" />
             <div>
               <h1 className="text-2xl font-bold text-slate-900">{client.name}</h1>
               <p className="flex items-center gap-1.5 text-sm font-medium text-brand-600"><BadgeCheck size={15} /> {client.clientId}<RehabBadge client={client} /></p>
