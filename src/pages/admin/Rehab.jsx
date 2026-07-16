@@ -14,6 +14,7 @@ import {
 } from '../../lib/rehabExercises'
 import { getCustomExercises, addCustomExercise } from '../../lib/customExercises'
 import { useFavorites } from '../../lib/useFavorites'
+import { avatarRingClass } from '../../lib/patientAvatar'
 import { todayISO, fmtDate, addDaysISO } from '../../lib/format'
 import { onlyDigits } from '../../lib/validate'
 import { REHAB_MODULE_LIVE } from '../../lib/constants'
@@ -177,7 +178,7 @@ function RehabClientPicker({ clients, onPick, onNew, note }) {
             >
               <div className="flex items-start justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-brand-100 font-bold text-brand-700">
+                  <div className={`grid h-11 w-11 shrink-0 place-items-center rounded-full bg-brand-100 font-bold text-brand-700 ${avatarRingClass(c)}`}>
                     {c.name?.[0]?.toUpperCase() || '?'}
                   </div>
                   <div className="min-w-0">

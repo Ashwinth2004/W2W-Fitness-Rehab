@@ -19,6 +19,7 @@ import MicButton from '../../components/MicButton'
 import ContactActions from '../../components/ContactActions'
 import AdminPageHeader from '../../components/AdminPageHeader'
 import RehabBadge from '../../components/RehabBadge'
+import { avatarRingClass } from '../../lib/patientAvatar'
 import { useUnsaved } from '../../context/UnsavedContext'
 
 const PAY_MODES = ['Cash', 'UPI', 'Card', 'Bank transfer', 'Other']
@@ -94,7 +95,7 @@ function ClientPicker({ clients, onPick, onNew, note }) {
             >
               <div className="flex items-start justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-brand-100 font-bold text-brand-700">
+                  <div className={`grid h-11 w-11 shrink-0 place-items-center rounded-full bg-brand-100 font-bold text-brand-700 ${avatarRingClass(c)}`}>
                     {c.name?.[0]?.toUpperCase() || '?'}
                   </div>
                   <div className="min-w-0">
