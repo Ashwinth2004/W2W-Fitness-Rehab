@@ -70,7 +70,6 @@ function ClientPicker({ clients, onPick, onNew, note }) {
               onChange={(e) => setQ(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter' && filtered[0]) { e.preventDefault(); onPick(filtered[0].id) } }}
               placeholder="Search by name, phone or ID…"
-              autoFocus
             />
           </div>
           <button onClick={onNew} className="btn-outline shrink-0"><Plus size={16} /> Create new patient</button>

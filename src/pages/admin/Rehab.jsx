@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import {
   Dumbbell, Search, Loader2, Save, ArrowRight, Plus, CheckCircle2, Circle, BadgeCheck, X, Copy, Pencil, Trash2,
-  IndianRupee, Star, PlayCircle, ListChecks, MapPin, Layers, Wand2, Check, Lightbulb,
+  IndianRupee, Star, PlayCircle, ListChecks, MapPin, Layers, Wand2, Check, Lightbulb, TrendingUp,
 } from 'lucide-react'
 import {
   watchClients, addRehabPlan, updateRehabPlan, watchRehabPlans, deleteRehabPlan,
@@ -24,6 +24,7 @@ import TherapistSelect from '../../components/TherapistSelect'
 import ServiceSelect from '../../components/ServiceSelect'
 import FavSelect from '../../components/FavSelect'
 import PackagePriceList from '../../components/PackagePriceList'
+import RehabPerformance from '../../components/RehabPerformance'
 import ContactActions from '../../components/ContactActions'
 import RehabBadge from '../../components/RehabBadge'
 import AdminPageHeader from '../../components/AdminPageHeader'
@@ -154,7 +155,6 @@ function RehabClientPicker({ clients, onPick, onNew, note }) {
               onChange={(e) => setQ(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter' && filtered[0]) { e.preventDefault(); onPick(filtered[0].id) } }}
               placeholder="Search by name, phone or ID…"
-              autoFocus
             />
           </div>
           <button onClick={onNew} className="btn-outline shrink-0"><Plus size={16} /> Register new patient</button>
@@ -499,16 +499,17 @@ function PlanTips({ days, activeDayData }) {
   if (!tips.length) return null
 
   const toneCls = {
-    success: 'border-emerald-400 bg-emerald-50 text-emerald-700',
-    info: 'border-brand-400 bg-brand-50 text-brand-700',
-    warn: 'border-amber-400 bg-amber-50 text-amber-700',
+    success: 'border-emerald-500 bg-emerald-50 text-emerald-800',
+    info: 'border-brand-500 bg-brand-50 text-brand-800',
+    warn: 'border-amber-500 bg-amber-50 text-amber-800',
   }
 
   return (
     <div className="space-y-2">
+      <p className="flex items-center gap-1.5 text-xs font-extrabold uppercase tracking-wide text-slate-400"><Lightbulb size={13} /> Tips &amp; progress</p>
       {tips.map((t, i) => (
-        <div key={i} className={`flex items-start gap-2 rounded-xl border-l-4 px-3 py-2.5 text-sm ${toneCls[t.tone]}`}>
-          <Lightbulb size={16} className="mt-0.5 shrink-0" />
+        <div key={i} className={`flex items-start gap-2.5 rounded-xl border-l-[6px] px-3.5 py-3 text-sm font-semibold leading-snug sm:text-base ${toneCls[t.tone]}`}>
+          <Lightbulb size={18} className="mt-0.5 shrink-0" />
           <span>{t.text}</span>
         </div>
       ))}
@@ -522,6 +523,7 @@ function RehabPlanner({ client, editId = '', onChangeClient, navigate }) {
   const [form, setForm] = useState(blankPlan)
   const [activeDay, setActiveDay] = useState(1)
   const [billOpen, setBillOpen] = useState(false)
+  const [showPerf, setShowPerf] = useState(false)
   const [busy, setBusy] = useState(false)
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState('')
@@ -711,6 +713,7 @@ function RehabPlanner({ client, editId = '', onChangeClient, navigate }) {
     <div className="space-y-5">
       <form onSubmit={save} className="space-y-5">
         <AdminPageHeader title="Rehab & Exercises">
+          <button type="button" onClick={() => guard(() => navigate(`/admin/clients/${client.id}`))} className="text-sm font-medium text-brand-600 hover:underline">Open patient page →</button>
           <button type="button" onClick={() => guard(() => onChangeClient())} className="text-sm font-medium text-brand-600 hover:underline">Change patient</button>
         </AdminPageHeader>
 
@@ -819,7 +822,12 @@ function RehabPlanner({ client, editId = '', onChangeClient, navigate }) {
                   className={`flex items-center gap-1.5 rounded-full px-4 py-1.5 text-sm font-semibold transition ${activeDay === d.day ? 'bg-brand-600 text-white shadow' : d.completed ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200 hover:bg-emerald-100' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
                 >
                   {d.completed && <CheckCircle2 size={14} />}
-                  Day {d.day}{d.exercises?.length ? ` (${d.exercises.length})` : ''}
+                  Day {d.day}
+                  {d.exercises?.length ? (
+                    <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${activeDay === d.day ? 'bg-white/25' : d.completed ? 'bg-emerald-100' : 'bg-slate-200'}`} title={`${d.exercises.length} exercise${d.exercises.length > 1 ? 's' : ''} prescribed`}>
+                      {d.exercises.length} ex
+                    </span>
+                  ) : null}
                 </button>
               ))}
             </div>
@@ -848,7 +856,10 @@ function RehabPlanner({ client, editId = '', onChangeClient, navigate }) {
 
       {plans.length > 0 && (
         <div className="card p-5">
-          <h3 className="mb-3 text-base font-bold text-brand-700">Previous rehab plans</h3>
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <h3 className="text-base font-bold text-brand-700">Previous rehab plans</h3>
+            <button type="button" onClick={() => setShowPerf(true)} className="btn-outline px-3 py-1.5 text-xs"><TrendingUp size={14} /> View Performance</button>
+          </div>
           <ul className="divide-y divide-slate-100">
             {plans.map((p) => (
               <li key={p.id} className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm">
@@ -867,6 +878,8 @@ function RehabPlanner({ client, editId = '', onChangeClient, navigate }) {
           </ul>
         </div>
       )}
+
+      {showPerf && <RehabPerformance client={client} plans={plans} onClose={() => setShowPerf(false)} />}
     </div>
   )
 }

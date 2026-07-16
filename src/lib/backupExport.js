@@ -19,9 +19,9 @@ const ROOT_COLLECTIONS = [
   'accounting', 'expenses', 'expenseCategories', 'serviceCharges', 'bankAccounts', 'signatures',
 ]
 
-// Subcollections to read under each client document. `treatments` is current;
-// `notes`/`progress` cover any legacy session data.
-const CLIENT_SUBCOLLECTIONS = ['treatments', 'notes', 'progress']
+// Subcollections to read under each client document. `treatments` and
+// `rehabPlans` are current; `notes`/`progress` cover any legacy session data.
+const CLIENT_SUBCOLLECTIONS = ['treatments', 'rehabPlans', 'notes', 'progress']
 
 // Mirror of scripts/lib/serialize.mjs `encode`, for the browser SDK types.
 function encode(value) {
@@ -113,6 +113,7 @@ export async function downloadBackup() {
 const SHEET_LABELS = {
   clients: 'Clients (Patients)',
   __treatments: 'Treatments (Sessions)',
+  __rehabPlans: 'Rehab & Exercise Plans',
   appointments: 'Appointments',
   accounting: 'Income (Patient Charges)',
   expenses: 'Expenses',
@@ -130,7 +131,7 @@ const SHEET_LABELS = {
   reels: 'Reels',
 }
 const SHEET_ORDER = [
-  'clients', '__treatments', 'appointments', 'accounting', 'expenses', 'expenseCategories',
+  'clients', '__treatments', '__rehabPlans', 'appointments', 'accounting', 'expenses', 'expenseCategories',
   'workshops', 'workshopRegistrations', 'workshopStats', 'workshopRegEmails', 'enquiries',
   'therapists', 'availability', 'counters', 'testimonials', 'posts', 'reels',
 ]
@@ -197,13 +198,17 @@ export function buildWorkbook(XLSX, snapshot) {
   const byPath = {}
   for (const col of snapshot.collections) byPath[col.path] = col
 
-  // Pull treatments out of clients into their own flat sheet.
+  // Pull treatments and rehab plans out of clients into their own flat sheets.
   const treatments = []
+  const rehabPlans = []
   for (const c of byPath.clients?.documents || []) {
     const clientName = c.data?.name || ''
     for (const sub of c.collections || []) {
       if (sub.path === 'treatments') for (const t of sub.documents) {
         treatments.push({ id: t.id, data: t.data, _cid: c.id, _cname: clientName })
+      }
+      if (sub.path === 'rehabPlans') for (const p of sub.documents) {
+        rehabPlans.push({ id: p.id, data: p.data, _cid: c.id, _cname: clientName })
       }
     }
   }
@@ -226,6 +231,15 @@ export function buildWorkbook(XLSX, snapshot) {
           { header: 'Client ID', get: (d) => d._cid },
           { header: 'Client Name', get: (d) => d._cname },
         ]), treatments.length)
+      }
+      return
+    }
+    if (key === '__rehabPlans') {
+      if (rehabPlans.length) {
+        addSheet(SHEET_LABELS.__rehabPlans, sheetFromDocs(XLSX, rehabPlans, [
+          { header: 'Client ID', get: (d) => d._cid },
+          { header: 'Client Name', get: (d) => d._cname },
+        ]), rehabPlans.length)
       }
       return
     }

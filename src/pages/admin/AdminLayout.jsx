@@ -3,6 +3,7 @@ import { NavLink, Outlet, useNavigate, useLocation, Link } from 'react-router-do
 import {
   LayoutDashboard, Inbox, CalendarDays, Users, FileText, Newspaper,
   GraduationCap, LogOut, Menu, X, ExternalLink, Wallet, Stethoscope, Download, Dumbbell,
+  ChevronLeft, ChevronRight,
 } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import { UnsavedProvider, useUnsaved } from '../../context/UnsavedContext'
@@ -67,6 +68,14 @@ function AdminShell() {
   const location = useLocation()
   const [open, setOpen] = useState(false)
   const [newEnq, setNewEnq] = useState(0)
+  // Desktop sidebar collapse — an admin preference, remembered per browser.
+  // Always starts OPEN unless the admin has explicitly collapsed it before.
+  const [collapsed, setCollapsed] = useState(() => {
+    try { return localStorage.getItem('w2w_sidebar_collapsed') === '1' } catch { return false }
+  })
+  useEffect(() => {
+    try { localStorage.setItem('w2w_sidebar_collapsed', collapsed ? '1' : '0') } catch { /* ignore */ }
+  }, [collapsed])
 
   // Live count of unread enquiries → red "NEW" badge on the Enquiries item.
   useEffect(() => watchEnquiries((list) => setNewEnq(list.filter((e) => e.status === 'new').length)), [])
@@ -104,14 +113,18 @@ function AdminShell() {
   // Navigate via the unsaved-changes guard (prompts if there are unsaved edits).
   const go = (to) => (e) => { e.preventDefault(); setOpen(false); guard(() => navigate(to)) }
 
-  const SidebarContent = (
+  // `mini` renders the icon-only, collapsed layout (desktop only — the mobile
+  // drawer always renders full-width regardless of the desktop preference).
+  const renderSidebar = (mini) => (
     <div className="flex h-full flex-col">
-      <Link to="/admin" className="flex items-center gap-3 px-5 py-5" onClick={go('/admin')}>
-        <img src="/w2w-fitness-rehab-logo.webp" alt="W2W Fitness & Rehab logo" className="h-11 w-11 rounded-full bg-white object-contain" />
-        <div className="leading-tight">
-          <p className="font-display font-bold text-white">W2W Admin</p>
-          <p className="text-[11px] text-brand-300">Fitness &amp; Rehab</p>
-        </div>
+      <Link to="/admin" className={`flex items-center gap-3 px-5 py-5 ${mini ? 'justify-center px-0' : ''}`} onClick={go('/admin')}>
+        <img src="/w2w-fitness-rehab-logo.webp" alt="W2W Fitness & Rehab logo" className="h-11 w-11 shrink-0 rounded-full bg-white object-contain" />
+        {!mini && (
+          <div className="leading-tight">
+            <p className="font-display font-bold text-white">W2W Admin</p>
+            <p className="text-[11px] text-brand-300">Fitness &amp; Rehab</p>
+          </div>
+        )}
       </Link>
       <nav className="flex-1 space-y-1 px-3 py-2">
         {visibleNav.map((n) => (
@@ -120,15 +133,16 @@ function AdminShell() {
             to={n.to}
             end={n.end}
             onClick={go(n.to)}
+            title={mini ? n.label : undefined}
             className={({ isActive }) =>
-              `flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition ${
+              `flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition ${mini ? 'justify-center px-0' : ''} ${
                 isActive ? 'bg-white/15 text-white' : 'text-brand-100 hover:bg-white/10 hover:text-white'
               }`
             }
           >
             <n.icon size={19} />
-            <span className="flex-1">{n.label}</span>
-            {n.to === '/admin/queries' && newEnq > 0 && (
+            {!mini && <span className="flex-1">{n.label}</span>}
+            {!mini && n.to === '/admin/queries' && newEnq > 0 && (
               <span className="grid h-5 min-w-[2.25rem] place-items-center rounded-full bg-red-500 px-1.5 text-[10px] font-bold uppercase tracking-wide text-white">
                 {newEnq} New
               </span>
@@ -137,28 +151,45 @@ function AdminShell() {
         ))}
       </nav>
       <div className="border-t border-white/10 p-3">
-        <InstallAppButton />
-        <a href="/" target="_blank" rel="noreferrer" className="flex items-center gap-3 rounded-xl px-4 py-2.5 text-sm text-brand-100 hover:bg-white/10 hover:text-white">
-          <ExternalLink size={18} /> View Website
-        </a>
-        <button onClick={() => guard(handleLogout)} className="flex w-full items-center gap-3 rounded-xl px-4 py-2.5 text-sm text-brand-100 hover:bg-white/10 hover:text-white">
-          <LogOut size={18} /> Sign Out
+        {!mini && <InstallAppButton />}
+        {!mini && (
+          <a href="/" target="_blank" rel="noreferrer" className="flex items-center gap-3 rounded-xl px-4 py-2.5 text-sm text-brand-100 hover:bg-white/10 hover:text-white">
+            <ExternalLink size={18} /> View Website
+          </a>
+        )}
+        <button
+          onClick={() => guard(handleLogout)}
+          title={mini ? 'Sign Out' : undefined}
+          className={`flex w-full items-center gap-3 rounded-xl px-4 py-2.5 text-sm text-brand-100 hover:bg-white/10 hover:text-white ${mini ? 'justify-center px-0' : ''}`}
+        >
+          <LogOut size={18} /> {!mini && 'Sign Out'}
         </button>
-        <p className="truncate px-4 pt-2 text-[11px] text-brand-400">{user?.email}</p>
+        {!mini && <p className="truncate px-4 pt-2 text-[11px] text-brand-400">{user?.email}</p>}
       </div>
     </div>
   )
 
   return (
     <div className="flex min-h-screen bg-slate-50">
-      {/* Desktop sidebar — fixed in place while the content scrolls */}
-      <aside className="hidden w-64 shrink-0 bg-brand-950 lg:sticky lg:top-0 lg:block lg:h-screen lg:overflow-y-auto">{SidebarContent}</aside>
+      {/* Desktop sidebar — fixed in place while the content scrolls. Width
+          (and what renders inside) responds to the collapsed preference. */}
+      <aside className={`relative hidden shrink-0 bg-brand-950 transition-[width] duration-200 lg:sticky lg:top-0 lg:block lg:h-screen lg:overflow-y-auto ${collapsed ? 'lg:w-20' : 'lg:w-64'}`}>
+        {renderSidebar(collapsed)}
+        <button
+          onClick={() => setCollapsed((v) => !v)}
+          title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          className="absolute -right-3 top-9 hidden h-6 w-6 items-center justify-center rounded-full border border-slate-200 bg-white text-brand-600 shadow-md hover:bg-brand-50 lg:flex"
+        >
+          {collapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
+        </button>
+      </aside>
 
-      {/* Mobile drawer */}
+      {/* Mobile drawer — always full-width, independent of the desktop preference */}
       {open && (
         <>
           <div className="fixed inset-0 z-40 bg-slate-900/50 lg:hidden" onClick={() => setOpen(false)} />
-          <aside className="fixed inset-y-0 left-0 z-50 w-64 bg-brand-950 lg:hidden">{SidebarContent}</aside>
+          <aside className="fixed inset-y-0 left-0 z-50 w-64 bg-brand-950 lg:hidden">{renderSidebar(false)}</aside>
         </>
       )}
 
