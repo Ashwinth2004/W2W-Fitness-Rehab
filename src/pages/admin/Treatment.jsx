@@ -184,7 +184,7 @@ function TreatmentForm({ client, editId = '', onChangeClient, navigate }) {
   const [date, setDate] = useState(todayISO())
   const [nextSession, setNextSession] = useState('')
   const [therapist, setTherapist] = useState(client.therapist || 'Sakthi Saravanan')
-  const [bill, setBill] = useState({ service: client.service || '', amount: '', paid: '', mode: 'Cash' })
+  const [bill, setBill] = useState({ service: client.service || '', amount: '', paid: '', mode: 'Cash', addToAccounting: true })
   const [services, setServices] = useState([])
   const [smartOpen, setSmartOpen] = useState(true)
   const [smartText, setSmartText] = useState('')
@@ -223,6 +223,7 @@ function TreatmentForm({ client, editId = '', onChangeClient, navigate }) {
       amount: t.bill?.amount != null ? String(t.bill.amount) : '',
       paid: t.bill?.paid != null ? String(t.bill.paid) : '',
       mode: t.bill?.mode || 'Cash',
+      addToAccounting: t.bill?.addToAccounting !== false,
     })
   }, [editId, treatments])
 
@@ -291,6 +292,7 @@ function TreatmentForm({ client, editId = '', onChangeClient, navigate }) {
         paid: Number(bill.paid) || 0,
         balance: billBalance,
         mode: bill.mode,
+        addToAccounting: bill.addToAccounting !== false,
       }
       const data = { date: date || todayISO(), therapist, nextSession: nextSession || '', bill: billData }
       CLINICAL_KEYS.forEach((k) => { const v = form[k]; data[k] = typeof v === 'string' ? v.trim() : v })
@@ -302,7 +304,7 @@ function TreatmentForm({ client, editId = '', onChangeClient, navigate }) {
       // Mirror the charge into Accounting (best-effort — a limited admin without
       // accounting access, or unpublished rules, must not break the save).
       try {
-        if (billData.amount > 0 || billData.paid > 0) {
+        if (billData.addToAccounting && (billData.amount > 0 || billData.paid > 0)) {
           await setAccountingForTreatment(treatmentId, {
             date: data.date,
             clientId: client.clientId, clientDocId: client.id, clientName: client.name,
@@ -483,14 +485,21 @@ function TreatmentForm({ client, editId = '', onChangeClient, navigate }) {
           <span className="text-slate-500">Balance due</span>
           <span className={`font-bold ${billBalance > 0 ? 'text-red-600' : 'text-emerald-600'}`}>Rs. {billBalance.toLocaleString('en-IN')}</span>
         </div>
+        <label className="mt-3 flex items-center gap-2 text-sm font-semibold text-slate-700">
+          <input type="checkbox" checked={bill.addToAccounting !== false} onChange={(e) => { setBill((b) => ({ ...b, addToAccounting: e.target.checked })); setDirty(true) }} className="h-4 w-4 rounded border-slate-300 text-brand-600" />
+          Also record a separate charge in Accounting (sessions already record theirs)
+        </label>
         <p className="mt-2 text-xs text-slate-400">Saved with this session and shown in Accounting &amp; the client report. Leave the amounts empty if there’s no charge.</p>
       </div>
 
       {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}
-      <div className="flex justify-end gap-2">
+      <div className="flex flex-wrap justify-end gap-2">
+        <button type="button" onClick={() => sendOrDownloadReport('share')} disabled={!!reportBusy} className="btn-outline">{reportBusy === 'share' ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />} Send report</button>
+        <button type="button" onClick={() => sendOrDownloadReport('download')} disabled={!!reportBusy} className="btn-outline">{reportBusy === 'download' ? <Loader2 size={16} className="animate-spin" /> : <FileDown size={16} />} Download report</button>
         <button type="button" onClick={() => guard(() => navigate('/admin/clients'))} className="btn-ghost">Cancel</button>
         <button type="submit" disabled={busy} className="btn-primary">{busy ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />} {editId ? 'Update treatment' : 'Save treatment'}</button>
       </div>
+      {reportMsg && <p className="text-right text-sm text-slate-500">{reportMsg}</p>}
     </form>
   )
 }
