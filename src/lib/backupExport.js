@@ -16,7 +16,7 @@ const ROOT_COLLECTIONS = [
   'enquiries', 'availability', 'slotBlocks', 'appointments', 'counters', 'clients',
   'testimonials', 'posts', 'reels', 'workshops', 'workshopStats',
   'workshopRegistrations', 'workshopRegEmails', 'therapists',
-  'accounting', 'expenses', 'expenseCategories', 'serviceCharges', 'bankAccounts', 'signatures',
+  'accounting', 'expenses', 'expenseCategories', 'serviceCharges', 'bankAccounts', 'signatures', 'rehabTemplates',
 ]
 
 // Subcollections to read under each client document. `treatments` and
@@ -116,6 +116,7 @@ const SHEET_LABELS = {
   __rehabPlans: 'Rehab & Exercise Plans',
   appointments: 'Appointments',
   accounting: 'Income (Patient Charges)',
+  rehabTemplates: 'Rehab Exercise Templates',
   expenses: 'Expenses',
   expenseCategories: 'Expense Categories',
   workshops: 'Workshops',
@@ -131,7 +132,7 @@ const SHEET_LABELS = {
   reels: 'Reels',
 }
 const SHEET_ORDER = [
-  'clients', '__treatments', '__rehabPlans', 'appointments', 'accounting', 'expenses', 'expenseCategories',
+  'clients', '__treatments', '__rehabPlans', 'rehabTemplates', 'appointments', 'accounting', 'expenses', 'expenseCategories',
   'workshops', 'workshopRegistrations', 'workshopStats', 'workshopRegEmails', 'enquiries',
   'therapists', 'availability', 'counters', 'testimonials', 'posts', 'reels',
 ]

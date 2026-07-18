@@ -340,9 +340,11 @@ function ReportModal({ client, treatments, onClose }) {
   const [paid, setPaid] = useState(billSum.paid ? String(billSum.paid) : '')
   const [mode, setMode] = useState(treatments.find((t) => t.bill?.mode)?.bill?.mode || 'Cash')
   const [withBilling, setWithBilling] = useState(true)
-  // Off by default: each session already records its charge in Accounting. Tick
-  // only to record a separate charge (e.g. when it wasn't billed in the session).
-  const [record, setRecord] = useState(false)
+  // On by default (per clinic preference). Note each session already records
+  // its own charge in Accounting when billed in the Treatment form — leaving
+  // this ticked while also including already-billed sessions above will add a
+  // SEPARATE combined entry, so untick it to avoid double-counting revenue.
+  const [record, setRecord] = useState(true)
   const [busy, setBusy] = useState('')
   const [recorded, setRecorded] = useState(false)
   const [msg, setMsg] = useState('')

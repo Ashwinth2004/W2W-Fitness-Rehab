@@ -49,6 +49,14 @@ export function useFavorites(key) {
     write(key, next)
   }, [key])
 
+  // Explicitly makes `value` the default (i.e. the most-recently-favorited
+  // one) regardless of whether it was already favorited earlier — unlike
+  // `toggle`, this never removes it, it always ends up on top.
+  const makeDefault = useCallback((value) => {
+    const cur = read(key)
+    write(key, [...cur.filter((v) => v !== value), value])
+  }, [key])
+
   const isFav = useCallback((value) => favs.includes(value), [favs])
 
   // Most recently favorited value for this key (null if none).
@@ -62,5 +70,5 @@ export function useFavorites(key) {
     })
   }, [favs])
 
-  return { favs, isFav, toggle, sortWithFavs, latest }
+  return { favs, isFav, toggle, makeDefault, sortWithFavs, latest }
 }

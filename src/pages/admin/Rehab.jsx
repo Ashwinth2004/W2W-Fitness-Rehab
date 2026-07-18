@@ -2,17 +2,19 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import {
   Dumbbell, Search, Loader2, Save, ArrowRight, Plus, CheckCircle2, Circle, BadgeCheck, X, Copy, Pencil, Trash2,
-  IndianRupee, Star, PlayCircle, ListChecks, MapPin, Layers, Wand2, Check, Lightbulb, TrendingUp,
+  IndianRupee, Star, PlayCircle, ListChecks, MapPin, Layers, Wand2, Check, Lightbulb, TrendingUp, LayoutTemplate,
 } from 'lucide-react'
 import {
   watchClients, addRehabPlan, updateRehabPlan, watchRehabPlans, deleteRehabPlan,
   watchServiceCharges, ensureRehabPackagesSeeded, setAccountingForRehabPlan, deleteAccountingForRehabPlan,
+  watchRehabTemplates, addRehabTemplate, deleteRehabTemplate,
 } from '../../lib/firestore'
 import {
-  REHAB_REGIONS, typesForRegion, exercisesFor, SETS_OPTIONS, REPS_OPTIONS, HOLD_OPTIONS,
+  REHAB_REGIONS, REGION_TYPES, WHOLE_BODY_TYPES, typesForRegion, exercisesFor, SETS_OPTIONS, REPS_OPTIONS, HOLD_OPTIONS,
   RESISTANCE_OPTIONS, FREQUENCY_OPTIONS, REST_OPTIONS, PROGRESSION_OPTIONS, blankPrescription, BALANCE_LEVEL,
 } from '../../lib/rehabExercises'
 import { getCustomExercises, addCustomExercise } from '../../lib/customExercises'
+import { getCustomRegions, addCustomRegion, getCustomTypes, addCustomType } from '../../lib/customTaxonomy'
 import { useFavorites } from '../../lib/useFavorites'
 import PatientAvatar from '../../components/PatientAvatar'
 import { todayISO, fmtDate, addDaysISO } from '../../lib/format'
@@ -122,6 +124,7 @@ function RehabApp() {
     <RehabPlanner
       key={`${client.id}:${params.get('plan') || ''}`}
       client={client}
+      clients={clients}
       editId={params.get('plan') || ''}
       onChangeClient={() => setParams({})}
       navigate={navigate}
@@ -237,47 +240,104 @@ function StarChip({ label, active, fav, disabled, onToggleFav, onClick }) {
   )
 }
 
-// One region → type → exercise checklist for adding exercises to the active
-// day. Multi-select all in one go; supports admin-added custom exercises
-// mapped to the chosen type (added inline, right at the end of the checklist),
-// and favorites (starred region/type/exercise bubble to the top of their
-// lists — and the most recently starred sets/reps/hold/resistance/frequency/
-// rest becomes the default for any exercise added from here).
+// An inline "add your own" control — a dashed pill that expands into a text
+// box + confirm/cancel. Shared by the Region, Type and per-group Exercise
+// custom-add rows so a brand new one can be typed in without leaving the chip row.
+function AddOwnChip({ placeholder, onAdd }) {
+  const [open, setOpen] = useState(false)
+  const [draft, setDraft] = useState('')
+  function submit() {
+    const n = draft.trim(); if (!n) return
+    onAdd(n)
+    setDraft(''); setOpen(false)
+  }
+  if (!open) {
+    return (
+      <button
+        type="button" onClick={() => setOpen(true)}
+        className="inline-flex items-center gap-1 rounded-full border border-dashed border-brand-300 bg-white px-3 py-1.5 text-xs font-medium text-brand-600 hover:bg-brand-50"
+      >
+        <Wand2 size={12} /> Add your own
+      </button>
+    )
+  }
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full border border-dashed border-brand-400 bg-white py-1 pl-2.5 pr-1">
+      <input
+        autoFocus className="w-28 border-0 bg-transparent text-xs focus:outline-none sm:w-36" value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); submit() } if (e.key === 'Escape') { setOpen(false); setDraft('') } }}
+        placeholder={placeholder}
+      />
+      <button type="button" onClick={submit} className="grid h-6 w-6 shrink-0 place-items-center rounded-full text-brand-600 hover:bg-brand-50"><Check size={13} /></button>
+      <button type="button" onClick={() => { setOpen(false); setDraft('') }} className="grid h-6 w-6 shrink-0 place-items-center rounded-full text-slate-400 hover:bg-slate-100"><X size={13} /></button>
+    </span>
+  )
+}
+
+// Which exercise TYPES make sense for a region — built-in mapping for known
+// regions, everything for a custom (admin-added) region; admin-added custom
+// types are always offered everywhere, on top of that.
+function typesForAnyRegion(region, customTypes) {
+  const builtIn = REHAB_REGIONS.includes(region) ? typesForRegion(region) : [...REGION_TYPES, ...WHOLE_BODY_TYPES]
+  return [...builtIn, ...customTypes.filter((t) => !builtIn.includes(t))]
+}
+
+// Multi-region, multi-type, multi-exercise bulk builder for the active day.
+// Pick as many regions and types as needed, tick every exercise wanted across
+// all of them, and add the whole batch in one go — instead of one
+// region/type/exercise at a time. Supports admin-added custom regions, types
+// and exercises (all "Add your own"), and favorites (starred region/type/
+// exercise bubble to the top — and the most recently starred/pinned sets/
+// reps/hold/resistance/frequency/rest becomes the default for new exercises).
 function AddExerciseWidget({ existingNames, onAdd }) {
-  const favRegion = useFavorites('rehab_region')
-  const favType = useFavorites('rehab_type')
   const favSets = useFavorites('rehab_sets')
   const favReps = useFavorites('rehab_reps')
   const favHold = useFavorites('rehab_hold')
   const favResistance = useFavorites('rehab_resistance')
   const favFrequency = useFavorites('rehab_frequency')
   const favRest = useFavorites('rehab_rest')
+  const { isFav: isFavRegion, toggle: toggleFavRegion, sortWithFavs: sortRegions } = useFavorites('rehab_region')
+  const { isFav: isFavType, toggle: toggleFavType, sortWithFavs: sortTypes } = useFavorites('rehab_type')
   const { isFav: isFavEx, toggle: toggleFavEx, sortWithFavs: sortEx } = useFavorites('rehab_exercise')
 
-  const [region, setRegion] = useState(() => favRegion.latest || '')
-  const [type, setType] = useState(() => {
-    const r = favRegion.latest || '', t = favType.latest || ''
-    return r && t && typesForRegion(r).includes(t) ? t : ''
-  })
-  const [checked, setChecked] = useState([])
-  const [customExercises, setCustomExercises] = useState(() => getCustomExercises(type))
-  const [customOpen, setCustomOpen] = useState(false)
-  const [customDraft, setCustomDraft] = useState('')
+  const [selectedRegions, setSelectedRegions] = useState([])
+  const [selectedTypes, setSelectedTypes] = useState([])
+  const [checked, setChecked] = useState([]) // [{ region, type, name }]
+  const [customRegions, setCustomRegions] = useState(() => getCustomRegions())
+  const [customTypes, setCustomTypes] = useState(() => getCustomTypes())
+  const [tick, setTick] = useState(0) // bumped after a custom exercise is added, to refresh per-type lists
 
-  const types = region ? typesForRegion(region) : []
-  const builtIn = region && type ? exercisesFor(region, type) : []
-  const exercises = type ? sortEx([...builtIn, ...customExercises.filter((c) => !builtIn.includes(c))]) : []
+  const regionOptions = sortRegions([...REHAB_REGIONS, ...customRegions.filter((r) => !REHAB_REGIONS.includes(r))])
+  const typeOptions = sortTypes([...new Set(selectedRegions.flatMap((r) => typesForAnyRegion(r, customTypes)))])
 
-  useEffect(() => { setCustomExercises(getCustomExercises(type)); setCustomOpen(false); setCustomDraft('') }, [type])
+  function toggleRegion(r) {
+    setSelectedRegions((rs) => (rs.includes(r) ? rs.filter((x) => x !== r) : [...rs, r]))
+  }
+  function toggleType(t) {
+    setSelectedTypes((ts) => (ts.includes(t) ? ts.filter((x) => x !== t) : [...ts, t]))
+  }
+  function toggleExercise(region, type, name) {
+    setChecked((c) => {
+      const i = c.findIndex((e) => e.region === region && e.type === type && e.name === name)
+      return i >= 0 ? c.filter((_, idx) => idx !== i) : [...c, { region, type, name }]
+    })
+  }
+  const isChecked = (region, type, name) => checked.some((e) => e.region === region && e.type === type && e.name === name)
 
-  function pickRegion(r) { setRegion(r); setType(''); setChecked([]) }
-  function pickType(t) { setType(t); setChecked([]) }
-  function toggle(name) { setChecked((c) => (c.includes(name) ? c.filter((x) => x !== name) : [...c, name])) }
+  function addOwnRegion(name) { addCustomRegion(name); setCustomRegions(getCustomRegions()); setSelectedRegions((rs) => [...rs, name]) }
+  function addOwnType(name) { addCustomType(name); setCustomTypes(getCustomTypes()); setSelectedTypes((ts) => [...ts, name]) }
+  function addOwnExercise(region, type, name) { addCustomExercise(type, name); setTick((t) => t + 1); toggleExercise(region, type, name) }
+
+  // One visible group per valid region+type combination actually in play.
+  const groups = selectedRegions.flatMap((region) =>
+    selectedTypes.filter((type) => typesForAnyRegion(region, customTypes).includes(type)).map((type) => ({ region, type }))
+  )
 
   // Add every checked exercise in ONE update — batching each into separate
   // calls made only the last one stick (each call closed over the same stale
   // exercise list), so this always builds the full array up front. New
-  // exercises default to the most recently favorited sets/reps/etc, if any.
+  // exercises default to the most recently favorited/pinned sets/reps/etc.
   function addChecked() {
     if (!checked.length) return
     const overrides = {}
@@ -287,66 +347,63 @@ function AddExerciseWidget({ existingNames, onAdd }) {
     if (favResistance.latest) overrides.resistance = favResistance.latest
     if (favFrequency.latest) overrides.frequency = favFrequency.latest
     if (favRest.latest) overrides.rest = favRest.latest
-    onAdd(checked.map((name) => ({ ...blankPrescription(region, type, name), ...overrides })))
+    onAdd(checked.map(({ region, type, name }) => ({ ...blankPrescription(region, type, name), ...overrides })))
     setChecked([])
-  }
-
-  function addCustom() {
-    const n = customDraft.trim(); if (!n || !type) return
-    addCustomExercise(type, n)
-    setCustomExercises(getCustomExercises(type))
-    setCustomDraft(''); setCustomOpen(false)
   }
 
   return (
     <div className="space-y-3 rounded-2xl border-2 border-dashed border-brand-300 bg-brand-50/50 p-3 sm:p-4">
-      <p className="flex items-center gap-1.5 text-xs font-extrabold uppercase tracking-wide text-brand-700"><Plus size={14} /> Add exercise</p>
-      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-        <div>
-          <label className="label flex items-center gap-1 text-xs"><MapPin size={12} /> 1. Region</label>
-          <FavSelect favKey="rehab_region" value={region} options={REHAB_REGIONS} onChange={pickRegion} placeholder="— Select region —" />
-        </div>
-        <div>
-          <label className="label flex items-center gap-1 text-xs"><Layers size={12} /> 2. Exercise type</label>
-          <FavSelect favKey="rehab_type" value={type} options={types} onChange={pickType} placeholder="— Select type —" disabled={!region} />
+      <p className="flex items-center gap-1.5 text-xs font-extrabold uppercase tracking-wide text-brand-700"><Plus size={14} /> Add exercise — pick as many as you need</p>
+
+      <div>
+        <label className="label flex items-center gap-1 text-xs"><MapPin size={12} /> 1. Region(s) — tap all that apply</label>
+        <div className="flex flex-wrap items-center gap-1.5">
+          {regionOptions.map((r) => (
+            <StarChip key={r} label={r} active={selectedRegions.includes(r)} fav={isFavRegion(r)} onToggleFav={() => toggleFavRegion(r)} onClick={() => toggleRegion(r)} />
+          ))}
+          <AddOwnChip placeholder="Region name…" onAdd={addOwnRegion} />
         </div>
       </div>
 
-      {type && (
+      {selectedRegions.length > 0 && (
         <div>
-          <label className="label flex items-center gap-1 text-xs"><ListChecks size={12} /> 3. Exercises — tap all that apply</label>
+          <label className="label flex items-center gap-1 text-xs"><Layers size={12} /> 2. Exercise type(s) — tap all that apply</label>
           <div className="flex flex-wrap items-center gap-1.5">
-            {exercises.map((name) => (
-              <StarChip
-                key={name}
-                label={name + (type === 'Balance' && BALANCE_LEVEL[name] ? ` (${BALANCE_LEVEL[name]})` : '')}
-                active={checked.includes(name)}
-                fav={isFavEx(name)}
-                disabled={existingNames.includes(name)}
-                onToggleFav={() => toggleFavEx(name)}
-                onClick={() => toggle(name)}
-              />
+            {typeOptions.map((t) => (
+              <StarChip key={t} label={t} active={selectedTypes.includes(t)} fav={isFavType(t)} onToggleFav={() => toggleFavType(t)} onClick={() => toggleType(t)} />
             ))}
-            {customOpen ? (
-              <span className="inline-flex items-center gap-1 rounded-full border border-dashed border-brand-400 bg-white py-1 pl-2.5 pr-1">
-                <input
-                  autoFocus className="w-28 border-0 bg-transparent text-xs focus:outline-none sm:w-36" value={customDraft}
-                  onChange={(e) => setCustomDraft(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addCustom() } if (e.key === 'Escape') { setCustomOpen(false); setCustomDraft('') } }}
-                  placeholder="Exercise name…"
-                />
-                <button type="button" onClick={addCustom} className="grid h-6 w-6 shrink-0 place-items-center rounded-full text-brand-600 hover:bg-brand-50"><Check size={13} /></button>
-                <button type="button" onClick={() => { setCustomOpen(false); setCustomDraft('') }} className="grid h-6 w-6 shrink-0 place-items-center rounded-full text-slate-400 hover:bg-slate-100"><X size={13} /></button>
-              </span>
-            ) : (
-              <button
-                type="button" onClick={() => setCustomOpen(true)}
-                className="inline-flex items-center gap-1 rounded-full border border-dashed border-brand-300 bg-white px-3 py-1.5 text-xs font-medium text-brand-600 hover:bg-brand-50"
-              >
-                <Wand2 size={12} /> Add your own
-              </button>
-            )}
+            <AddOwnChip placeholder="Type name…" onAdd={addOwnType} />
           </div>
+        </div>
+      )}
+
+      {groups.length > 0 && (
+        <div className="space-y-3">
+          <label className="label flex items-center gap-1 text-xs"><ListChecks size={12} /> 3. Exercises — tap all that apply</label>
+          {groups.map(({ region, type }) => {
+            const builtIn = exercisesFor(region, type)
+            const custom = getCustomExercises(type) // read fresh each render; `tick` state forces the re-render after an add
+            const exercises = sortEx([...builtIn, ...custom.filter((c) => !builtIn.includes(c))])
+            return (
+              <div key={`${region}|${type}`} className="rounded-xl bg-white/60 p-2.5 ring-1 ring-brand-100">
+                <p className="mb-1.5 text-[11px] font-bold uppercase tracking-wide text-brand-500">{region} · {type}</p>
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {exercises.map((name) => (
+                    <StarChip
+                      key={name}
+                      label={name + (type === 'Balance' && BALANCE_LEVEL[name] ? ` (${BALANCE_LEVEL[name]})` : '')}
+                      active={isChecked(region, type, name)}
+                      fav={isFavEx(name)}
+                      disabled={existingNames.includes(name)}
+                      onToggleFav={() => toggleFavEx(name)}
+                      onClick={() => toggleExercise(region, type, name)}
+                    />
+                  ))}
+                  <AddOwnChip placeholder="Exercise name…" onAdd={(name) => addOwnExercise(region, type, name)} />
+                </div>
+              </div>
+            )
+          })}
         </div>
       )}
 
@@ -363,22 +420,58 @@ function Field({ label, children }) {
   return <div><label className="label text-[11px]">{label}</label>{children}</div>
 }
 
+function exercisesForAnyMerged(region, type) {
+  const builtIn = exercisesFor(region, type)
+  return [...builtIn, ...getCustomExercises(type).filter((c) => !builtIn.includes(c))]
+}
+
 // One prescribed exercise: sets/reps/hold/resistance/frequency/rest/notes +
 // progression, plus a bold "Mark as Completed" action for follow-up tracking.
+// The exercise's identity (region/type/name) is editable in place via the
+// pencil toggle — no need to remove and re-add to swap which exercise this is.
 function ExerciseCard({ ex, onChange, onRemove }) {
   const set = (k) => (v) => onChange({ ...ex, [k]: v })
   const toggleProg = (p) => onChange({ ...ex, progression: ex.progression.includes(p) ? ex.progression.filter((x) => x !== p) : [...ex.progression, p] })
   const toggleDone = () => onChange({ ...ex, done: !ex.done })
   const { isFav: isFavProg, toggle: toggleFavProg, sortWithFavs: sortProg } = useFavorites('rehab_progression')
+  const [changing, setChanging] = useState(false)
+  const [customRegions] = useState(() => getCustomRegions())
+  const [customTypes] = useState(() => getCustomTypes())
+
+  const regionOptions = [...REHAB_REGIONS, ...customRegions.filter((r) => !REHAB_REGIONS.includes(r))]
+  const typeOptions = typesForAnyRegion(ex.region, customTypes)
+  const nameOptions = exercisesForAnyMerged(ex.region, ex.type)
+
+  function changeRegion(r) {
+    const nextTypes = typesForAnyRegion(r, customTypes)
+    const keepType = nextTypes.includes(ex.type) ? ex.type : ''
+    const keepName = keepType && exercisesForAnyMerged(r, keepType).includes(ex.name) ? ex.name : ''
+    onChange({ ...ex, region: r, type: keepType, name: keepName })
+  }
+  function changeType(t) {
+    const keepName = exercisesForAnyMerged(ex.region, t).includes(ex.name) ? ex.name : ''
+    onChange({ ...ex, type: t, name: keepName })
+  }
 
   return (
     <div className={`rounded-2xl border-2 p-3.5 transition ${ex.done ? 'border-emerald-300 bg-emerald-50/60' : 'border-slate-200 bg-white'}`}>
       <div className="flex items-start justify-between gap-2">
-        <div>
-          <p className="font-bold text-slate-900">{ex.name}</p>
-          <p className="text-xs text-slate-400">{ex.region} · {ex.type}</p>
+        {changing ? (
+          <div className="grid flex-1 grid-cols-1 gap-2 sm:grid-cols-3">
+            <FavSelect favKey="rehab_region" value={ex.region} options={regionOptions} onChange={changeRegion} placeholder="Region" />
+            <FavSelect favKey="rehab_type" value={ex.type} options={typeOptions} onChange={changeType} placeholder="Type" />
+            <FavSelect favKey="rehab_exercise_pick" value={ex.name} options={nameOptions} onChange={set('name')} placeholder="Exercise" />
+          </div>
+        ) : (
+          <div>
+            <p className="font-bold text-slate-900">{ex.name}</p>
+            <p className="text-xs text-slate-400">{ex.region} · {ex.type}</p>
+          </div>
+        )}
+        <div className="flex shrink-0 items-center gap-1">
+          <button type="button" onClick={() => setChanging((v) => !v)} title="Change exercise" className={`grid h-7 w-7 place-items-center rounded-full ${changing ? 'bg-brand-100 text-brand-600' : 'text-slate-400 hover:bg-brand-50 hover:text-brand-600'}`}><Pencil size={14} /></button>
+          <button type="button" onClick={onRemove} className="grid h-7 w-7 place-items-center rounded-full text-slate-400 hover:bg-red-50 hover:text-red-500"><X size={16} /></button>
         </div>
-        <button type="button" onClick={onRemove} className="grid h-7 w-7 shrink-0 place-items-center rounded-full text-slate-400 hover:bg-red-50 hover:text-red-500"><X size={16} /></button>
       </div>
       <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
         <Field label="Sets"><FavSelect favKey="rehab_sets" value={ex.sets} options={SETS_OPTIONS.map(String)} onChange={set('sets')} /></Field>
@@ -417,10 +510,16 @@ function ExerciseCard({ ex, onChange, onRemove }) {
 // One day's editor: date, home-program flag, session-completed flag, and the
 // exercise list — always anchored BELOW the Add Exercise widget (stretches
 // grouped in their own sub-section, matching the clinic's paper sheets).
-function DayEditor({ day, canCopy, onCopyFromPrev, onChangeDay }) {
+function DayEditor({ day, allDays, onCopyFromDay, onOpenCrossPatientCopy, onChangeDay }) {
   const exercises = day.exercises || []
   const main = exercises.filter((e) => e.type !== 'Stretching')
   const stretches = exercises.filter((e) => e.type === 'Stretching')
+  const [copySource, setCopySource] = useState('')
+  const [templates, setTemplates] = useState([])
+  const [savingTemplate, setSavingTemplate] = useState(false)
+  const [templateName, setTemplateName] = useState('')
+
+  useEffect(() => watchRehabTemplates(setTemplates), [])
 
   function updateExercise(idx, updated) {
     const next = [...exercises]; next[idx] = updated
@@ -436,6 +535,23 @@ function DayEditor({ day, canCopy, onCopyFromPrev, onChangeDay }) {
     onChangeDay({ ...day, exercises: [...exercises, ...newOnes] })
   }
 
+  function copyFromPicked() {
+    if (!copySource) return
+    onCopyFromDay(Number(copySource))
+    setCopySource('')
+  }
+
+  async function saveAsTemplate() {
+    const n = templateName.trim(); if (!n || !exercises.length) return
+    try { await addRehabTemplate(n, exercises.map((e) => ({ ...e, done: false }))) } catch (_) { /* rules may need publishing */ }
+    setTemplateName(''); setSavingTemplate(false)
+  }
+  async function removeTemplate(id) {
+    if (!window.confirm('Delete this template?')) return
+    try { await deleteRehabTemplate(id) } catch (_) { /* rules may need publishing */ }
+  }
+
+  const otherDaysWithExercises = (allDays || []).filter((d) => d.day !== day.day && (d.exercises || []).length > 0)
   const existingNames = exercises.map((e) => e.name)
   const doneCount = exercises.filter((e) => e.done).length
 
@@ -452,10 +568,46 @@ function DayEditor({ day, canCopy, onCopyFromPrev, onChangeDay }) {
           Session completed
         </label>
         {exercises.length > 0 && <span className="mb-2.5 text-xs text-slate-400">{doneCount}/{exercises.length} exercises marked done</span>}
-        {canCopy && (
-          <button type="button" onClick={onCopyFromPrev} className="btn-outline mb-1.5 ml-auto text-xs"><Copy size={13} /> Copy from Day {day.day - 1}</button>
-        )}
       </div>
+
+      {/* Copy & Templates — reuse an existing day, another patient's plan, or a saved named set */}
+      <div className="flex flex-wrap items-center gap-2 rounded-xl border border-dashed border-slate-200 bg-slate-50/60 p-2.5">
+        <Copy size={14} className="shrink-0 text-slate-400" />
+        {otherDaysWithExercises.length > 0 && (
+          <>
+            <select className="input h-9 w-auto text-xs" value={copySource} onChange={(e) => setCopySource(e.target.value)}>
+              <option value="">Copy from day…</option>
+              {otherDaysWithExercises.map((d) => <option key={d.day} value={d.day}>Day {d.day} ({d.exercises.length} exercises)</option>)}
+            </select>
+            <button type="button" onClick={copyFromPicked} disabled={!copySource} className="btn-outline px-2.5 py-1.5 text-xs disabled:opacity-40">Copy</button>
+          </>
+        )}
+        <button type="button" onClick={onOpenCrossPatientCopy} className="btn-outline px-2.5 py-1.5 text-xs">Copy from another patient</button>
+        <div className="ml-auto flex flex-wrap items-center gap-1.5">
+          {savingTemplate ? (
+            <>
+              <input autoFocus className="input h-9 w-40 text-xs" value={templateName} onChange={(e) => setTemplateName(e.target.value)} placeholder="Template name…" onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); saveAsTemplate() } }} />
+              <button type="button" onClick={saveAsTemplate} className="btn-outline px-2.5 py-1.5 text-xs">Save</button>
+              <button type="button" onClick={() => setSavingTemplate(false)} className="grid h-7 w-7 place-items-center rounded-full text-slate-400 hover:bg-slate-100"><X size={14} /></button>
+            </>
+          ) : (
+            exercises.length > 0 && <button type="button" onClick={() => setSavingTemplate(true)} className="flex items-center gap-1 text-xs font-semibold text-brand-600 hover:underline"><LayoutTemplate size={13} /> Save this day as template</button>
+          )}
+        </div>
+      </div>
+      {templates.length > 0 && (
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="text-xs font-bold uppercase tracking-wide text-slate-400">Templates:</span>
+          {templates.map((t) => (
+            <span key={t.id} className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white py-1 pl-3 pr-1 text-xs">
+              <button type="button" onClick={() => addExercises(t.exercises.map((e) => ({ ...e, done: false })))} className="font-medium text-slate-700 hover:text-brand-600">
+                {t.name} <span className="text-slate-400">({t.exercises.length})</span>
+              </button>
+              <button type="button" onClick={() => removeTemplate(t.id)} className="grid h-5 w-5 place-items-center rounded-full text-slate-300 hover:bg-red-50 hover:text-red-500"><Trash2 size={11} /></button>
+            </span>
+          ))}
+        </div>
+      )}
 
       <AddExerciseWidget existingNames={existingNames} onAdd={addExercises} />
 
@@ -533,13 +685,14 @@ function PlanTips({ days, activeDayData }) {
   )
 }
 
-function RehabPlanner({ client, editId = '', onChangeClient, navigate }) {
+function RehabPlanner({ client, clients = [], editId = '', onChangeClient, navigate }) {
   const [plans, setPlans] = useState([])
   const [services, setServices] = useState([])
   const [form, setForm] = useState(blankPlan)
   const [activeDay, setActiveDay] = useState(1)
   const [billOpen, setBillOpen] = useState(false)
   const [showPerf, setShowPerf] = useState(false)
+  const [copyModalOpen, setCopyModalOpen] = useState(false)
   const [busy, setBusy] = useState(false)
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState('')
@@ -635,12 +788,21 @@ function RehabPlanner({ client, editId = '', onChangeClient, navigate }) {
 
   // Copies the PREVIOUS day's exercises (not always Day 1) — most plans build
   // day-on-day, so this is what actually saves re-entry each time. `done` is
-  // reset since it's a fresh day yet to be performed.
-  function copyFromPrevDay(dayNum) {
-    const prev = form.days.find((d) => d.day === dayNum - 1)
-    const target = form.days.find((d) => d.day === dayNum)
-    if (!prev || !target) return
-    updateDay(dayNum, { ...target, exercises: prev.exercises.map((e) => ({ ...e, done: false, progression: [...e.progression] })) })
+  // reset since it's a fresh day yet to be performed. Works from any day in
+  // the plan, not just the immediately previous one — always targets the
+  // currently active day, and confirms before overwriting existing work.
+  function copyFromDay(sourceDayNum) {
+    const src = form.days.find((d) => d.day === sourceDayNum)
+    if (!src || !activeDayData) return
+    if (activeDayData.exercises?.length > 0 && !window.confirm(`Replace Day ${activeDayData.day}'s current exercises with Day ${sourceDayNum}'s?`)) return
+    updateDay(activeDayData.day, { ...activeDayData, exercises: src.exercises.map((e) => ({ ...e, done: false, progression: [...e.progression] })) })
+  }
+
+  // Cross-patient copy: pull a specific day's exercises from ANY other
+  // patient's rehab history straight into the active day of this plan.
+  function applyExercisesToActiveDay(exercises) {
+    if (!activeDayData) return
+    updateDay(activeDayData.day, { ...activeDayData, exercises: [...(activeDayData.exercises || []), ...exercises] })
   }
 
   async function save(e) {
@@ -854,8 +1016,9 @@ function RehabPlanner({ client, editId = '', onChangeClient, navigate }) {
             {activeDayData && (
               <DayEditor
                 day={activeDayData}
-                canCopy={activeDayData.day !== 1 && (form.days.find((d) => d.day === activeDayData.day - 1)?.exercises.length > 0)}
-                onCopyFromPrev={() => copyFromPrevDay(activeDayData.day)}
+                allDays={form.days}
+                onCopyFromDay={copyFromDay}
+                onOpenCrossPatientCopy={() => setCopyModalOpen(true)}
                 onChangeDay={(updated) => updateDay(activeDayData.day, updated)}
               />
             )}
@@ -897,6 +1060,120 @@ function RehabPlanner({ client, editId = '', onChangeClient, navigate }) {
       )}
 
       {showPerf && <RehabPerformance client={client} plans={plans} onClose={() => setShowPerf(false)} />}
+      {copyModalOpen && (
+        <CopyFromPatientModal
+          clients={clients}
+          currentClientId={client.id}
+          onApply={applyExercisesToActiveDay}
+          onClose={() => setCopyModalOpen(false)}
+        />
+      )}
+    </div>
+  )
+}
+
+// Clone a specific day's exercises from ANY other patient's rehab history
+// straight into the active day here — search patient → pick a plan → pick a
+// day → copy. Complements named templates for one-off "do what I did for
+// this other patient" reuse.
+function CopyFromPatientModal({ clients, currentClientId, onApply, onClose }) {
+  const [q, setQ] = useState('')
+  const [pickedClientId, setPickedClientId] = useState('')
+  const [plans, setPlans] = useState([])
+  const [pickedPlanId, setPickedPlanId] = useState('')
+  const [pickedDay, setPickedDay] = useState('')
+
+  useEffect(() => {
+    if (!pickedClientId) { setPlans([]); return }
+    return watchRehabPlans(pickedClientId, setPlans)
+  }, [pickedClientId])
+
+  const otherClients = clients
+    .filter((c) => c.id !== currentClientId)
+    .filter((c) => !q || [c.name, c.clientId, c.phone].filter(Boolean).join(' ').toLowerCase().includes(q.toLowerCase()))
+    .slice(0, 20)
+  const pickedPlan = plans.find((p) => p.id === pickedPlanId)
+  const days = pickedPlan?.days || []
+
+  function pickClient(id) { setPickedClientId(id); setPickedPlanId(''); setPickedDay('') }
+  function pickPlan(id) { setPickedPlanId(id); setPickedDay('') }
+
+  function apply() {
+    const day = days.find((d) => String(d.day) === String(pickedDay))
+    if (!day) return
+    onApply((day.exercises || []).map((e) => ({ ...e, done: false, progression: [...e.progression] })))
+    onClose()
+  }
+
+  return (
+    <div className="fixed inset-0 z-[85] grid place-items-center bg-slate-900/50 p-4 backdrop-blur-sm">
+      <div className="max-h-[92vh] w-full max-w-lg animate-pop-in space-y-4 overflow-y-auto rounded-3xl bg-white p-6 shadow-2xl">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-bold text-slate-900">Copy from another patient</h2>
+          <button onClick={onClose} className="rounded-full p-1.5 text-slate-400 hover:bg-slate-100"><X size={20} /></button>
+        </div>
+
+        <div>
+          <label className="label text-xs">Patient</label>
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-3 top-3 text-slate-400" size={15} />
+            <input className="input pl-9" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search by name, phone or ID…" />
+          </div>
+          <div className="mt-1.5 max-h-40 overflow-y-auto rounded-xl border border-slate-200">
+            {otherClients.length === 0 ? (
+              <p className="px-3 py-2 text-sm text-slate-400">No matches.</p>
+            ) : otherClients.map((c) => (
+              <button
+                key={c.id} type="button" onClick={() => pickClient(c.id)}
+                className={`flex w-full items-center justify-between border-b border-slate-100 px-3 py-2 text-left text-sm last:border-0 hover:bg-brand-50 ${pickedClientId === c.id ? 'bg-brand-50 font-semibold text-brand-700' : ''}`}
+              >
+                <span>{c.name}</span><span className="text-xs text-slate-400">{c.clientId}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {pickedClientId && (
+          <div>
+            <label className="label text-xs">Plan</label>
+            {plans.length === 0 ? (
+              <p className="text-sm text-slate-400">This patient has no rehab plans yet.</p>
+            ) : (
+              <div className="space-y-1">
+                {plans.map((p) => (
+                  <button
+                    key={p.id} type="button" onClick={() => pickPlan(p.id)}
+                    className={`block w-full rounded-lg px-3 py-2 text-left text-sm ${pickedPlanId === p.id ? 'bg-brand-50 font-semibold text-brand-700' : 'text-slate-700 hover:bg-slate-50'}`}
+                  >
+                    {fmtDate(p.startDate)} · {p.totalDays} day{p.totalDays > 1 ? 's' : ''}{p.bill?.service ? ` · ${p.bill.service}` : ''}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {pickedPlan && (
+          <div>
+            <label className="label text-xs">Day</label>
+            <div className="flex flex-wrap gap-1.5">
+              {days.map((d) => (
+                <button
+                  key={d.day} type="button" onClick={() => setPickedDay(d.day)}
+                  className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${String(pickedDay) === String(d.day) ? 'bg-brand-600 text-white shadow' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                >
+                  Day {d.day} ({(d.exercises || []).length})
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div className="flex justify-end gap-2">
+          <button type="button" onClick={onClose} className="btn-ghost">Cancel</button>
+          <button type="button" onClick={apply} disabled={!pickedDay} className="btn-primary disabled:opacity-40"><Copy size={16} /> Copy exercises here</button>
+        </div>
+      </div>
     </div>
   )
 }

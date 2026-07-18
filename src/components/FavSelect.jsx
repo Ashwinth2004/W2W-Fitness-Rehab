@@ -1,15 +1,17 @@
 import { useEffect, useRef, useState } from 'react'
-import { ChevronDown, Star } from 'lucide-react'
+import { ChevronDown, Star, Pin } from 'lucide-react'
 import { useFavorites } from '../lib/useFavorites'
 
 // Single-select dropdown (string options) with a per-option favorite star —
-// favorited options sort to the top. Used throughout Rehab & Exercises so the
-// admin's most-used picks (a region, a rep count, a rest interval…) are one
-// click away instead of buried in a long list.
+// favorited options sort to the top — plus an explicit pin "Make default"
+// action. Favoriting already sets the default for new exercises (the most
+// recently starred value), but the pin makes that intent unambiguous and
+// works even when the option is already starred. Used throughout Rehab &
+// Exercises so the admin's most-used picks are one click away.
 export default function FavSelect({ favKey, value, options, onChange, placeholder = '— Select —', disabled, id }) {
   const [open, setOpen] = useState(false)
   const wrapRef = useRef(null)
-  const { isFav, toggle, sortWithFavs } = useFavorites(favKey)
+  const { isFav, toggle, makeDefault, latest, sortWithFavs } = useFavorites(favKey)
   const sorted = sortWithFavs(options)
 
   useEffect(() => {
@@ -48,6 +50,13 @@ export default function FavSelect({ favKey, value, options, onChange, placeholde
                   className={`flex-1 truncate rounded px-1 py-1.5 text-left ${value === o ? 'font-semibold text-brand-700' : 'text-slate-700'} hover:bg-brand-50`}
                 >
                   {o}
+                </button>
+                <button
+                  type="button" title={latest === o ? 'Default for new exercises' : 'Make default for new exercises'}
+                  onClick={(e) => { e.stopPropagation(); makeDefault(o) }}
+                  className={`grid h-7 w-7 shrink-0 place-items-center rounded ${latest === o ? 'text-brand-600' : 'text-slate-300 hover:bg-brand-50 hover:text-brand-500'}`}
+                >
+                  <Pin size={13} className={latest === o ? 'fill-brand-100' : ''} />
                 </button>
               </li>
             ))}

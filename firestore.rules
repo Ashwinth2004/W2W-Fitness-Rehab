@@ -140,5 +140,7 @@ service cloud.firestore {
     match /expenseCategories/{id} { allow read, write: if isFullAdmin(); }
     // Service charges (name + amount) for the Accounting charges dropdown.
     match /serviceCharges/{id} { allow read, write: if isFullAdmin(); }
+    // Reusable named rehab exercise-set templates (Rehab & Exercises module) → any admin.
+    match /rehabTemplates/{id} { allow read, write: if isAdmin(); }
   }
 }

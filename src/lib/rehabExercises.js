@@ -126,7 +126,7 @@ export function exercisesFor(region, type) {
 // ---- Prescription option lists --------------------------------------------
 export const SETS_OPTIONS = [1, 2, 3, 4, 5]
 export const REPS_OPTIONS = Array.from({ length: 26 }, (_, i) => i + 5) // 5..30
-export const HOLD_OPTIONS = ['None', '5 sec', '10 sec', '15 sec', '20 sec', '30 sec']
+export const HOLD_OPTIONS = ['None', '5 sec', '5-10 sec', '10 sec', '10-15 sec', '15 sec', '15-20 sec', '20 sec', '20-30 sec', '30 sec']
 export const RESISTANCE_OPTIONS = ['Bodyweight', 'Band', 'Dumbbell', 'Barbell', 'Machine', 'Ankle weights']
 export const FREQUENCY_OPTIONS = ['Daily', 'Alternate Days', '2× Week', '3× Week', '4× Week', '5× Week']
 export const REST_OPTIONS = ['15 sec', '30 sec', '45 sec', '60 sec', '90 sec']
@@ -139,7 +139,7 @@ export const PROGRESSION_OPTIONS = [
 export function blankPrescription(region, type, name) {
   return {
     region, type, name,
-    sets: '3', reps: '10', hold: 'None', resistance: 'Bodyweight', frequency: 'Daily', rest: '30 sec',
+    sets: '2', reps: '2', hold: '10-15 sec', resistance: 'Bodyweight', frequency: 'Daily', rest: '30 sec',
     notes: '', progression: [], done: false,
   }
 }

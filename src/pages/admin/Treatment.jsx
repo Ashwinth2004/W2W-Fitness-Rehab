@@ -1,14 +1,15 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { Stethoscope, Search, Loader2, Save, ArrowRight, Plus, CheckCircle2, BadgeCheck, IndianRupee, Sparkles } from 'lucide-react'
+import { Stethoscope, Search, Loader2, Save, ArrowRight, Plus, CheckCircle2, BadgeCheck, IndianRupee, Sparkles, Send, FileDown } from 'lucide-react'
 import {
   watchClients, watchTreatments, addTreatment, updateTreatment, watchServiceCharges,
-  setAccountingForTreatment, deleteAccountingForTreatment,
+  setAccountingForTreatment, deleteAccountingForTreatment, getClientNotesOnce,
 } from '../../lib/firestore'
 import { CLINICAL_SECTIONS, CLINICAL_KEYS, formatAssessmentValue } from '../../lib/assessmentSchema'
 import { todayISO, fmtDate } from '../../lib/format'
 import { onlyDigits } from '../../lib/validate'
 import { parseAssessment } from '../../lib/smartFill'
+import { generateClientReport } from '../../lib/pdf'
 import DateField from '../../components/DateField'
 import AssessmentField from '../../components/AssessmentField'
 import VasScale from '../../components/VasScale'
@@ -191,6 +192,8 @@ function TreatmentForm({ client, editId = '', onChangeClient, navigate }) {
   const [aiBusy, setAiBusy] = useState(false)
   const [busy, setBusy] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [reportBusy, setReportBusy] = useState('')
+  const [reportMsg, setReportMsg] = useState('')
   const [error, setError] = useState('')
   const [therapistInvalid, setTherapistInvalid] = useState(false)
   const { setDirty, guard } = useUnsaved()
@@ -320,6 +323,27 @@ function TreatmentForm({ client, editId = '', onChangeClient, navigate }) {
     setBusy(false)
   }
 
+  // Send/Download the client report right from here — same PDF/share engine as
+  // the Client profile's Report modal, so no extra navigation is needed after
+  // saving. Includes the client's full session history, same as that modal's default.
+  async function sendOrDownloadReport(action) {
+    setReportBusy(action); setReportMsg('')
+    try {
+      const notes = await getClientNotesOnce(client.id)
+      const sessions = [...treatments].sort((a, b) => (a.date || '').localeCompare(b.date || ''))
+      const baseClient = { ...client, assessmentDate: sessions[0]?.date || todayISO() }
+      const reportBill = billBalance >= 0 && (Number(bill.amount) > 0 || Number(bill.paid) > 0)
+        ? { amount: Number(bill.amount) || 0, paid: Number(bill.paid) || 0, balance: billBalance, mode: bill.mode }
+        : null
+      const res = await generateClientReport(baseClient, { notes, progress: [], therapist, bill: reportBill, action, sessions, signature: null })
+      setReportMsg(res === 'shared' ? 'Report shared.' : res === 'downloaded' ? 'Report downloaded.' : '')
+    } catch (err) {
+      console.error('report failed:', err)
+      setReportMsg('Could not generate the report. Please try again.')
+    }
+    setReportBusy('')
+  }
+
   if (saved) {
     return (
       <div className="space-y-5">
@@ -329,10 +353,13 @@ function TreatmentForm({ client, editId = '', onChangeClient, navigate }) {
           <h2 className="mt-3 text-xl font-bold">{editId ? 'Treatment updated' : 'Treatment saved'}</h2>
           <p className="mt-1 text-slate-500">Session {editId ? 'updated' : 'recorded'} for {client.name} ({client.clientId}).</p>
           <div className="mt-6 flex flex-wrap justify-center gap-2">
-            <Link to={`/admin/clients/${client.id}`} className="btn-primary">Open patient &amp; generate report <ArrowRight size={16} /></Link>
+            <Link to={`/admin/clients/${client.id}`} className="btn-primary">Open patient page <ArrowRight size={16} /></Link>
+            <button onClick={() => sendOrDownloadReport('share')} disabled={!!reportBusy} className="btn-outline">{reportBusy === 'share' ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />} Send report</button>
+            <button onClick={() => sendOrDownloadReport('download')} disabled={!!reportBusy} className="btn-outline">{reportBusy === 'download' ? <Loader2 size={16} className="animate-spin" /> : <FileDown size={16} />} Download report</button>
             <button onClick={() => { if (editId) navigate(`/admin/treatment?client=${client.id}`); else { setForm(blank()); setNextSession(''); setBill({ service: client.service || '', amount: '', paid: '', mode: 'Cash' }); setSaved(false) } }} className="btn-outline">Add another session</button>
             <button onClick={onChangeClient} className="btn-ghost">Another patient</button>
           </div>
+          {reportMsg && <p className="mt-3 text-sm text-slate-500">{reportMsg}</p>}
         </div>
       </div>
     )
