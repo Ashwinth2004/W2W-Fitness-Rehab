@@ -7,14 +7,19 @@ import {
 import {
   watchClients, addRehabPlan, updateRehabPlan, watchRehabPlans, deleteRehabPlan,
   watchServiceCharges, ensureRehabPackagesSeeded, setAccountingForRehabPlan, deleteAccountingForRehabPlan,
-  watchRehabTemplates, addRehabTemplate, deleteRehabTemplate, updateClient,
+  watchRehabTemplates, addRehabTemplate, updateRehabTemplate, deleteRehabTemplate, updateClient,
 } from '../../lib/firestore'
 import {
   REHAB_REGIONS, REGION_TYPES, WHOLE_BODY_TYPES, typesForRegion, exercisesFor, SETS_OPTIONS, REPS_OPTIONS, HOLD_OPTIONS,
   RESISTANCE_OPTIONS, FREQUENCY_OPTIONS, REST_OPTIONS, PROGRESSION_OPTIONS, blankPrescription, BALANCE_LEVEL,
 } from '../../lib/rehabExercises'
-import { getCustomExercises, addCustomExercise } from '../../lib/customExercises'
-import { getCustomRegions, addCustomRegion, getCustomTypes, addCustomType } from '../../lib/customTaxonomy'
+import {
+  getCustomExercises, addCustomExercise, updateCustomExercise, deleteCustomExercise,
+} from '../../lib/customExercises'
+import {
+  getCustomRegions, addCustomRegion, updateCustomRegion, deleteCustomRegion,
+  getCustomTypes, addCustomType, updateCustomType, deleteCustomType,
+} from '../../lib/customTaxonomy'
 import { useFavorites } from '../../lib/useFavorites'
 import PatientAvatar from '../../components/PatientAvatar'
 import { todayISO, fmtDate, addDaysISO } from '../../lib/format'
@@ -53,6 +58,16 @@ function isPlanComplete(p) {
   return days.length > 0 && days.every((d) => d.completed)
 }
 
+// Templates are stored as { name, days: [{ day, exercises }] }. Older
+// templates saved before this schema (flat { exercises }) still work —
+// treated as a single Day 1.
+function templateDays(t) {
+  return t?.days?.length ? t.days : (t?.exercises ? [{ day: 1, exercises: t.exercises }] : [])
+}
+function templateExerciseCount(t) {
+  return templateDays(t).reduce((s, d) => s + (d.exercises?.length || 0), 0)
+}
+
 // Placeholder shown on any deployed/production build (see REHAB_MODULE_LIVE).
 // The nav link and route are real — only the content is a "coming soon" note
 // — so the client-facing site never exposes the in-progress workflow.
@@ -82,6 +97,7 @@ function RehabApp() {
   const [clients, setClients] = useState([])
   const [params, setParams] = useSearchParams()
   const [showForm, setShowForm] = useState(false)
+  const [showTemplates, setShowTemplates] = useState(false)
   const navigate = useNavigate()
 
   useEffect(() => watchClients(setClients), [])
@@ -93,7 +109,9 @@ function RehabApp() {
     return (
       <div className="space-y-5">
         <AdminPageHeader title="Rehab & Exercises">
-          {showForm && <button onClick={() => setShowForm(false)} className="text-sm font-medium text-brand-600 hover:underline">Back to patient list</button>}
+          {(showForm || showTemplates) && (
+            <button onClick={() => { setShowForm(false); setShowTemplates(false) }} className="text-sm font-medium text-brand-600 hover:underline">Back to patient list</button>
+          )}
         </AdminPageHeader>
         {showForm ? (
           <ClientForm
@@ -102,8 +120,10 @@ function RehabApp() {
             onCreated={(id) => { setShowForm(false); setParams({ client: id }) }}
             onClose={() => setShowForm(false)}
           />
+        ) : showTemplates ? (
+          <RehabTemplateManager onClose={() => setShowTemplates(false)} />
         ) : (
-          <RehabClientPicker clients={clients} onPick={(id) => setParams({ client: id })} onNew={() => setShowForm(true)} />
+          <RehabClientPicker clients={clients} onPick={(id) => setParams({ client: id })} onNew={() => setShowForm(true)} onTemplates={() => setShowTemplates(true)} />
         )}
       </div>
     )
@@ -134,7 +154,7 @@ function RehabApp() {
 
 const isRehabClient = (c) => Array.isArray(c?.programs) && c.programs.includes('W2W Fitness & Rehab')
 
-function RehabClientPicker({ clients, onPick, onNew, note }) {
+function RehabClientPicker({ clients, onPick, onNew, onTemplates, note }) {
   const [q, setQ] = useState('')
   // Default to rehab-registered patients only — showing every Treatment-only
   // client here too was cluttered and easy to mis-pick. "Show all clients"
@@ -171,6 +191,20 @@ function RehabClientPicker({ clients, onPick, onNew, note }) {
           <button onClick={onNew} className="btn-outline shrink-0"><Plus size={16} /> Register new patient</button>
         </div>
       </div>
+
+      {onTemplates && (
+        <button
+          type="button" onClick={onTemplates}
+          className="card flex w-full items-center gap-3 p-4 text-left transition hover:shadow-soft hover:ring-1 hover:ring-brand-200 sm:p-5"
+        >
+          <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-brand-50 text-brand-600"><LayoutTemplate size={22} /></div>
+          <div className="min-w-0 flex-1">
+            <p className="font-bold text-slate-900">Create Rehab Templates</p>
+            <p className="text-sm text-slate-500">Build multi-day exercise templates from scratch — use them on any patient's plan later.</p>
+          </div>
+          <ArrowRight size={18} className="shrink-0 text-slate-300" />
+        </button>
+      )}
 
       {clients.length === 0 ? (
         <p className="card py-12 text-center text-sm text-slate-400">No patients yet. Register your first patient above.</p>
@@ -240,38 +274,157 @@ function StarChip({ label, active, fav, disabled, onToggleFav, onClick }) {
   )
 }
 
-// An inline "add your own" control — a dashed pill that expands into a text
-// box + confirm/cancel. Shared by the Region, Type and per-group Exercise
-// custom-add rows so a brand new one can be typed in without leaving the chip row.
-function AddOwnChip({ placeholder, onAdd }) {
-  const [open, setOpen] = useState(false)
-  const [draft, setDraft] = useState('')
-  function submit() {
-    const n = draft.trim(); if (!n) return
-    onAdd(n)
-    setDraft(''); setOpen(false)
-  }
-  if (!open) {
+// A small inline rename/delete row shared by the Region/Type/Exercise lists
+// inside the "Add your own" popup.
+function EditableChip({ label, editing, editVal, onStartEdit, onEditChange, onSaveEdit, onCancelEdit, onDelete }) {
+  if (editing) {
     return (
-      <button
-        type="button" onClick={() => setOpen(true)}
-        className="inline-flex items-center gap-1 rounded-full border border-dashed border-brand-300 bg-white px-3 py-1.5 text-xs font-medium text-brand-600 hover:bg-brand-50"
-      >
-        <Wand2 size={12} /> Add your own
-      </button>
+      <span className="inline-flex items-center gap-1 rounded-full border border-brand-400 bg-white py-1 pl-2.5 pr-1">
+        <input
+          autoFocus className="w-28 border-0 bg-transparent text-xs focus:outline-none sm:w-36" value={editVal}
+          onChange={(e) => onEditChange(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); onSaveEdit() } if (e.key === 'Escape') onCancelEdit() }}
+        />
+        <button type="button" onClick={onSaveEdit} className="grid h-6 w-6 shrink-0 place-items-center rounded-full text-brand-600 hover:bg-brand-50"><Check size={13} /></button>
+        <button type="button" onClick={onCancelEdit} className="grid h-6 w-6 shrink-0 place-items-center rounded-full text-slate-400 hover:bg-slate-100"><X size={13} /></button>
+      </span>
     )
   }
   return (
-    <span className="inline-flex items-center gap-1 rounded-full border border-dashed border-brand-400 bg-white py-1 pl-2.5 pr-1">
-      <input
-        autoFocus className="w-28 border-0 bg-transparent text-xs focus:outline-none sm:w-36" value={draft}
-        onChange={(e) => setDraft(e.target.value)}
-        onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); submit() } if (e.key === 'Escape') { setOpen(false); setDraft('') } }}
-        placeholder={placeholder}
-      />
-      <button type="button" onClick={submit} className="grid h-6 w-6 shrink-0 place-items-center rounded-full text-brand-600 hover:bg-brand-50"><Check size={13} /></button>
-      <button type="button" onClick={() => { setOpen(false); setDraft('') }} className="grid h-6 w-6 shrink-0 place-items-center rounded-full text-slate-400 hover:bg-slate-100"><X size={13} /></button>
+    <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 py-1 pl-3 pr-1 text-xs font-medium text-slate-700">
+      {label}
+      <button type="button" onClick={onStartEdit} title="Rename" className="grid h-5 w-5 shrink-0 place-items-center rounded-full text-slate-400 hover:bg-white hover:text-brand-600"><Pencil size={11} /></button>
+      <button type="button" onClick={onDelete} title="Delete" className="grid h-5 w-5 shrink-0 place-items-center rounded-full text-slate-400 hover:bg-white hover:text-red-500"><Trash2 size={11} /></button>
     </span>
+  )
+}
+
+// "Add your own" — a single popup for creating custom regions, exercise
+// types and exercises (with rename/delete for anything the admin created).
+// Saves land in the same stores AddExerciseWidget already reads, so the
+// normal Region → Type → Exercises flow shows them automatically afterward.
+function CustomTaxonomyModal({ onClose, onChanged }) {
+  const [regions, setRegions] = useState(() => getCustomRegions())
+  const [types, setTypes] = useState(() => getCustomTypes())
+  const [regionDraft, setRegionDraft] = useState('')
+  const [typeDraft, setTypeDraft] = useState('')
+  const [editingRegion, setEditingRegion] = useState(null)
+  const [editingType, setEditingType] = useState(null)
+  const [expandedType, setExpandedType] = useState('')
+  const [exDraft, setExDraft] = useState('')
+  const [editingEx, setEditingEx] = useState(null)
+  const [, forceTick] = useState(0)
+
+  function refresh() { setRegions(getCustomRegions()); setTypes(getCustomTypes()); onChanged?.() }
+  function refreshExercises() { forceTick((t) => t + 1); onChanged?.() }
+
+  function addRegion() { const n = regionDraft.trim(); if (!n) return; addCustomRegion(n); setRegionDraft(''); refresh() }
+  function saveRegionEdit() { updateCustomRegion(editingRegion.old, editingRegion.val); setEditingRegion(null); refresh() }
+  function removeRegion(r) { if (!window.confirm(`Delete custom region "${r}"? Exercises already saved with this region keep their data.`)) return; deleteCustomRegion(r); refresh() }
+
+  function addType() { const n = typeDraft.trim(); if (!n) return; addCustomType(n); setTypeDraft(''); refresh() }
+  function saveTypeEdit() { updateCustomType(editingType.old, editingType.val); setEditingType(null); refresh() }
+  function removeType(t) { if (!window.confirm(`Delete custom type "${t}"?`)) return; deleteCustomType(t); if (expandedType === t) setExpandedType(''); refresh() }
+
+  function addExercise() {
+    const n = exDraft.trim(); if (!n || !expandedType) return
+    addCustomExercise(expandedType, n); setExDraft(''); refreshExercises()
+  }
+  function saveExEdit() { updateCustomExercise(editingEx.type, editingEx.old, editingEx.val); setEditingEx(null); refreshExercises() }
+  function removeExercise(type, name) { if (!window.confirm(`Delete exercise "${name}"?`)) return; deleteCustomExercise(type, name); refreshExercises() }
+
+  return (
+    <div className="fixed inset-0 z-[90] grid place-items-center bg-slate-900/50 p-4 backdrop-blur-sm">
+      <div className="max-h-[92vh] w-full max-w-2xl animate-pop-in space-y-5 overflow-y-auto rounded-3xl bg-white p-6 shadow-2xl">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-lg font-bold text-slate-900">Add your own — Region, Type &amp; Exercises</h2>
+            <p className="text-sm text-slate-500">Create a custom region, its types, and the exercises under each — they'll appear in the normal picker automatically.</p>
+          </div>
+          <button onClick={onClose} className="rounded-full p-1.5 text-slate-400 hover:bg-slate-100"><X size={20} /></button>
+        </div>
+
+        <div>
+          <label className="label text-xs">1. Region name</label>
+          <div className="flex gap-2">
+            <input className="input" value={regionDraft} onChange={(e) => setRegionDraft(e.target.value)} placeholder="e.g. Jaw / TMJ" onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addRegion() } }} />
+            <button type="button" onClick={addRegion} className="btn-primary shrink-0">Add</button>
+          </div>
+          {regions.length > 0 && (
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {regions.map((r) => (
+                <EditableChip
+                  key={r} label={r}
+                  editing={editingRegion?.old === r} editVal={editingRegion?.val ?? ''}
+                  onStartEdit={() => setEditingRegion({ old: r, val: r })}
+                  onEditChange={(v) => setEditingRegion({ old: r, val: v })}
+                  onSaveEdit={saveRegionEdit} onCancelEdit={() => setEditingRegion(null)}
+                  onDelete={() => removeRegion(r)}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div>
+          <label className="label text-xs">2. Exercise type(s)</label>
+          <div className="flex gap-2">
+            <input className="input" value={typeDraft} onChange={(e) => setTypeDraft(e.target.value)} placeholder="e.g. Manual Therapy" onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addType() } }} />
+            <button type="button" onClick={addType} className="btn-primary shrink-0">Add</button>
+          </div>
+          {types.length > 0 && (
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {types.map((t) => (
+                <EditableChip
+                  key={t} label={t}
+                  editing={editingType?.old === t} editVal={editingType?.val ?? ''}
+                  onStartEdit={() => setEditingType({ old: t, val: t })}
+                  onEditChange={(v) => setEditingType({ old: t, val: v })}
+                  onSaveEdit={saveTypeEdit} onCancelEdit={() => setEditingType(null)}
+                  onDelete={() => removeType(t)}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+
+        {types.length > 0 && (
+          <div>
+            <label className="label text-xs">3. Exercises — pick a type to manage its list</label>
+            <div className="flex flex-wrap gap-1.5">
+              {types.map((t) => (
+                <button key={t} type="button" onClick={() => setExpandedType((v) => (v === t ? '' : t))} className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${expandedType === t ? 'bg-brand-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>{t}</button>
+              ))}
+            </div>
+            {expandedType && (
+              <div className="mt-2 rounded-xl bg-slate-50 p-3">
+                <div className="flex gap-2">
+                  <input className="input h-9 text-sm" value={exDraft} onChange={(e) => setExDraft(e.target.value)} placeholder={`Exercise for ${expandedType}…`} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addExercise() } }} />
+                  <button type="button" onClick={addExercise} className="btn-outline shrink-0 text-xs">Add</button>
+                </div>
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {getCustomExercises(expandedType).map((ex) => (
+                    <EditableChip
+                      key={ex} label={ex}
+                      editing={editingEx?.type === expandedType && editingEx?.old === ex} editVal={editingEx?.val ?? ''}
+                      onStartEdit={() => setEditingEx({ type: expandedType, old: ex, val: ex })}
+                      onEditChange={(v) => setEditingEx({ type: expandedType, old: ex, val: v })}
+                      onSaveEdit={saveExEdit} onCancelEdit={() => setEditingEx(null)}
+                      onDelete={() => removeExercise(expandedType, ex)}
+                    />
+                  ))}
+                  {getCustomExercises(expandedType).length === 0 && <p className="text-xs text-slate-400">No exercises yet for {expandedType}.</p>}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        <div className="flex justify-end">
+          <button type="button" onClick={onClose} className="btn-primary">Done</button>
+        </div>
+      </div>
+    </div>
   )
 }
 
@@ -306,7 +459,8 @@ function AddExerciseWidget({ existingNames, onAdd }) {
   const [checked, setChecked] = useState([]) // [{ region, type, name }]
   const [customRegions, setCustomRegions] = useState(() => getCustomRegions())
   const [customTypes, setCustomTypes] = useState(() => getCustomTypes())
-  const [tick, setTick] = useState(0) // bumped after a custom exercise is added, to refresh per-type lists
+  const [customModalOpen, setCustomModalOpen] = useState(false)
+  const [, forceTick] = useState(0) // bumped after a custom exercise is added, to refresh per-type lists
 
   const regionOptions = sortRegions([...REHAB_REGIONS, ...customRegions.filter((r) => !REHAB_REGIONS.includes(r))])
   const typeOptions = sortTypes([...new Set(selectedRegions.flatMap((r) => typesForAnyRegion(r, customTypes)))])
@@ -325,9 +479,9 @@ function AddExerciseWidget({ existingNames, onAdd }) {
   }
   const isChecked = (region, type, name) => checked.some((e) => e.region === region && e.type === type && e.name === name)
 
-  function addOwnRegion(name) { addCustomRegion(name); setCustomRegions(getCustomRegions()); setSelectedRegions((rs) => [...rs, name]) }
-  function addOwnType(name) { addCustomType(name); setCustomTypes(getCustomTypes()); setSelectedTypes((ts) => [...ts, name]) }
-  function addOwnExercise(region, type, name) { addCustomExercise(type, name); setTick((t) => t + 1); toggleExercise(region, type, name) }
+  // The "Add your own" popup writes straight into the shared custom stores —
+  // refresh what this widget reads once it's closed (or on each change).
+  function refreshCustom() { setCustomRegions(getCustomRegions()); setCustomTypes(getCustomTypes()); forceTick((t) => t + 1) }
 
   // One visible group per valid region+type combination actually in play.
   const groups = selectedRegions.flatMap((region) =>
@@ -353,7 +507,12 @@ function AddExerciseWidget({ existingNames, onAdd }) {
 
   return (
     <div className="space-y-3 rounded-2xl border-2 border-dashed border-brand-300 bg-brand-50/50 p-3 sm:p-4">
-      <p className="flex items-center gap-1.5 text-xs font-extrabold uppercase tracking-wide text-brand-700"><Plus size={14} /> Add exercise — pick as many as you need</p>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="flex items-center gap-1.5 text-xs font-extrabold uppercase tracking-wide text-brand-700"><Plus size={14} /> Add exercise — pick as many as you need</p>
+        <button type="button" onClick={() => setCustomModalOpen(true)} className="inline-flex items-center gap-1 rounded-full border border-dashed border-brand-300 bg-white px-3 py-1.5 text-xs font-medium text-brand-600 hover:bg-brand-50">
+          <Wand2 size={12} /> Add your own (Region / Type / Exercise)
+        </button>
+      </div>
 
       <div>
         <label className="label flex items-center gap-1 text-xs"><MapPin size={12} /> 1. Region(s) — tap all that apply</label>
@@ -361,7 +520,6 @@ function AddExerciseWidget({ existingNames, onAdd }) {
           {regionOptions.map((r) => (
             <StarChip key={r} label={r} active={selectedRegions.includes(r)} fav={isFavRegion(r)} onToggleFav={() => toggleFavRegion(r)} onClick={() => toggleRegion(r)} />
           ))}
-          <AddOwnChip placeholder="Region name…" onAdd={addOwnRegion} />
         </div>
       </div>
 
@@ -372,7 +530,6 @@ function AddExerciseWidget({ existingNames, onAdd }) {
             {typeOptions.map((t) => (
               <StarChip key={t} label={t} active={selectedTypes.includes(t)} fav={isFavType(t)} onToggleFav={() => toggleFavType(t)} onClick={() => toggleType(t)} />
             ))}
-            <AddOwnChip placeholder="Type name…" onAdd={addOwnType} />
           </div>
         </div>
       )}
@@ -382,25 +539,28 @@ function AddExerciseWidget({ existingNames, onAdd }) {
           <label className="label flex items-center gap-1 text-xs"><ListChecks size={12} /> 3. Exercises — tap all that apply</label>
           {groups.map(({ region, type }) => {
             const builtIn = exercisesFor(region, type)
-            const custom = getCustomExercises(type) // read fresh each render; `tick` state forces the re-render after an add
+            const custom = getCustomExercises(type) // read fresh each render; forceTick triggers the re-render after an add
             const exercises = sortEx([...builtIn, ...custom.filter((c) => !builtIn.includes(c))])
             return (
               <div key={`${region}|${type}`} className="rounded-xl bg-white/60 p-2.5 ring-1 ring-brand-100">
                 <p className="mb-1.5 text-[11px] font-bold uppercase tracking-wide text-brand-500">{region} · {type}</p>
-                <div className="flex flex-wrap items-center gap-1.5">
-                  {exercises.map((name) => (
-                    <StarChip
-                      key={name}
-                      label={name + (type === 'Balance' && BALANCE_LEVEL[name] ? ` (${BALANCE_LEVEL[name]})` : '')}
-                      active={isChecked(region, type, name)}
-                      fav={isFavEx(name)}
-                      disabled={existingNames.includes(name)}
-                      onToggleFav={() => toggleFavEx(name)}
-                      onClick={() => toggleExercise(region, type, name)}
-                    />
-                  ))}
-                  <AddOwnChip placeholder="Exercise name…" onAdd={(name) => addOwnExercise(region, type, name)} />
-                </div>
+                {exercises.length === 0 ? (
+                  <p className="text-xs text-slate-400">No exercises yet for this combination — use "Add your own" above.</p>
+                ) : (
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    {exercises.map((name) => (
+                      <StarChip
+                        key={name}
+                        label={name + (type === 'Balance' && BALANCE_LEVEL[name] ? ` (${BALANCE_LEVEL[name]})` : '')}
+                        active={isChecked(region, type, name)}
+                        fav={isFavEx(name)}
+                        disabled={existingNames.includes(name)}
+                        onToggleFav={() => toggleFavEx(name)}
+                        onClick={() => toggleExercise(region, type, name)}
+                      />
+                    ))}
+                  </div>
+                )}
               </div>
             )
           })}
@@ -411,6 +571,10 @@ function AddExerciseWidget({ existingNames, onAdd }) {
         <button type="button" onClick={addChecked} className="btn-primary text-sm">
           <Plus size={15} /> Add {checked.length} exercise{checked.length > 1 ? 's' : ''}
         </button>
+      )}
+
+      {customModalOpen && (
+        <CustomTaxonomyModal onChanged={refreshCustom} onClose={() => { refreshCustom(); setCustomModalOpen(false) }} />
       )}
     </div>
   )
@@ -429,7 +593,7 @@ function exercisesForAnyMerged(region, type) {
 // progression, plus a bold "Mark as Completed" action for follow-up tracking.
 // The exercise's identity (region/type/name) is editable in place via the
 // pencil toggle — no need to remove and re-add to swap which exercise this is.
-function ExerciseCard({ ex, onChange, onRemove }) {
+function ExerciseCard({ ex, onChange, onRemove, hideDone }) {
   const set = (k) => (v) => onChange({ ...ex, [k]: v })
   const toggleProg = (p) => onChange({ ...ex, progression: ex.progression.includes(p) ? ex.progression.filter((x) => x !== p) : [...ex.progression, p] })
   const toggleDone = () => onChange({ ...ex, done: !ex.done })
@@ -494,15 +658,17 @@ function ExerciseCard({ ex, onChange, onRemove }) {
         </div>
       </div>
 
-      <button
-        type="button" onClick={toggleDone}
-        className={`mt-3.5 flex w-full items-center justify-center gap-2 rounded-xl border-2 py-2.5 text-sm font-extrabold uppercase tracking-wide transition ${
-          ex.done ? 'border-emerald-500 bg-emerald-500 text-white shadow-md shadow-emerald-200' : 'border-dashed border-slate-300 text-slate-400 hover:border-emerald-400 hover:bg-emerald-50 hover:text-emerald-600'
-        }`}
-      >
-        {ex.done ? <CheckCircle2 size={18} /> : <Circle size={18} />}
-        {ex.done ? 'Completed' : 'Mark as Completed'}
-      </button>
+      {!hideDone && (
+        <button
+          type="button" onClick={toggleDone}
+          className={`mt-3.5 flex w-full items-center justify-center gap-2 rounded-xl border-2 py-2.5 text-sm font-extrabold uppercase tracking-wide transition ${
+            ex.done ? 'border-emerald-500 bg-emerald-500 text-white shadow-md shadow-emerald-200' : 'border-dashed border-slate-300 text-slate-400 hover:border-emerald-400 hover:bg-emerald-50 hover:text-emerald-600'
+          }`}
+        >
+          {ex.done ? <CheckCircle2 size={18} /> : <Circle size={18} />}
+          {ex.done ? 'Completed' : 'Mark as Completed'}
+        </button>
+      )}
     </div>
   )
 }
@@ -510,7 +676,7 @@ function ExerciseCard({ ex, onChange, onRemove }) {
 // One day's editor: date, home-program flag, session-completed flag, and the
 // exercise list — always anchored BELOW the Add Exercise widget (stretches
 // grouped in their own sub-section, matching the clinic's paper sheets).
-function DayEditor({ day, allDays, onCopyFromDay, onOpenCrossPatientCopy, onChangeDay }) {
+function DayEditor({ day, allDays, onCopyFromDay, onOpenCrossPatientCopy, onApplyFullTemplate, onChangeDay }) {
   const exercises = day.exercises || []
   const main = exercises.filter((e) => e.type !== 'Stretching')
   const stretches = exercises.filter((e) => e.type === 'Stretching')
@@ -518,6 +684,8 @@ function DayEditor({ day, allDays, onCopyFromDay, onOpenCrossPatientCopy, onChan
   const [templates, setTemplates] = useState([])
   const [savingTemplate, setSavingTemplate] = useState(false)
   const [templateName, setTemplateName] = useState('')
+  const [renamingId, setRenamingId] = useState(null)
+  const [renameVal, setRenameVal] = useState('')
 
   useEffect(() => watchRehabTemplates(setTemplates), [])
 
@@ -543,12 +711,24 @@ function DayEditor({ day, allDays, onCopyFromDay, onOpenCrossPatientCopy, onChan
 
   async function saveAsTemplate() {
     const n = templateName.trim(); if (!n || !exercises.length) return
-    try { await addRehabTemplate(n, exercises.map((e) => ({ ...e, done: false }))) } catch (_) { /* rules may need publishing */ }
+    try { await addRehabTemplate(n, [{ day: 1, exercises: exercises.map((e) => ({ ...e, done: false })) }]) } catch (_) { /* rules may need publishing */ }
     setTemplateName(''); setSavingTemplate(false)
+  }
+  async function renameTemplate(id) {
+    const n = renameVal.trim(); if (!n) return
+    try { await updateRehabTemplate(id, { name: n }) } catch (_) { /* rules may need publishing */ }
+    setRenamingId(null)
   }
   async function removeTemplate(id) {
     if (!window.confirm('Delete this template?')) return
     try { await deleteRehabTemplate(id) } catch (_) { /* rules may need publishing */ }
+  }
+  // Single-day quick-apply — brings just the template's Day 1 exercises into
+  // the current day. Multi-day templates also get "Apply full plan" (below),
+  // which populates the whole plan from Day 1 via onApplyFullTemplate.
+  function applyTemplateDay1(t) {
+    const first = templateDays(t)[0]
+    if (first) addExercises((first.exercises || []).map((e) => ({ ...e, done: false })))
   }
 
   const otherDaysWithExercises = (allDays || []).filter((d) => d.day !== day.day && (d.exercises || []).length > 0)
@@ -598,14 +778,27 @@ function DayEditor({ day, allDays, onCopyFromDay, onOpenCrossPatientCopy, onChan
       {templates.length > 0 && (
         <div className="flex flex-wrap items-center gap-1.5">
           <span className="text-xs font-bold uppercase tracking-wide text-slate-400">Templates:</span>
-          {templates.map((t) => (
-            <span key={t.id} className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white py-1 pl-3 pr-1 text-xs">
-              <button type="button" onClick={() => addExercises(t.exercises.map((e) => ({ ...e, done: false })))} className="font-medium text-slate-700 hover:text-brand-600">
-                {t.name} <span className="text-slate-400">({t.exercises.length})</span>
-              </button>
-              <button type="button" onClick={() => removeTemplate(t.id)} className="grid h-5 w-5 place-items-center rounded-full text-slate-300 hover:bg-red-50 hover:text-red-500"><Trash2 size={11} /></button>
-            </span>
-          ))}
+          {templates.map((t) => {
+            const dayCount = templateDays(t).length
+            return renamingId === t.id ? (
+              <span key={t.id} className="inline-flex items-center gap-1 rounded-full border border-brand-400 bg-white py-1 pl-2.5 pr-1">
+                <input autoFocus className="w-32 border-0 bg-transparent text-xs focus:outline-none" value={renameVal} onChange={(e) => setRenameVal(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); renameTemplate(t.id) } }} />
+                <button type="button" onClick={() => renameTemplate(t.id)} className="grid h-6 w-6 place-items-center rounded-full text-brand-600 hover:bg-brand-50"><Check size={13} /></button>
+                <button type="button" onClick={() => setRenamingId(null)} className="grid h-6 w-6 place-items-center rounded-full text-slate-400 hover:bg-slate-100"><X size={13} /></button>
+              </span>
+            ) : (
+              <span key={t.id} className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white py-1 pl-3 pr-1 text-xs">
+                <button type="button" onClick={() => applyTemplateDay1(t)} title={dayCount > 1 ? `Add Day 1 of ${dayCount} to this day` : 'Add to this day'} className="font-medium text-slate-700 hover:text-brand-600">
+                  {t.name} <span className="text-slate-400">({dayCount > 1 ? `${dayCount} days, ` : ''}{templateExerciseCount(t)} ex)</span>
+                </button>
+                {dayCount > 1 && onApplyFullTemplate && (
+                  <button type="button" onClick={() => onApplyFullTemplate(t)} title={`Apply all ${dayCount} days to this plan from Day 1`} className="grid h-5 w-5 place-items-center rounded-full text-slate-300 hover:bg-brand-50 hover:text-brand-600"><LayoutTemplate size={11} /></button>
+                )}
+                <button type="button" onClick={() => { setRenamingId(t.id); setRenameVal(t.name) }} title="Rename" className="grid h-5 w-5 place-items-center rounded-full text-slate-300 hover:bg-slate-100 hover:text-brand-600"><Pencil size={11} /></button>
+                <button type="button" onClick={() => removeTemplate(t.id)} title="Delete" className="grid h-5 w-5 place-items-center rounded-full text-slate-300 hover:bg-red-50 hover:text-red-500"><Trash2 size={11} /></button>
+              </span>
+            )
+          })}
         </div>
       )}
 
@@ -803,6 +996,30 @@ function RehabPlanner({ client, clients = [], editId = '', onChangeClient, navig
   function applyExercisesToActiveDay(exercises) {
     if (!activeDayData) return
     updateDay(activeDayData.day, { ...activeDayData, exercises: [...(activeDayData.exercises || []), ...exercises] })
+  }
+
+  // Applies every day of a (possibly multi-day) named template to this plan,
+  // starting from Day 1 — extending the plan length if the template is
+  // longer, and overwriting matching days (with confirmation) since this is
+  // meant as "load this whole canned protocol onto this patient".
+  function applyFullTemplate(template) {
+    const tDays = templateDays(template)
+    if (!tDays.length) return
+    const hasExisting = form.days.some((d) => d.day <= tDays.length && (d.exercises || []).length > 0)
+    if (hasExisting && !window.confirm(`Apply "${template.name}" (${tDays.length} day${tDays.length > 1 ? 's' : ''}) to this plan, starting from Day 1? This will overwrite Days 1-${tDays.length} where they already have exercises.`)) return
+    const total = Math.max(form.totalDays, tDays.length)
+    setForm((f) => {
+      const newDays = Array.from({ length: total }, (_, i) => {
+        const dayNum = i + 1
+        const tDay = tDays.find((d) => d.day === dayNum)
+        if (tDay) return { ...blankDay(dayNum, f.startDate), exercises: (tDay.exercises || []).map((e) => ({ ...e, done: false })) }
+        return f.days[i] || blankDay(dayNum, f.startDate)
+      })
+      return { ...f, totalDays: total, days: newDays }
+    })
+    setDaysText(String(total))
+    setActiveDay(1)
+    setDirty(true)
   }
 
   async function save(e) {
@@ -1027,6 +1244,7 @@ function RehabPlanner({ client, clients = [], editId = '', onChangeClient, navig
                 allDays={form.days}
                 onCopyFromDay={copyFromDay}
                 onOpenCrossPatientCopy={() => setCopyModalOpen(true)}
+                onApplyFullTemplate={applyFullTemplate}
                 onChangeDay={(updated) => updateDay(activeDayData.day, updated)}
               />
             )}
@@ -1089,7 +1307,7 @@ function CopyFromPatientModal({ clients, currentClientId, onApply, onClose }) {
   const [pickedClientId, setPickedClientId] = useState('')
   const [plans, setPlans] = useState([])
   const [pickedPlanId, setPickedPlanId] = useState('')
-  const [pickedDay, setPickedDay] = useState('')
+  const [pickedDays, setPickedDays] = useState([])
 
   useEffect(() => {
     if (!pickedClientId) { setPlans([]); return }
@@ -1102,14 +1320,21 @@ function CopyFromPatientModal({ clients, currentClientId, onApply, onClose }) {
     .slice(0, 20)
   const pickedPlan = plans.find((p) => p.id === pickedPlanId)
   const days = pickedPlan?.days || []
+  const allDaysPicked = days.length > 0 && pickedDays.length === days.length
 
-  function pickClient(id) { setPickedClientId(id); setPickedPlanId(''); setPickedDay('') }
-  function pickPlan(id) { setPickedPlanId(id); setPickedDay('') }
+  function pickClient(id) { setPickedClientId(id); setPickedPlanId(''); setPickedDays([]) }
+  function pickPlan(id) { setPickedPlanId(id); setPickedDays([]) }
+  function toggleDay(dayNum) { setPickedDays((ds) => (ds.includes(dayNum) ? ds.filter((x) => x !== dayNum) : [...ds, dayNum])) }
+  function toggleAllDays() { setPickedDays(allDaysPicked ? [] : days.map((d) => d.day)) }
 
   function apply() {
-    const day = days.find((d) => String(d.day) === String(pickedDay))
-    if (!day) return
-    onApply((day.exercises || []).map((e) => ({ ...e, done: false, progression: [...e.progression] })))
+    // Combine every ticked day's exercises, in day order, into one list.
+    const picked = days
+      .filter((d) => pickedDays.includes(d.day))
+      .sort((a, b) => a.day - b.day)
+      .flatMap((d) => (d.exercises || []).map((e) => ({ ...e, done: false, progression: [...e.progression] })))
+    if (!picked.length) return
+    onApply(picked)
     onClose()
   }
 
@@ -1163,24 +1388,234 @@ function CopyFromPatientModal({ clients, currentClientId, onApply, onClose }) {
 
         {pickedPlan && (
           <div>
-            <label className="label text-xs">Day</label>
+            <div className="flex items-center justify-between">
+              <label className="label text-xs">Day(s) — tick all you want to bring over</label>
+              {days.length > 0 && (
+                <button type="button" onClick={toggleAllDays} className="text-xs font-semibold text-brand-600 hover:underline">{allDaysPicked ? 'Clear all' : 'Select all'}</button>
+              )}
+            </div>
             <div className="flex flex-wrap gap-1.5">
               {days.map((d) => (
                 <button
-                  key={d.day} type="button" onClick={() => setPickedDay(d.day)}
-                  className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${String(pickedDay) === String(d.day) ? 'bg-brand-600 text-white shadow' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                  key={d.day} type="button" onClick={() => toggleDay(d.day)}
+                  className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${pickedDays.includes(d.day) ? 'bg-brand-600 text-white shadow' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
                 >
                   Day {d.day} ({(d.exercises || []).length})
                 </button>
               ))}
             </div>
+            <p className="mt-1 text-xs text-slate-400">Tick one, several, or all days — their exercises are combined into the current day here.</p>
           </div>
         )}
 
         <div className="flex justify-end gap-2">
           <button type="button" onClick={onClose} className="btn-ghost">Cancel</button>
-          <button type="button" onClick={apply} disabled={!pickedDay} className="btn-primary disabled:opacity-40"><Copy size={16} /> Copy exercises here</button>
+          <button type="button" onClick={apply} disabled={!pickedDays.length} className="btn-primary disabled:opacity-40"><Copy size={16} /> Copy {pickedDays.length > 1 ? `${pickedDays.length} days'` : 'exercises'} here</button>
         </div>
+      </div>
+    </div>
+  )
+}
+
+function blankTemplateDay(n) {
+  return { day: n, exercises: [] }
+}
+function blankTemplateForm() {
+  return { id: null, name: '', days: [blankTemplateDay(1)] }
+}
+
+// Standalone, patient-free multi-day template builder — reached from the
+// "Create Rehab Templates" entry on the Rehab home page. Saves into the same
+// top-level `rehabTemplates` collection DayEditor's "Save this day as
+// template" writes to, so anything built here shows up in the per-patient
+// plan editor automatically (single-day quick-apply and "Apply full plan").
+function RehabTemplateManager({ onClose }) {
+  const [templates, setTemplates] = useState([])
+  const [form, setForm] = useState(null) // null = list view
+  const [activeDay, setActiveDay] = useState(1)
+  const [daysText, setDaysText] = useState('1')
+  const [copySource, setCopySource] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+
+  useEffect(() => watchRehabTemplates(setTemplates), [])
+
+  function startNew() {
+    setForm(blankTemplateForm()); setActiveDay(1); setDaysText('1'); setCopySource(''); setError('')
+  }
+  function startEdit(t) {
+    const days = templateDays(t).map((d) => ({ day: d.day, exercises: (d.exercises || []).map((e) => ({ ...e, progression: [...(e.progression || [])] })) }))
+    const safeDays = days.length ? days : [blankTemplateDay(1)]
+    setForm({ id: t.id, name: t.name, days: safeDays }); setActiveDay(1); setDaysText(String(safeDays.length)); setCopySource(''); setError('')
+  }
+  async function removeTemplate(t) {
+    if (!window.confirm(`Delete template "${t.name}"? This cannot be undone.`)) return
+    try { await deleteRehabTemplate(t.id) } catch (_) { /* rules may need publishing */ }
+  }
+
+  function setTotalDays(raw) {
+    const total = Math.max(1, Math.min(MAX_DAYS, Number(raw) || 1))
+    setForm((f) => ({ ...f, days: Array.from({ length: total }, (_, i) => f.days[i] || blankTemplateDay(i + 1)) }))
+  }
+  // Same free-typing workaround as the plan-length field on the patient
+  // planner — see handleDaysInput there for why it isn't a plain controlled number.
+  function handleDaysInput(e) {
+    const digits = onlyDigits(e.target.value).slice(0, 2)
+    setDaysText(digits)
+    if (digits) setTotalDays(digits)
+  }
+  function handleDaysBlur() {
+    if (!daysText) setDaysText(String(form.days.length))
+  }
+
+  useEffect(() => { if (form && !form.days.find((d) => d.day === activeDay)) setActiveDay(form.days[0]?.day || 1) }, [form, activeDay])
+
+  function updateDay(dayNum, updated) {
+    setForm((f) => ({ ...f, days: f.days.map((d) => (d.day === dayNum ? updated : d)) }))
+  }
+
+  const activeDayData = form ? (form.days.find((d) => d.day === activeDay) || form.days[0]) : null
+
+  function copyFromDay(sourceDayNum) {
+    const src = form.days.find((d) => d.day === Number(sourceDayNum))
+    if (!src || !activeDayData) return
+    if (activeDayData.exercises?.length > 0 && !window.confirm(`Replace Day ${activeDayData.day}'s current exercises with Day ${sourceDayNum}'s?`)) return
+    updateDay(activeDayData.day, { ...activeDayData, exercises: src.exercises.map((e) => ({ ...e, progression: [...(e.progression || [])] })) })
+    setCopySource('')
+  }
+
+  async function save() {
+    const name = form.name.trim()
+    if (!name) { setError('Please give this template a name.'); return }
+    if (!form.days.some((d) => (d.exercises || []).length > 0)) { setError('Add at least one exercise to at least one day.'); return }
+    setBusy(true); setError('')
+    try {
+      const days = form.days.map((d) => ({ day: d.day, exercises: (d.exercises || []).map((e) => ({ ...e, done: false })) }))
+      if (form.id) await updateRehabTemplate(form.id, { name, days })
+      else await addRehabTemplate(name, days)
+      setForm(null)
+    } catch (err) {
+      console.error('save rehab template failed:', err)
+      setError('Could not save the template. Please try again.')
+    }
+    setBusy(false)
+  }
+
+  if (!form) {
+    return (
+      <div className="card space-y-4 p-6">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-brand-50 text-brand-600"><LayoutTemplate size={22} /></div>
+            <div>
+              <h2 className="font-bold text-slate-900">Rehab templates</h2>
+              <p className="text-sm text-slate-500">Build reusable, multi-day exercise plans — apply them to any patient later.</p>
+            </div>
+          </div>
+          <div className="flex shrink-0 gap-2">
+            <button type="button" onClick={startNew} className="btn-primary"><Plus size={16} /> New template</button>
+            {onClose && <button type="button" onClick={onClose} className="btn-ghost">Back</button>}
+          </div>
+        </div>
+
+        {templates.length === 0 ? (
+          <p className="py-10 text-center text-sm text-slate-400">No templates yet. Create one above.</p>
+        ) : (
+          <ul className="divide-y divide-slate-100">
+            {templates.map((t) => {
+              const dayCount = templateDays(t).length
+              return (
+                <li key={t.id} className="flex flex-wrap items-center justify-between gap-2 py-2.5 text-sm">
+                  <span className="font-medium text-slate-700">
+                    {t.name} <span className="text-xs font-normal text-slate-400">({dayCount} day{dayCount > 1 ? 's' : ''}, {templateExerciseCount(t)} exercises)</span>
+                  </span>
+                  <div className="flex gap-3">
+                    <button type="button" onClick={() => startEdit(t)} className="flex items-center gap-1 text-xs font-semibold text-brand-600 hover:underline"><Pencil size={13} /> Edit</button>
+                    <button type="button" onClick={() => removeTemplate(t)} className="flex items-center gap-1 text-xs font-semibold text-red-500 hover:underline"><Trash2 size={13} /> Delete</button>
+                  </div>
+                </li>
+              )
+            })}
+          </ul>
+        )}
+      </div>
+    )
+  }
+
+  const existingNames = (activeDayData?.exercises || []).map((e) => e.name)
+  const otherDaysWithExercises = form.days.filter((d) => d.day !== activeDay && (d.exercises || []).length > 0)
+
+  return (
+    <div className="card space-y-4 p-5 md:p-6">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="font-bold text-slate-900">{form.id ? 'Edit template' : 'New template'}</h2>
+        <button type="button" onClick={() => setForm(null)} className="text-sm font-medium text-brand-600 hover:underline">Back to templates</button>
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div>
+          <label className="label text-sm">Template name</label>
+          <input autoFocus className="input" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} placeholder="e.g. Post-ACL Week 1" />
+        </div>
+        <div>
+          <label className="label text-sm">No. of days</label>
+          <input className="input" inputMode="numeric" value={daysText} onChange={handleDaysInput} onBlur={handleDaysBlur} placeholder="Enter the days" />
+        </div>
+      </div>
+
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-4">
+        <div className="flex flex-wrap gap-2">
+          {form.days.map((d) => (
+            <button
+              key={d.day} type="button" onClick={() => setActiveDay(d.day)}
+              className={`flex items-center gap-1.5 rounded-full px-4 py-1.5 text-sm font-semibold transition ${activeDay === d.day ? 'bg-brand-600 text-white shadow' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+            >
+              Day {d.day}
+              {d.exercises?.length ? <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${activeDay === d.day ? 'bg-white/25' : 'bg-slate-200'}`}>{d.exercises.length} ex</span> : null}
+            </button>
+          ))}
+        </div>
+        <span className="text-xs text-slate-400">{form.days.length} day{form.days.length > 1 ? 's' : ''} total</span>
+      </div>
+
+      {activeDayData && (
+        <div className="space-y-4">
+          {otherDaysWithExercises.length > 0 && (
+            <div className="flex flex-wrap items-center gap-2 rounded-xl border border-dashed border-slate-200 bg-slate-50/60 p-2.5">
+              <Copy size={14} className="shrink-0 text-slate-400" />
+              <select className="input h-9 w-auto text-xs" value={copySource} onChange={(e) => setCopySource(e.target.value)}>
+                <option value="">Copy from day…</option>
+                {otherDaysWithExercises.map((d) => <option key={d.day} value={d.day}>Day {d.day} ({d.exercises.length} exercises)</option>)}
+              </select>
+              <button type="button" onClick={() => copySource && copyFromDay(copySource)} disabled={!copySource} className="btn-outline px-2.5 py-1.5 text-xs disabled:opacity-40">Copy</button>
+            </div>
+          )}
+
+          <AddExerciseWidget
+            existingNames={existingNames}
+            onAdd={(newOnes) => updateDay(activeDayData.day, { ...activeDayData, exercises: [...(activeDayData.exercises || []), ...newOnes] })}
+          />
+
+          {(activeDayData.exercises || []).length === 0 ? (
+            <p className="text-sm text-slate-400">No exercises added for this day yet.</p>
+          ) : (
+            <div className="space-y-2">
+              {activeDayData.exercises.map((ex, idx) => (
+                <ExerciseCard
+                  key={idx} ex={ex} hideDone
+                  onChange={(u) => { const next = [...activeDayData.exercises]; next[idx] = u; updateDay(activeDayData.day, { ...activeDayData, exercises: next }) }}
+                  onRemove={() => updateDay(activeDayData.day, { ...activeDayData, exercises: activeDayData.exercises.filter((_, i) => i !== idx) })}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}
+      <div className="flex justify-end gap-2">
+        <button type="button" onClick={() => setForm(null)} className="btn-ghost">Cancel</button>
+        <button type="button" onClick={save} disabled={busy} className="btn-primary">{busy ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />} {form.id ? 'Update template' : 'Save template'}</button>
       </div>
     </div>
   )

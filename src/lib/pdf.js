@@ -431,26 +431,30 @@ export async function generateRehabReport(client, opts = {}) {
   const doc = new jsPDF({ unit: 'mm', format: 'a4' })
   let y = header(doc, logo, 'Rehab & Exercise Report', `Date: ${fmtDate(new Date())}`)
 
-  // Patient details box (same layout as the physio report)
-  y += 4
+  // Patient details box (same layout as the physio report, tightened up so
+  // the header and this box sit closer together)
+  y += 2
   doc.setFillColor(238, 249, 251)
-  doc.roundedRect(M, y, CW, 32, 2, 2, 'F')
+  doc.roundedRect(M, y, CW, 28, 2, 2, 'F')
   doc.setFont('helvetica', 'bold'); doc.setFontSize(12); doc.setTextColor(...DARK)
-  doc.text(client.name || '—', M + 6, y + 8)
+  doc.text(client.name || '—', M + 6, y + 7)
   doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5); doc.setTextColor(80)
   const col1 = [`Reg. No: ${client.clientId || '—'}`, `Age / Gender: ${client.age || '—'} / ${client.gender || '—'}`, `Phone: ${client.phone || '—'}`]
   const col2 = [`Occupation: ${client.occupation || '—'}`, `Referred by: ${client.referredBy || '—'}`]
   const col3 = [`Height: ${client.height || '—'} cm`, `Weight: ${client.weight || '—'} kg`, `Email: ${client.email || '—'}`]
-  col1.forEach((t, i) => fitText(doc, t, M + 6, y + 15 + i * 5, 60, 8.5))
-  col2.forEach((t, i) => fitText(doc, t, M + 70, y + 15 + i * 5, 61, 8.5))
-  col3.forEach((t, i) => fitText(doc, t, M + 135, y + 15 + i * 5, PW - 2 * M - 135, 8.5))
-  y += 38
+  col1.forEach((t, i) => fitText(doc, t, M + 6, y + 13 + i * 4.6, 60, 8.5))
+  col2.forEach((t, i) => fitText(doc, t, M + 70, y + 13 + i * 4.6, 61, 8.5))
+  col3.forEach((t, i) => fitText(doc, t, M + 135, y + 13 + i * 4.6, PW - 2 * M - 135, 8.5))
+  y += 33
 
   if (!plans.length) {
     y = ensure(doc, y, 14)
     doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.setTextColor(120)
     doc.text('No rehab plans recorded yet.', M + 2, y)
   }
+
+  const GREEN = [16, 150, 90]
+  const AMBER = [200, 130, 20]
 
   const sorted = [...plans].sort((a, b) => (a.startDate || '').localeCompare(b.startDate || ''))
   sorted.forEach((p, pi) => {
@@ -469,22 +473,76 @@ export async function generateRehabReport(client, opts = {}) {
       y = field(doc, y, 'Billing', `Charged ${inr(p.bill.amount)} · Paid ${inr(p.bill.paid)} · Balance ${inr(p.bill.balance)} · ${p.bill.mode || '—'}`)
     }
 
-    const rows = (p.days || []).map((d) => {
-      const exText = (d.exercises || []).length
-        ? d.exercises.map((e, i) => `${i + 1}. ${e.name} — ${e.sets}x${e.reps}${e.hold && e.hold !== 'None' ? `, hold ${e.hold}` : ''}, ${e.resistance}, ${e.frequency}, rest ${e.rest}${e.done ? '  [done]' : ''}${e.notes ? `\n    (${e.notes})` : ''}`).join('\n')
-        : '—'
-      return [`Day ${d.day}`, fmtDate(d.date), d.home ? 'Home' : 'Clinic', d.completed ? 'Completed' : 'Pending', exText]
-    })
+    // One compact summary line per day (Day · Date · Where · Status) instead
+    // of four separate table columns — frees up the width for a proper,
+    // per-attribute exercise table underneath.
+    ;(p.days || []).forEach((d) => {
+      y = ensure(doc, y, 12)
+      doc.setFillColor(238, 249, 251)
+      doc.rect(M, y - 4, CW, 6.5, 'F')
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(8.5); doc.setTextColor(...DARK)
+      doc.text(`Day ${d.day}`, M + 2, y)
+      doc.setFont('helvetica', 'normal'); doc.setTextColor(90)
+      doc.text(`·  ${fmtDate(d.date)}  ·  ${d.home ? 'Home' : 'Clinic'}`, M + 18, y)
+      doc.setFont('helvetica', 'bold')
+      doc.setTextColor(...(d.completed ? GREEN : AMBER))
+      doc.text(d.completed ? 'Completed' : 'Pending', PW - M - 2, y, { align: 'right' })
+      y += 5
 
-    autoTable(doc, {
-      startY: y,
-      head: [['Day', 'Date', 'Where', 'Status', 'Exercises (sets x reps, hold, resistance, frequency, rest)']],
-      body: rows,
-      theme: 'striped', headStyles: { fillColor: BRAND, fontSize: 8 }, bodyStyles: { fontSize: 7.5, valign: 'top' },
-      columnStyles: { 0: { cellWidth: 15 }, 1: { cellWidth: 20 }, 2: { cellWidth: 16 }, 3: { cellWidth: 20 } },
-      margin: { left: M, right: M },
+      const exercises = d.exercises || []
+      if (!exercises.length) {
+        y = ensure(doc, y, 6)
+        doc.setFont('helvetica', 'italic'); doc.setFontSize(8); doc.setTextColor(150)
+        doc.text('No exercises prescribed for this day.', M + 3, y)
+        y += 6
+        return
+      }
+
+      autoTable(doc, {
+        startY: y,
+        head: [['#', 'Exercise', 'Sets', 'Reps', 'Hold', 'Resistance', 'Frequency', 'Rest', 'Done']],
+        body: exercises.map((e, i) => [
+          String(i + 1),
+          e.name + (e.notes ? `\n${e.notes}` : ''),
+          e.sets || '—', e.reps || '—',
+          e.hold && e.hold !== 'None' ? e.hold : '—',
+          e.resistance || '—', e.frequency || '—', e.rest || '—',
+          '', // Done — drawn as a vector tick below; jsPDF's base fonts can't render a ✓ glyph
+        ]),
+        theme: 'grid',
+        headStyles: { fillColor: BRAND, fontSize: 7.5, halign: 'center' },
+        bodyStyles: { fontSize: 7.5, valign: 'middle' },
+        columnStyles: {
+          0: { cellWidth: 7, halign: 'center' },
+          1: { cellWidth: 'auto' },
+          2: { cellWidth: 13, halign: 'center' },
+          3: { cellWidth: 13, halign: 'center' },
+          4: { cellWidth: 18, halign: 'center' },
+          5: { cellWidth: 22, halign: 'center' },
+          6: { cellWidth: 18, halign: 'center' },
+          7: { cellWidth: 14, halign: 'center' },
+          8: { cellWidth: 12, halign: 'center' },
+        },
+        margin: { left: M, right: M },
+        didDrawCell(data) {
+          if (data.section !== 'body' || data.column.index !== 8) return
+          const done = !!exercises[data.row.index]?.done
+          const cx = data.cell.x + data.cell.width / 2
+          const cy = data.cell.y + data.cell.height / 2
+          if (done) {
+            doc.setDrawColor(...GREEN)
+            doc.setLineWidth(0.7)
+            doc.line(cx - 2.1, cy - 0.2, cx - 0.4, cy + 1.6)
+            doc.line(cx - 0.4, cy + 1.6, cx + 2.3, cy - 2.1)
+          } else {
+            doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5); doc.setTextColor(190)
+            doc.text('—', cx, cy + 1, { align: 'center' })
+          }
+        },
+      })
+      y = doc.lastAutoTable.finalY + 4
     })
-    y = doc.lastAutoTable.finalY + 8
+    y += 4
   })
 
   footerAll(doc)

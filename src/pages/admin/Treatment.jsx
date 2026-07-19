@@ -124,7 +124,7 @@ function ClientPicker({ clients, onPick, onNew, note }) {
       {clients.length > 0 && physioClients.length !== clients.length && (
         <div className="text-center">
           <button type="button" onClick={() => setShowAll((v) => !v)} className="text-sm font-medium text-brand-600 hover:underline">
-            {showAll ? 'Show Treatment patients only ▲' : 'Not seeing who you need? Show all clients too ▾'}
+            {showAll ? 'Hide Rehab & Exercises only patients ▲' : 'Show Rehab & Exercises only patients ▾'}
           </button>
         </div>
       )}

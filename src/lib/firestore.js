@@ -894,17 +894,21 @@ export async function deleteRehabPlan(clientId, id) {
   return deleteDoc(doc(db, 'clients', clientId, 'rehabPlans', id))
 }
 
-// Reusable, named exercise-set templates — a top-level collection (not
-// per-client) so any saved set can be applied to any patient's plan/day.
-// { name, exercises: [...same shape as a day's exercises], createdAt }.
-export async function addRehabTemplate(name, exercises) {
-  const ref = await addDoc(collection(db, 'rehabTemplates'), { name: String(name).trim(), exercises, createdAt: serverTimestamp() })
+// Reusable, named, multi-day exercise-plan templates — a top-level collection
+// (not per-client) so any saved template can be applied to any patient's plan.
+// { name, days: [{ day, exercises: [...same shape as a plan day's] }], createdAt }.
+export async function addRehabTemplate(name, days) {
+  const ref = await addDoc(collection(db, 'rehabTemplates'), { name: String(name).trim(), days, createdAt: serverTimestamp() })
   return ref.id
 }
 
 export function watchRehabTemplates(cb) {
   const q = query(collection(db, 'rehabTemplates'), orderBy('createdAt', 'desc'))
   return onSnapshot(q, (snap) => cb(snap.docs.map((d) => ({ id: d.id, ...d.data() }))), () => cb([]))
+}
+
+export async function updateRehabTemplate(id, data) {
+  return updateDoc(doc(db, 'rehabTemplates', id), data)
 }
 
 export async function deleteRehabTemplate(id) {

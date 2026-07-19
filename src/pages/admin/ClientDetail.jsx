@@ -343,6 +343,21 @@ function ReportModal({ client, treatments, onClose }) {
   const includesRehab = scope === 'rehab' || scope === 'both'
 
   const [selectedIds, setSelectedIds] = useState(() => treatments.map((t) => t.id)) // all by default
+  const [rehabPlans, setRehabPlans] = useState([])
+  const [selectedPlanIds, setSelectedPlanIds] = useState([])
+  useEffect(() => {
+    if (!includesRehab) return
+    let live = true
+    getRehabPlansOnce(client.id).then((plans) => {
+      if (!live) return
+      setRehabPlans(plans)
+      setSelectedPlanIds(plans.map((p) => p.id)) // all by default
+    })
+    return () => { live = false }
+  }, [includesRehab, client.id])
+  const allPlansSelected = rehabPlans.length > 0 && selectedPlanIds.length === rehabPlans.length
+  const togglePlan = (id) => setSelectedPlanIds((ids) => (ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id]))
+  const toggleAllPlans = () => setSelectedPlanIds(allPlansSelected ? [] : rehabPlans.map((p) => p.id))
   const [therapist, setTherapist] = useState(client.therapist || 'Sakthi Saravanan')
   const [chargeDate, setChargeDate] = useState(todayISO())
   // Pre-fill billing from the sessions' own charges (entered in the Treatment form).
@@ -391,7 +406,7 @@ function ReportModal({ client, treatments, onClose }) {
         }
       }
       if (includesRehab) {
-        const plans = await getRehabPlansOnce(client.id)
+        const plans = rehabPlans.filter((p) => selectedPlanIds.includes(p.id))
         results.push(await generateRehabReport(client, { plans, action }))
       }
       if (results.includes('shared')) setMsg(results.length > 1 ? 'Reports shared.' : 'Report shared.')
@@ -456,7 +471,36 @@ function ReportModal({ client, treatments, onClose }) {
         )}
 
         {includesRehab && (
-          <p className="rounded-lg bg-brand-50 px-3 py-2 text-xs text-brand-700">The rehab report includes every saved plan — all days, exercises and completion status.</p>
+          <div>
+            <div className="flex items-center justify-between">
+              <label className="label text-xs">Rehab plans to include</label>
+              {rehabPlans.length > 0 && (
+                <button type="button" onClick={toggleAllPlans} className="text-xs font-semibold text-brand-600 hover:underline">
+                  {allPlansSelected ? 'Clear all' : 'Select all'}
+                </button>
+              )}
+            </div>
+            {rehabPlans.length === 0 ? (
+              <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700">No rehab plans yet — this report will include basic details only.</p>
+            ) : (
+              <div className="max-h-44 space-y-1 overflow-y-auto rounded-xl border border-slate-200 p-2">
+                {rehabPlans.map((p, i) => {
+                  const totalDays = p.totalDays || (p.days || []).length
+                  const doneCount = (p.days || []).filter((d) => d.completed).length
+                  return (
+                    <label key={p.id} className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-sm hover:bg-slate-50">
+                      <input type="checkbox" checked={selectedPlanIds.includes(p.id)} onChange={() => togglePlan(p.id)} className="h-4 w-4 rounded border-slate-300 text-brand-600" />
+                      <span className="font-medium text-slate-700">{fmtDate(p.startDate)} · {totalDays} day{totalDays > 1 ? 's' : ''}</span>
+                      {p.bill?.service && <span className="text-xs text-slate-400">· {p.bill.service}</span>}
+                      <span className="text-xs text-emerald-600">· {doneCount}/{p.days?.length || totalDays} done</span>
+                      {i === 0 && <span className="text-[11px] font-semibold text-brand-500">latest</span>}
+                    </label>
+                  )
+                })}
+              </div>
+            )}
+            <p className="mt-1 text-xs text-slate-400">Tick one, several, or all plans — they're combined into a single report.</p>
+          </div>
         )}
 
         {/* Therapist */}
