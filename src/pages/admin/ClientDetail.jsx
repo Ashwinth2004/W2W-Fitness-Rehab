@@ -8,7 +8,7 @@ import {
 import {
   getClient, updateClient, deleteClient, watchClientNotes, addClientNote, deleteClientNote,
   watchTreatments, deleteTreatment, updateTreatment, getClientNotesOnce, addAccountingEntry,
-  deleteAccountingForTreatment,
+  deleteAccountingForTreatment, getRehabPlansOnce,
 } from '../../lib/firestore'
 import { fmtDate, fmtDateTime, todayISO } from '../../lib/format'
 import { onlyDigits, isValidMobile } from '../../lib/validate'
@@ -20,7 +20,7 @@ import TherapistSelect from '../../components/TherapistSelect'
 import BodyPainSelector from '../../components/BodyPainSelector'
 import RehabBadge from '../../components/RehabBadge'
 import PatientAvatar from '../../components/PatientAvatar'
-import { generateClientReport } from '../../lib/pdf'
+import { generateClientReport, generateRehabReport } from '../../lib/pdf'
 
 const SESSION_GROUPS = [
   ['History', [['pastHistory', 'Past medical history'], ['complaint', 'Chief complaint'], ['mechanism', 'Mechanism of injury'], ['radiology', 'Radiological report']]],
@@ -85,7 +85,7 @@ export default function ClientDetail() {
             </div>
           </div>
           <div className="flex flex-wrap justify-center gap-2 md:justify-start">
-            <Link to={`/admin/treatment?client=${id}`} className="btn-outline"><Stethoscope size={16} /> New Treatment</Link>
+            <Link to={`/admin/treatment?client=${id}`} className="btn-outline"><Stethoscope size={16} /> New Physio Treatment</Link>
             <Link to={`/admin/rehab?client=${id}`} className="btn-outline"><Activity size={16} /> Rehab &amp; Exercises</Link>
             <button onClick={() => setReporting(true)} className="btn-primary"><FileDown size={18} /> Generate Report</button>
             <button onClick={() => setEditing(true)} className="btn-ghost"><Pencil size={16} /> Update Registration</button>
@@ -331,6 +331,17 @@ function NotesSection({ clientId, notes }) {
 const PAY_MODES = ['Cash', 'UPI', 'Card', 'Bank transfer', 'Other']
 
 function ReportModal({ client, treatments, onClose }) {
+  // Legacy clients (registered before program-tagging existed) default to
+  // Physio, matching the app's original behavior.
+  const hasPrograms = Array.isArray(client.programs) && client.programs.length > 0
+  const isPhysio = !hasPrograms || client.programs.includes('W2W Treatment')
+  const isRehab = hasPrograms && client.programs.includes('W2W Fitness & Rehab')
+  const isBoth = isPhysio && isRehab
+
+  const [scope, setScope] = useState(isBoth ? 'physio' : isRehab ? 'rehab' : 'physio')
+  const includesPhysio = scope === 'physio' || scope === 'both'
+  const includesRehab = scope === 'rehab' || scope === 'both'
+
   const [selectedIds, setSelectedIds] = useState(() => treatments.map((t) => t.id)) // all by default
   const [therapist, setTherapist] = useState(client.therapist || 'Sakthi Saravanan')
   const [chargeDate, setChargeDate] = useState(todayISO())
@@ -359,25 +370,32 @@ function ReportModal({ client, treatments, onClose }) {
   async function go(action) {
     setBusy(action); setMsg('')
     try {
-      const notes = await getClientNotesOnce(client.id)
-      // Combine the selected sessions (one, several, or all) into a single report.
-      const sessions = treatments
-        .filter((t) => selectedIds.includes(t.id))
-        .sort((a, b) => (a.date || '').localeCompare(b.date || ''))
-      const baseClient = { ...client, assessmentDate: sessions[0]?.date || todayISO() }
-      const bill = withBilling ? { amount: Number(amount) || 0, paid: Number(paid) || 0, balance, mode } : null
-      const res = await generateClientReport(baseClient, { notes, progress: [], therapist, bill, action, sessions, signature: null })
-      if (withBilling && record && !recorded && (bill.amount > 0 || bill.paid > 0)) {
-        await addAccountingEntry({
-          date: chargeDate || todayISO(),
-          clientId: client.clientId, clientDocId: client.id, clientName: client.name,
-          service: client.service || '', therapist,
-          amount: bill.amount, paid: bill.paid, balance: bill.balance, mode,
-        })
-        setRecorded(true)
+      const results = []
+      if (includesPhysio) {
+        const notes = await getClientNotesOnce(client.id)
+        // Combine the selected sessions (one, several, or all) into a single report.
+        const sessions = treatments
+          .filter((t) => selectedIds.includes(t.id))
+          .sort((a, b) => (a.date || '').localeCompare(b.date || ''))
+        const baseClient = { ...client, assessmentDate: sessions[0]?.date || todayISO() }
+        const bill = withBilling ? { amount: Number(amount) || 0, paid: Number(paid) || 0, balance, mode } : null
+        results.push(await generateClientReport(baseClient, { notes, progress: [], therapist, bill, action, sessions, signature: null }))
+        if (withBilling && record && !recorded && bill && (bill.amount > 0 || bill.paid > 0)) {
+          await addAccountingEntry({
+            date: chargeDate || todayISO(),
+            clientId: client.clientId, clientDocId: client.id, clientName: client.name,
+            service: client.service || '', therapist,
+            amount: bill.amount, paid: bill.paid, balance: bill.balance, mode,
+          })
+          setRecorded(true)
+        }
       }
-      if (res === 'shared') setMsg('Report shared.')
-      else if (res === 'downloaded') setMsg('Report downloaded.')
+      if (includesRehab) {
+        const plans = await getRehabPlansOnce(client.id)
+        results.push(await generateRehabReport(client, { plans, action }))
+      }
+      if (results.includes('shared')) setMsg(results.length > 1 ? 'Reports shared.' : 'Report shared.')
+      else if (results.includes('downloaded')) setMsg(results.length > 1 ? 'Reports downloaded.' : 'Report downloaded.')
     } catch (err) {
       console.error('report failed:', err)
       setMsg('Could not generate the report. Please try again.')
@@ -396,66 +414,88 @@ function ReportModal({ client, treatments, onClose }) {
           <button onClick={onClose} className="rounded-full p-1.5 text-slate-400 hover:bg-slate-100"><X size={22} /></button>
         </div>
 
-        {/* Sessions to include — tick one, several, or all (combined into one report) */}
-        <div>
-          <div className="flex items-center justify-between">
-            <label className="label text-xs">Sessions to include</label>
-            {treatments.length > 0 && (
-              <button type="button" onClick={toggleAll} className="text-xs font-semibold text-brand-600 hover:underline">
-                {allSelected ? 'Clear all' : 'Select all'}
-              </button>
-            )}
-          </div>
-          {treatments.length === 0 ? (
-            <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700">No treatment sessions yet — this report will include basic details only.</p>
-          ) : (
-            <div className="max-h-44 space-y-1 overflow-y-auto rounded-xl border border-slate-200 p-2">
-              {treatments.map((t, i) => (
-                <label key={t.id} className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-sm hover:bg-slate-50">
-                  <input type="checkbox" checked={selectedIds.includes(t.id)} onChange={() => toggleSession(t.id)} className="h-4 w-4 rounded border-slate-300 text-brand-600" />
-                  <span className="font-medium text-slate-700">{fmtDate(t.date)}</span>
-                  {t.therapist && <span className="text-xs text-slate-400">· {t.therapist}</span>}
-                  {i === 0 && <span className="text-[11px] font-semibold text-brand-500">latest</span>}
-                </label>
+        {/* Report scope — only relevant when the patient is registered for both */}
+        {isBoth && (
+          <div>
+            <label className="label text-xs">Which report?</label>
+            <div className="flex flex-wrap gap-2">
+              {[['physio', 'Physio Treatment'], ['rehab', 'Rehab & Exercises'], ['both', 'Both (2 files)']].map(([v, l]) => (
+                <button key={v} type="button" onClick={() => setScope(v)} className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${scope === v ? 'bg-brand-600 text-white shadow' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>{l}</button>
               ))}
             </div>
-          )}
-          <p className="mt-1 text-xs text-slate-400">Tick one, several, or all sessions — they're combined into a single report.</p>
-        </div>
+          </div>
+        )}
+
+        {/* Sessions to include — tick one, several, or all (combined into one report) */}
+        {includesPhysio && (
+          <div>
+            <div className="flex items-center justify-between">
+              <label className="label text-xs">Physio sessions to include</label>
+              {treatments.length > 0 && (
+                <button type="button" onClick={toggleAll} className="text-xs font-semibold text-brand-600 hover:underline">
+                  {allSelected ? 'Clear all' : 'Select all'}
+                </button>
+              )}
+            </div>
+            {treatments.length === 0 ? (
+              <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700">No treatment sessions yet — this report will include basic details only.</p>
+            ) : (
+              <div className="max-h-44 space-y-1 overflow-y-auto rounded-xl border border-slate-200 p-2">
+                {treatments.map((t, i) => (
+                  <label key={t.id} className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-sm hover:bg-slate-50">
+                    <input type="checkbox" checked={selectedIds.includes(t.id)} onChange={() => toggleSession(t.id)} className="h-4 w-4 rounded border-slate-300 text-brand-600" />
+                    <span className="font-medium text-slate-700">{fmtDate(t.date)}</span>
+                    {t.therapist && <span className="text-xs text-slate-400">· {t.therapist}</span>}
+                    {i === 0 && <span className="text-[11px] font-semibold text-brand-500">latest</span>}
+                  </label>
+                ))}
+              </div>
+            )}
+            <p className="mt-1 text-xs text-slate-400">Tick one, several, or all sessions — they're combined into a single report.</p>
+          </div>
+        )}
+
+        {includesRehab && (
+          <p className="rounded-lg bg-brand-50 px-3 py-2 text-xs text-brand-700">The rehab report includes every saved plan — all days, exercises and completion status.</p>
+        )}
 
         {/* Therapist */}
-        <div>
-          <label className="label text-xs">Treatment given by (Physiotherapist)</label>
-          <TherapistSelect value={therapist} onChange={setTherapist} />
-        </div>
+        {includesPhysio && (
+          <div>
+            <label className="label text-xs">Treatment given by (Physiotherapist)</label>
+            <TherapistSelect value={therapist} onChange={setTherapist} />
+          </div>
+        )}
 
         {/* Billing */}
-        <div className="rounded-2xl border border-slate-100 p-4">
-          <label className="flex items-center gap-2 text-sm font-bold text-brand-700">
-            <input type="checkbox" checked={withBilling} onChange={(e) => setWithBilling(e.target.checked)} className="h-4 w-4 rounded border-slate-300 text-brand-600" />
-            <IndianRupee size={15} /> Include billing in report
-          </label>
-          {withBilling ? (
-            <div className="mt-3">
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div><label className="label text-xs">Date</label><DateField value={chargeDate} onChange={setChargeDate} max={todayISO()} /></div>
-                <div><label className="label text-xs">Mode of payment</label><select className="input" value={mode} onChange={(e) => setMode(e.target.value)}>{PAY_MODES.map((m) => <option key={m}>{m}</option>)}</select></div>
-                <div><label className="label text-xs">Amount charged (Rs.)</label><input className="input" inputMode="numeric" value={amount} onChange={money(setAmount)} placeholder="0" /></div>
-                <div><label className="label text-xs">Amount paid (Rs.)</label><input className="input" inputMode="numeric" value={paid} onChange={money(setPaid)} placeholder="0" /></div>
+        {includesPhysio && (
+          <div className="rounded-2xl border border-slate-100 p-4">
+            <label className="flex items-center gap-2 text-sm font-bold text-brand-700">
+              <input type="checkbox" checked={withBilling} onChange={(e) => setWithBilling(e.target.checked)} className="h-4 w-4 rounded border-slate-300 text-brand-600" />
+              <IndianRupee size={15} /> Include billing in report
+            </label>
+            {withBilling ? (
+              <div className="mt-3">
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div><label className="label text-xs">Date</label><DateField value={chargeDate} onChange={setChargeDate} max={todayISO()} /></div>
+                  <div><label className="label text-xs">Mode of payment</label><select className="input" value={mode} onChange={(e) => setMode(e.target.value)}>{PAY_MODES.map((m) => <option key={m}>{m}</option>)}</select></div>
+                  <div><label className="label text-xs">Amount charged (Rs.)</label><input className="input" inputMode="numeric" value={amount} onChange={money(setAmount)} placeholder="0" /></div>
+                  <div><label className="label text-xs">Amount paid (Rs.)</label><input className="input" inputMode="numeric" value={paid} onChange={money(setPaid)} placeholder="0" /></div>
+                </div>
+                <div className="mt-3 flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2 text-sm">
+                  <span className="text-slate-500">Balance due</span>
+                  <span className={`font-bold ${balance > 0 ? 'text-red-600' : 'text-emerald-600'}`}>Rs. {balance.toLocaleString('en-IN')}</span>
+                </div>
+                <label className="mt-3 flex items-center gap-2 text-xs font-medium text-slate-600">
+                  <input type="checkbox" checked={record} onChange={(e) => setRecord(e.target.checked)} className="h-4 w-4 rounded border-slate-300 text-brand-600" />
+                  Also record a separate charge in Accounting (sessions already record theirs) {recorded && <span className="text-emerald-600">· saved</span>}
+                </label>
               </div>
-              <div className="mt-3 flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2 text-sm">
-                <span className="text-slate-500">Balance due</span>
-                <span className={`font-bold ${balance > 0 ? 'text-red-600' : 'text-emerald-600'}`}>Rs. {balance.toLocaleString('en-IN')}</span>
-              </div>
-              <label className="mt-3 flex items-center gap-2 text-xs font-medium text-slate-600">
-                <input type="checkbox" checked={record} onChange={(e) => setRecord(e.target.checked)} className="h-4 w-4 rounded border-slate-300 text-brand-600" />
-                Also record a separate charge in Accounting (sessions already record theirs) {recorded && <span className="text-emerald-600">· saved</span>}
-              </label>
-            </div>
-          ) : (
-            <p className="mt-2 text-xs text-slate-400">The report will be generated without any billing section.</p>
-          )}
-        </div>
+            ) : (
+              <p className="mt-2 text-xs text-slate-400">The report will be generated without any billing section.</p>
+            )}
+          </div>
+        )}
 
         {msg && <p className="rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-600">{msg}</p>}
 

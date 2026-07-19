@@ -421,6 +421,78 @@ export async function generateClientReport(client, opts = {}) {
 }
 
 // ---------------------------------------------------------------------------
+//  Rehab & Exercise report — every plan, day-by-day, with exercise details
+//  and completion status. Separate from the physio assessment report since
+//  the content (exercise prescriptions vs clinical findings) is unrelated.
+// ---------------------------------------------------------------------------
+export async function generateRehabReport(client, opts = {}) {
+  const { plans = [], action = 'download' } = opts
+  const logo = await loadLogo()
+  const doc = new jsPDF({ unit: 'mm', format: 'a4' })
+  let y = header(doc, logo, 'Rehab & Exercise Report', `Date: ${fmtDate(new Date())}`)
+
+  // Patient details box (same layout as the physio report)
+  y += 4
+  doc.setFillColor(238, 249, 251)
+  doc.roundedRect(M, y, CW, 32, 2, 2, 'F')
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(12); doc.setTextColor(...DARK)
+  doc.text(client.name || '—', M + 6, y + 8)
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5); doc.setTextColor(80)
+  const col1 = [`Reg. No: ${client.clientId || '—'}`, `Age / Gender: ${client.age || '—'} / ${client.gender || '—'}`, `Phone: ${client.phone || '—'}`]
+  const col2 = [`Occupation: ${client.occupation || '—'}`, `Referred by: ${client.referredBy || '—'}`]
+  const col3 = [`Height: ${client.height || '—'} cm`, `Weight: ${client.weight || '—'} kg`, `Email: ${client.email || '—'}`]
+  col1.forEach((t, i) => fitText(doc, t, M + 6, y + 15 + i * 5, 60, 8.5))
+  col2.forEach((t, i) => fitText(doc, t, M + 70, y + 15 + i * 5, 61, 8.5))
+  col3.forEach((t, i) => fitText(doc, t, M + 135, y + 15 + i * 5, PW - 2 * M - 135, 8.5))
+  y += 38
+
+  if (!plans.length) {
+    y = ensure(doc, y, 14)
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.setTextColor(120)
+    doc.text('No rehab plans recorded yet.', M + 2, y)
+  }
+
+  const sorted = [...plans].sort((a, b) => (a.startDate || '').localeCompare(b.startDate || ''))
+  sorted.forEach((p, pi) => {
+    const totalDays = p.totalDays || (p.days || []).length
+    y = ensure(doc, y, 16)
+    doc.setFillColor(...DARK)
+    doc.rect(M, y - 4, CW, 8, 'F')
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(11); doc.setTextColor(255)
+    doc.text(`Plan ${pi + 1} — Started ${fmtDate(p.startDate)} · ${totalDays} day${totalDays > 1 ? 's' : ''}${p.bill?.service ? ` · ${p.bill.service}` : ''}`, M + 2, y + 1.5)
+    y += 11
+
+    y = field(doc, y, 'Rehab for', p.reason)
+    y = field(doc, y, 'Note', p.note)
+    y = field(doc, y, 'Prescribed by', p.therapist)
+    if (Number(p.bill?.amount) || Number(p.bill?.paid)) {
+      y = field(doc, y, 'Billing', `Charged ${inr(p.bill.amount)} · Paid ${inr(p.bill.paid)} · Balance ${inr(p.bill.balance)} · ${p.bill.mode || '—'}`)
+    }
+
+    const rows = (p.days || []).map((d) => {
+      const exText = (d.exercises || []).length
+        ? d.exercises.map((e, i) => `${i + 1}. ${e.name} — ${e.sets}x${e.reps}${e.hold && e.hold !== 'None' ? `, hold ${e.hold}` : ''}, ${e.resistance}, ${e.frequency}, rest ${e.rest}${e.done ? '  [done]' : ''}${e.notes ? `\n    (${e.notes})` : ''}`).join('\n')
+        : '—'
+      return [`Day ${d.day}`, fmtDate(d.date), d.home ? 'Home' : 'Clinic', d.completed ? 'Completed' : 'Pending', exText]
+    })
+
+    autoTable(doc, {
+      startY: y,
+      head: [['Day', 'Date', 'Where', 'Status', 'Exercises (sets x reps, hold, resistance, frequency, rest)']],
+      body: rows,
+      theme: 'striped', headStyles: { fillColor: BRAND, fontSize: 8 }, bodyStyles: { fontSize: 7.5, valign: 'top' },
+      columnStyles: { 0: { cellWidth: 15 }, 1: { cellWidth: 20 }, 2: { cellWidth: 16 }, 3: { cellWidth: 20 } },
+      margin: { left: M, right: M },
+    })
+    y = doc.lastAutoTable.finalY + 8
+  })
+
+  footerAll(doc)
+  const filename = `W2W_RehabReport_${client.clientId || 'client'}_${client.name?.replace(/\s+/g, '_') || 'report'}.pdf`
+  return finalize(doc, filename, action, `${client.name || 'Patient'} — rehab & exercise report from W2W Fitness & Rehab.`)
+}
+
+// ---------------------------------------------------------------------------
 //  Monthly / date-range appointments + new clients report.
 // ---------------------------------------------------------------------------
 export async function generateMonthlyReport({ monthLabel, rangeLabel, appointments = [], clients = [], action = 'download' }) {

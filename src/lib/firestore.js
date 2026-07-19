@@ -880,6 +880,12 @@ export function watchRehabPlans(clientId, cb) {
   return onSnapshot(q, (snap) => cb(snap.docs.map((d) => ({ id: d.id, ...d.data() }))))
 }
 
+// One-time fetch (for report generation, which doesn't need a live listener).
+export async function getRehabPlansOnce(clientId) {
+  const snap = await getDocs(query(collection(db, 'clients', clientId, 'rehabPlans'), orderBy('createdAt', 'desc')))
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+}
+
 export async function updateRehabPlan(clientId, id, data) {
   return updateDoc(doc(db, 'clients', clientId, 'rehabPlans', id), { ...data, updatedAt: serverTimestamp() })
 }

@@ -7,7 +7,7 @@ import {
 import {
   watchClients, addRehabPlan, updateRehabPlan, watchRehabPlans, deleteRehabPlan,
   watchServiceCharges, ensureRehabPackagesSeeded, setAccountingForRehabPlan, deleteAccountingForRehabPlan,
-  watchRehabTemplates, addRehabTemplate, deleteRehabTemplate,
+  watchRehabTemplates, addRehabTemplate, deleteRehabTemplate, updateClient,
 } from '../../lib/firestore'
 import {
   REHAB_REGIONS, REGION_TYPES, WHOLE_BODY_TYPES, typesForRegion, exercisesFor, SETS_OPTIONS, REPS_OPTIONS, HOLD_OPTIONS,
@@ -839,6 +839,14 @@ function RehabPlanner({ client, clients = [], editId = '', onChangeClient, navig
           await deleteAccountingForRehabPlan(planId)
         }
       } catch (_) { /* accounting sync is best-effort */ }
+
+      // A Treatment-only patient who's just been given a rehab plan is, by
+      // definition, now on both — tag it automatically (best-effort).
+      try {
+        if (!Array.isArray(client.programs) || !client.programs.includes('W2W Fitness & Rehab')) {
+          await updateClient(client.id, { programs: [...(Array.isArray(client.programs) ? client.programs : []), 'W2W Fitness & Rehab'] })
+        }
+      } catch (_) { /* best-effort */ }
 
       setDirty(false); setSaved(true)
     } catch (err) {

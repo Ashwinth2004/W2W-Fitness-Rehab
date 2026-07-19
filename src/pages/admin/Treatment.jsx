@@ -3,7 +3,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { Stethoscope, Search, Loader2, Save, ArrowRight, Plus, CheckCircle2, BadgeCheck, IndianRupee, Sparkles, Send, FileDown } from 'lucide-react'
 import {
   watchClients, watchTreatments, addTreatment, updateTreatment, watchServiceCharges,
-  setAccountingForTreatment, deleteAccountingForTreatment, getClientNotesOnce,
+  setAccountingForTreatment, deleteAccountingForTreatment, getClientNotesOnce, updateClient,
 } from '../../lib/firestore'
 import { CLINICAL_SECTIONS, CLINICAL_KEYS, formatAssessmentValue } from '../../lib/assessmentSchema'
 import { todayISO, fmtDate } from '../../lib/format'
@@ -44,15 +44,23 @@ export default function Treatment() {
   return <TreatmentForm key={`${client.id}:${params.get('session') || ''}`} client={client} editId={params.get('session') || ''} onChangeClient={() => setParams({})} navigate={navigate} />
 }
 
+const isPhysioClient = (c) => Array.isArray(c?.programs) && c.programs.includes('W2W Treatment')
+
 function ClientPicker({ clients, onPick, onNew, note }) {
   const [q, setQ] = useState('')
+  // Default to Treatment-registered patients only (Treatment-only or Both) —
+  // rehab-only patients don't come for physio, so hide them here by default.
+  // "Show all clients" below reveals everyone when needed.
+  const [showAll, setShowAll] = useState(false)
+  const physioClients = clients.filter(isPhysioClient)
+  const pool = showAll ? clients : physioClients
   const filtered = q
-    ? clients.filter((c) => [c.name, c.phone, c.clientId, c.email].filter(Boolean).join(' ').toLowerCase().includes(q.toLowerCase()))
-    : clients
+    ? pool.filter((c) => [c.name, c.phone, c.clientId, c.email].filter(Boolean).join(' ').toLowerCase().includes(q.toLowerCase()))
+    : pool
 
   return (
     <div className="space-y-5">
-      <AdminPageHeader title="Treatment" />
+      <AdminPageHeader title="Physio Treatment" />
       <div className="card space-y-4 p-6">
         <div className="flex items-center gap-3">
           <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-brand-50 text-brand-600"><Stethoscope size={22} /></div>
@@ -81,7 +89,9 @@ function ClientPicker({ clients, onPick, onNew, note }) {
       {clients.length === 0 ? (
         <p className="card py-12 text-center text-sm text-slate-400">No patients yet. Create your first patient above.</p>
       ) : filtered.length === 0 ? (
-        <p className="card py-12 text-center text-sm text-slate-400">No patients match “{q}”.</p>
+        <p className="card py-12 text-center text-sm text-slate-400">
+          {showAll ? `No patients match “${q}”.` : physioClients.length === 0 ? 'No patients registered for W2W Treatment yet.' : `No patients match “${q}”.`}
+        </p>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {filtered.map((c) => (
@@ -108,6 +118,14 @@ function ClientPicker({ clients, onPick, onNew, note }) {
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {clients.length > 0 && physioClients.length !== clients.length && (
+        <div className="text-center">
+          <button type="button" onClick={() => setShowAll((v) => !v)} className="text-sm font-medium text-brand-600 hover:underline">
+            {showAll ? 'Show Treatment patients only ▲' : 'Not seeing who you need? Show all clients too ▾'}
+          </button>
         </div>
       )}
     </div>
@@ -316,6 +334,15 @@ function TreatmentForm({ client, editId = '', onChangeClient, navigate }) {
         }
       } catch (_) { /* accounting sync is best-effort */ }
 
+      // A patient who started Treatment-only but has now come in for a session
+      // is, by definition, a Treatment patient — tag it automatically so they
+      // show up correctly everywhere (best-effort, never blocks the save).
+      try {
+        if (!Array.isArray(client.programs) || !client.programs.includes('W2W Treatment')) {
+          await updateClient(client.id, { programs: [...(Array.isArray(client.programs) ? client.programs : []), 'W2W Treatment'] })
+        }
+      } catch (_) { /* best-effort */ }
+
       setDirty(false)
       setSaved(true)
     } catch (err) {
@@ -349,7 +376,7 @@ function TreatmentForm({ client, editId = '', onChangeClient, navigate }) {
   if (saved) {
     return (
       <div className="space-y-5">
-        <AdminPageHeader title="Treatment" />
+        <AdminPageHeader title="Physio Treatment" />
         <div className="card mx-auto max-w-lg p-8 text-center">
           <CheckCircle2 className="mx-auto text-green-500" size={48} />
           <h2 className="mt-3 text-xl font-bold">{editId ? 'Treatment updated' : 'Treatment saved'}</h2>
@@ -369,7 +396,7 @@ function TreatmentForm({ client, editId = '', onChangeClient, navigate }) {
 
   return (
     <form onSubmit={save} onKeyDown={(e) => { if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA') e.preventDefault() }} className="space-y-5">
-      <AdminPageHeader title="Treatment">
+      <AdminPageHeader title="Physio Treatment">
         <button type="button" onClick={() => guard(() => navigate(`/admin/clients/${client.id}`))} className="text-sm font-medium text-brand-600 hover:underline">Open patient page →</button>
       </AdminPageHeader>
 

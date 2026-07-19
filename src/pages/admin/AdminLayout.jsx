@@ -16,7 +16,7 @@ const nav = [
   { to: '/admin/queries', label: 'Enquiries', icon: Inbox },
   { to: '/admin/appointments', label: 'Appointments', icon: CalendarDays },
   { to: '/admin/clients', label: 'Clients', icon: Users },
-  { to: '/admin/treatment', label: 'Treatment', icon: Stethoscope },
+  { to: '/admin/treatment', label: 'Physio Treatment', icon: Stethoscope },
   { to: '/admin/rehab', label: 'Rehab & Exercises', icon: Dumbbell },
   // Signatures module hidden for now (client signature not needed currently).
   // Re-enable by restoring this nav item — the route & page still exist.
