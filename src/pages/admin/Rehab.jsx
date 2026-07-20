@@ -43,6 +43,9 @@ import { useUnsaved } from '../../context/UnsavedContext'
 
 const MAX_DAYS = 60
 const PAY_MODES = ['Cash', 'UPI', 'Card', 'Bank transfer', 'Other']
+// The fixed, built-in exercise types — anything NOT in here is an admin-added
+// custom type (and therefore renamable/deletable in the picker).
+const BUILTIN_TYPES = [...REGION_TYPES, ...WHOLE_BODY_TYPES]
 
 function blankDay(n, startDate) {
   return { day: n, date: startDate ? addDaysISO(startDate, n - 1) : '', home: false, completed: false, exercises: [] }
@@ -299,6 +302,39 @@ function EditableChip({ label, editing, editVal, onStartEdit, onEditChange, onSa
       {label}
       <button type="button" onClick={onStartEdit} title="Rename" className="grid h-5 w-5 shrink-0 place-items-center rounded-full text-slate-400 hover:bg-white hover:text-brand-600"><Pencil size={11} /></button>
       <button type="button" onClick={onDelete} title="Delete" className="grid h-5 w-5 shrink-0 place-items-center rounded-full text-slate-400 hover:bg-white hover:text-red-500"><Trash2 size={11} /></button>
+    </span>
+  )
+}
+
+// A StarChip that, for admin-created (custom) items only, also carries inline
+// rename + delete controls right in the picker — so a wrongly-added region,
+// type or exercise can be fixed or removed on the spot without opening the
+// "Add your own" popup. Built-in items render as a plain StarChip.
+function ManageableChip({
+  label, active, fav, disabled, custom, editing, editVal,
+  onToggleFav, onClick, onStartEdit, onEditChange, onSaveEdit, onCancelEdit, onDelete,
+}) {
+  if (custom && editing) {
+    return (
+      <span className="inline-flex items-center gap-1 rounded-full border border-brand-400 bg-white py-1 pl-2.5 pr-1">
+        <input
+          autoFocus className="w-24 border-0 bg-transparent text-xs focus:outline-none sm:w-32" value={editVal}
+          onChange={(e) => onEditChange(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); onSaveEdit() } if (e.key === 'Escape') onCancelEdit() }}
+        />
+        <button type="button" onClick={onSaveEdit} className="grid h-6 w-6 shrink-0 place-items-center rounded-full text-brand-600 hover:bg-brand-50"><Check size={13} /></button>
+        <button type="button" onClick={onCancelEdit} className="grid h-6 w-6 shrink-0 place-items-center rounded-full text-slate-400 hover:bg-slate-100"><X size={13} /></button>
+      </span>
+    )
+  }
+  if (!custom) {
+    return <StarChip label={label} active={active} fav={fav} disabled={disabled} onToggleFav={onToggleFav} onClick={onClick} />
+  }
+  return (
+    <span className="inline-flex items-center gap-0.5 rounded-full bg-white/70 pr-1 ring-1 ring-brand-100">
+      <StarChip label={label} active={active} fav={fav} disabled={disabled} onToggleFav={onToggleFav} onClick={onClick} />
+      <button type="button" onClick={onStartEdit} title="Rename (your own)" className="grid h-5 w-5 shrink-0 place-items-center rounded-full text-slate-400 hover:bg-slate-100 hover:text-brand-600"><Pencil size={11} /></button>
+      <button type="button" onClick={onDelete} title="Delete (your own)" className="grid h-5 w-5 shrink-0 place-items-center rounded-full text-slate-400 hover:bg-slate-100 hover:text-red-500"><Trash2 size={11} /></button>
     </span>
   )
 }
@@ -789,6 +825,63 @@ function AddExerciseWidget({ existingNames, onAdd }) {
     setExDraft((d) => ({ ...d, [key]: '' })); forceTick((t) => t + 1)
   }
 
+  // ---- Inline rename / delete of admin-created items in the picker ----------
+  const [editRegion, setEditRegion] = useState(null) // { old, val }
+  const [editType, setEditType] = useState(null) // { old, val }
+  const [editEx, setEditEx] = useState(null) // { region, type, old, val }
+
+  const isCustomRegion = (r) => !REHAB_REGIONS.includes(r)
+  const isCustomType = (t) => !BUILTIN_TYPES.includes(t)
+  const isCustomExercise = (region, type, name) => !exercisesFor(region, type).includes(name)
+
+  function saveRegionRename() {
+    const { old, val } = editRegion; const n = (val || '').trim()
+    if (n && n !== old) { updateCustomRegion(old, n); setSelectedRegions((rs) => rs.map((x) => (x === old ? n : x))) }
+    setEditRegion(null); refreshCustom()
+  }
+  function deleteRegion(r) {
+    if (!window.confirm(`Delete your custom region "${r}"?`)) return
+    deleteCustomRegion(r); setSelectedRegions((rs) => rs.filter((x) => x !== r)); refreshCustom()
+  }
+
+  // A custom type can be global (from the popup) and/or region-scoped under any
+  // of the selected regions — rename/delete it wherever it lives for them.
+  function saveTypeRename() {
+    const { old, val } = editType; const n = (val || '').trim()
+    if (n && n !== old) {
+      if (getCustomTypes().includes(old)) updateCustomType(old, n)
+      selectedRegions.forEach((r) => {
+        if (getCustomTypesForRegion(r).includes(old)) { updateCustomTypeForRegion(r, old, n); renameRegionTypeExercises(r, old, n) }
+      })
+      setSelectedTypes((ts) => ts.map((x) => (x === old ? n : x)))
+    }
+    setEditType(null); refreshCustom()
+  }
+  function deleteType(t) {
+    if (!window.confirm(`Delete your custom type "${t}" (and its exercises)?`)) return
+    if (getCustomTypes().includes(t)) deleteCustomType(t)
+    selectedRegions.forEach((r) => {
+      if (getCustomTypesForRegion(r).includes(t)) { deleteCustomTypeForRegion(r, t); deleteRegionTypeExercises(r, t) }
+    })
+    setSelectedTypes((ts) => ts.filter((x) => x !== t)); refreshCustom()
+  }
+
+  function saveExRename() {
+    const { region, type, old, val } = editEx; const n = (val || '').trim()
+    if (n && n !== old) {
+      if (getCustomExercises(type).includes(old)) updateCustomExercise(type, old, n)
+      if (getCustomExercisesForRegionType(region, type).includes(old)) updateCustomExerciseForRegionType(region, type, old, n)
+      setChecked((c) => c.map((e) => (e.region === region && e.type === type && e.name === old ? { ...e, name: n } : e)))
+    }
+    setEditEx(null); forceTick((t) => t + 1)
+  }
+  function deleteEx(region, type, name) {
+    if (!window.confirm(`Delete your custom exercise "${name}"?`)) return
+    if (getCustomExercises(type).includes(name)) deleteCustomExercise(type, name)
+    if (getCustomExercisesForRegionType(region, type).includes(name)) deleteCustomExerciseForRegionType(region, type, name)
+    setChecked((c) => c.filter((e) => !(e.region === region && e.type === type && e.name === name))); forceTick((t) => t + 1)
+  }
+
   // One visible group per valid region+type combination actually in play.
   const groups = selectedRegions.flatMap((region) =>
     selectedTypes.filter((type) => typesForAnyRegion(region, customTypes).includes(type)).map((type) => ({ region, type }))
@@ -824,7 +917,13 @@ function AddExerciseWidget({ existingNames, onAdd }) {
         <label className="label flex items-center gap-1 text-xs"><MapPin size={12} /> 1. Region(s) — tap all that apply</label>
         <div className="flex flex-wrap items-center gap-1.5">
           {regionOptions.map((r) => (
-            <StarChip key={r} label={r} active={selectedRegions.includes(r)} fav={isFavRegion(r)} onToggleFav={() => toggleFavRegion(r)} onClick={() => toggleRegion(r)} />
+            <ManageableChip
+              key={r} label={r} active={selectedRegions.includes(r)} fav={isFavRegion(r)} custom={isCustomRegion(r)}
+              editing={editRegion?.old === r} editVal={editRegion?.val ?? ''}
+              onToggleFav={() => toggleFavRegion(r)} onClick={() => toggleRegion(r)}
+              onStartEdit={() => setEditRegion({ old: r, val: r })} onEditChange={(v) => setEditRegion({ old: r, val: v })}
+              onSaveEdit={saveRegionRename} onCancelEdit={() => setEditRegion(null)} onDelete={() => deleteRegion(r)}
+            />
           ))}
         </div>
       </div>
@@ -834,7 +933,13 @@ function AddExerciseWidget({ existingNames, onAdd }) {
           <label className="label flex items-center gap-1 text-xs"><Layers size={12} /> 2. Exercise type(s) — tap all that apply</label>
           <div className="flex flex-wrap items-center gap-1.5">
             {typeOptions.map((t) => (
-              <StarChip key={t} label={t} active={selectedTypes.includes(t)} fav={isFavType(t)} onToggleFav={() => toggleFavType(t)} onClick={() => toggleType(t)} />
+              <ManageableChip
+                key={t} label={t} active={selectedTypes.includes(t)} fav={isFavType(t)} custom={isCustomType(t)}
+                editing={editType?.old === t} editVal={editType?.val ?? ''}
+                onToggleFav={() => toggleFavType(t)} onClick={() => toggleType(t)}
+                onStartEdit={() => setEditType({ old: t, val: t })} onEditChange={(v) => setEditType({ old: t, val: v })}
+                onSaveEdit={saveTypeRename} onCancelEdit={() => setEditType(null)} onDelete={() => deleteType(t)}
+              />
             ))}
           </div>
           {/* Inline add — a new type scoped to the chosen region(s) */}
@@ -846,7 +951,8 @@ function AddExerciseWidget({ existingNames, onAdd }) {
             />
             {selectedRegions.length > 1 && (
               <select
-                className="input h-8 w-auto text-xs" value={selectedRegions.includes(typeScope) ? typeScope : 'all'}
+                className="h-8 shrink-0 rounded-lg border border-slate-200 bg-white pl-2.5 pr-7 text-xs text-slate-700 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100"
+                value={selectedRegions.includes(typeScope) ? typeScope : 'all'}
                 onChange={(e) => setTypeScope(e.target.value)} title="Which region(s) should get this type?"
               >
                 <option value="all">for all {selectedRegions.length} selected regions</option>
@@ -876,14 +982,21 @@ function AddExerciseWidget({ existingNames, onAdd }) {
                 ) : (
                   <div className="flex flex-wrap items-center gap-1.5">
                     {exercises.map((name) => (
-                      <StarChip
+                      <ManageableChip
                         key={name}
                         label={name + (type === 'Balance' && BALANCE_LEVEL[name] ? ` (${BALANCE_LEVEL[name]})` : '')}
                         active={isChecked(region, type, name)}
                         fav={isFavEx(name)}
                         disabled={existingNames.includes(name)}
+                        custom={isCustomExercise(region, type, name)}
+                        editing={editEx?.region === region && editEx?.type === type && editEx?.old === name}
+                        editVal={editEx?.val ?? ''}
                         onToggleFav={() => toggleFavEx(name)}
                         onClick={() => toggleExercise(region, type, name)}
+                        onStartEdit={() => setEditEx({ region, type, old: name, val: name })}
+                        onEditChange={(v) => setEditEx({ region, type, old: name, val: v })}
+                        onSaveEdit={saveExRename} onCancelEdit={() => setEditEx(null)}
+                        onDelete={() => deleteEx(region, type, name)}
                       />
                     ))}
                   </div>
