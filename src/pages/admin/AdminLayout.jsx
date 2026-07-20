@@ -3,7 +3,7 @@ import { NavLink, Outlet, useNavigate, useLocation, Link } from 'react-router-do
 import {
   LayoutDashboard, Inbox, CalendarDays, Users, FileText, Newspaper,
   GraduationCap, LogOut, Menu, X, ExternalLink, Wallet, Stethoscope, Download, Dumbbell,
-  ChevronLeft, ChevronRight,
+  ChevronLeft, ChevronRight, StickyNote,
 } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import { UnsavedProvider, useUnsaved } from '../../context/UnsavedContext'
@@ -25,6 +25,7 @@ const nav = [
   { to: '/admin/reports', label: 'Reports', icon: FileText },
   { to: '/admin/accounting', label: 'Accounting', icon: Wallet },
   { to: '/admin/content', label: 'Blogs', icon: Newspaper },
+  { to: '/admin/notes', label: 'Notes & Goals', icon: StickyNote },
 ]
 
 export default function AdminLayout() {

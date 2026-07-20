@@ -299,11 +299,205 @@ function EditableChip({ label, editing, editVal, onStartEdit, onEditChange, onSa
   )
 }
 
-// "Add your own" — a single popup for creating custom regions, exercise
-// types and exercises (with rename/delete for anything the admin created).
-// Saves land in the same stores AddExerciseWidget already reads, so the
-// normal Region → Type → Exercises flow shows them automatically afterward.
+// "Add your own" — a popup with two tabs: a step-by-step wizard for building
+// a brand new region (Region name → Types → Exercises per type → Save), and
+// a flat "Manage existing" editor (rename/delete) for anything already
+// created. Saves land in the same stores AddExerciseWidget already reads, so
+// the normal Region → Type → Exercises flow shows them automatically after.
 function CustomTaxonomyModal({ onClose, onChanged }) {
+  const [tab, setTab] = useState('create')
+
+  return (
+    <div className="fixed inset-0 z-[90] grid place-items-center bg-slate-900/50 p-4 backdrop-blur-sm">
+      <div className="max-h-[92vh] w-full max-w-2xl animate-pop-in space-y-5 overflow-y-auto rounded-3xl bg-white p-6 shadow-2xl">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-lg font-bold text-slate-900">Add your own — Region, Type &amp; Exercises</h2>
+            <p className="text-sm text-slate-500">Build a custom region step by step, or manage what you've already created.</p>
+          </div>
+          <button onClick={onClose} className="rounded-full p-1.5 text-slate-400 hover:bg-slate-100"><X size={20} /></button>
+        </div>
+
+        <div className="flex gap-1 rounded-xl bg-slate-100 p-1">
+          <button type="button" onClick={() => setTab('create')} className={`flex-1 rounded-lg py-1.5 text-sm font-semibold transition ${tab === 'create' ? 'bg-white text-brand-600 shadow' : 'text-slate-500 hover:text-slate-700'}`}>Create new region</button>
+          <button type="button" onClick={() => setTab('manage')} className={`flex-1 rounded-lg py-1.5 text-sm font-semibold transition ${tab === 'manage' ? 'bg-white text-brand-600 shadow' : 'text-slate-500 hover:text-slate-700'}`}>Manage existing</button>
+        </div>
+
+        {tab === 'create'
+          ? <CreateRegionWizard onSaved={onChanged} onClose={onClose} />
+          : <ManageTaxonomyPanel onChanged={onChanged} />}
+      </div>
+    </div>
+  )
+}
+
+// Step 1: Region name → Step 2: which exercise type(s) apply (checkboxes off
+// every type already in use, or type your own) → Step 3: which exercises
+// belong under each of those types (existing ones shown for reference, plus
+// an add box) → Save commits everything to the custom stores in one go.
+function CreateRegionWizard({ onSaved, onClose }) {
+  const [step, setStep] = useState(1)
+  const [regionName, setRegionName] = useState('')
+  const [customTypes] = useState(() => getCustomTypes())
+  const [selectedTypes, setSelectedTypes] = useState([])
+  const [typeDraft, setTypeDraft] = useState('')
+  const [pendingNewTypes, setPendingNewTypes] = useState([])
+  const [newExercisesByType, setNewExercisesByType] = useState({})
+  const [exDraftByType, setExDraftByType] = useState({})
+  const [saved, setSaved] = useState(false)
+
+  const knownTypes = [...new Set([...REGION_TYPES, ...WHOLE_BODY_TYPES, ...customTypes])]
+  const allOfferedTypes = [...new Set([...knownTypes, ...pendingNewTypes])]
+
+  function toggleType(t) {
+    setSelectedTypes((ts) => (ts.includes(t) ? ts.filter((x) => x !== t) : [...ts, t]))
+  }
+  function addOwnType() {
+    const n = typeDraft.trim(); if (!n) return
+    if (!allOfferedTypes.some((x) => x.toLowerCase() === n.toLowerCase())) setPendingNewTypes((p) => [...p, n])
+    if (!selectedTypes.some((x) => x.toLowerCase() === n.toLowerCase())) setSelectedTypes((ts) => [...ts, n])
+    setTypeDraft('')
+  }
+
+  function addExerciseDraft(type) {
+    const n = (exDraftByType[type] || '').trim(); if (!n) return
+    setNewExercisesByType((m) => ({ ...m, [type]: [...(m[type] || []), n] }))
+    setExDraftByType((m) => ({ ...m, [type]: '' }))
+  }
+  function removeExerciseDraft(type, name) {
+    setNewExercisesByType((m) => ({ ...m, [type]: (m[type] || []).filter((x) => x !== name) }))
+  }
+
+  function finish() {
+    const region = regionName.trim()
+    if (!region || !selectedTypes.length) return
+    addCustomRegion(region)
+    selectedTypes.forEach((t) => { if (!knownTypes.some((x) => x.toLowerCase() === t.toLowerCase())) addCustomType(t) })
+    Object.entries(newExercisesByType).forEach(([type, names]) => names.forEach((n) => addCustomExercise(type, n)))
+    onSaved?.()
+    setSaved(true)
+  }
+
+  function addAnother() {
+    setStep(1); setRegionName(''); setSelectedTypes([]); setTypeDraft(''); setPendingNewTypes([])
+    setNewExercisesByType({}); setExDraftByType({}); setSaved(false)
+  }
+
+  if (saved) {
+    return (
+      <div className="space-y-4 py-6 text-center">
+        <div className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-emerald-50 text-emerald-600"><Check size={28} /></div>
+        <div>
+          <p className="font-bold text-slate-900">"{regionName.trim()}" saved</p>
+          <p className="text-sm text-slate-500">It's ready to use in the normal Region → Type → Exercises picker.</p>
+        </div>
+        <div className="flex justify-center gap-2">
+          <button type="button" onClick={addAnother} className="btn-outline">Add another region</button>
+          <button type="button" onClick={onClose} className="btn-primary">Done</button>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-5">
+      <div className="flex items-center gap-2">
+        {[1, 2, 3].map((n) => (
+          <div key={n} className="flex flex-1 items-center gap-2">
+            <div className={`grid h-7 w-7 shrink-0 place-items-center rounded-full text-xs font-bold ${step === n ? 'bg-brand-600 text-white' : step > n ? 'bg-emerald-500 text-white' : 'bg-slate-100 text-slate-400'}`}>
+              {step > n ? <Check size={14} /> : n}
+            </div>
+            <span className={`text-xs font-semibold ${step === n ? 'text-brand-700' : 'text-slate-400'}`}>{['Region', 'Types', 'Exercises'][n - 1]}</span>
+            {n < 3 && <div className={`h-0.5 flex-1 rounded ${step > n ? 'bg-emerald-400' : 'bg-slate-100'}`} />}
+          </div>
+        ))}
+      </div>
+
+      {step === 1 && (
+        <div>
+          <label className="label text-sm">1. What's the region called?</label>
+          <input
+            autoFocus className="input" value={regionName} onChange={(e) => setRegionName(e.target.value)} placeholder="e.g. Jaw / TMJ"
+            onKeyDown={(e) => { if (e.key === 'Enter' && regionName.trim()) { e.preventDefault(); setStep(2) } }}
+          />
+          <p className="mt-1 text-xs text-slate-400">This becomes a new option in the Region picker, right alongside the built-in ones.</p>
+        </div>
+      )}
+
+      {step === 2 && (
+        <div>
+          <label className="label text-sm">2. Which exercise types apply to {regionName || 'this region'}?</label>
+          <p className="mb-2 text-xs text-slate-400">Tick all that apply — pulled from every type already in use — or add a brand new one.</p>
+          <div className="flex flex-wrap gap-1.5">
+            {allOfferedTypes.map((t) => (
+              <label key={t} className={`inline-flex cursor-pointer items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition ${selectedTypes.includes(t) ? 'border-brand-600 bg-brand-600 text-white shadow' : 'border-slate-200 bg-white text-slate-600 hover:bg-brand-50'}`}>
+                <input type="checkbox" className="hidden" checked={selectedTypes.includes(t)} onChange={() => toggleType(t)} />
+                {selectedTypes.includes(t) && <Check size={12} />} {t}
+              </label>
+            ))}
+          </div>
+          <div className="mt-3 flex gap-2">
+            <input className="input h-9 text-sm" value={typeDraft} onChange={(e) => setTypeDraft(e.target.value)} placeholder="Add your own type…" onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addOwnType() } }} />
+            <button type="button" onClick={addOwnType} className="btn-outline shrink-0 text-xs">Add</button>
+          </div>
+        </div>
+      )}
+
+      {step === 3 && (
+        <div className="space-y-3">
+          <label className="label text-sm">3. Exercises for each type</label>
+          <p className="text-xs text-slate-400">Optional — you can also add these later from the normal exercise picker.</p>
+          {selectedTypes.map((t) => (
+            <div key={t} className="rounded-xl bg-slate-50 p-3">
+              <p className="mb-1.5 text-xs font-bold uppercase tracking-wide text-brand-600">{t}</p>
+              {getCustomExercises(t).length > 0 && (
+                <div className="mb-2 flex flex-wrap gap-1.5">
+                  {getCustomExercises(t).map((ex) => (
+                    <span key={ex} className="rounded-full bg-white px-2.5 py-1 text-xs text-slate-500 ring-1 ring-slate-200">{ex} <span className="text-slate-300">· existing</span></span>
+                  ))}
+                </div>
+              )}
+              <div className="flex gap-2">
+                <input className="input h-9 text-sm" value={exDraftByType[t] || ''} onChange={(e) => setExDraftByType((m) => ({ ...m, [t]: e.target.value }))} placeholder={`Add an exercise for ${t}…`} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addExerciseDraft(t) } }} />
+                <button type="button" onClick={() => addExerciseDraft(t)} className="btn-outline shrink-0 text-xs">Add</button>
+              </div>
+              {(newExercisesByType[t] || []).length > 0 && (
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {newExercisesByType[t].map((ex) => (
+                    <span key={ex} className="inline-flex items-center gap-1 rounded-full bg-brand-50 py-1 pl-3 pr-1 text-xs font-medium text-brand-700">
+                      {ex}
+                      <button type="button" onClick={() => removeExerciseDraft(t, ex)} className="grid h-5 w-5 place-items-center rounded-full text-brand-400 hover:bg-white hover:text-red-500"><X size={11} /></button>
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="flex items-center justify-between border-t border-slate-100 pt-4">
+        <button type="button" onClick={() => setStep((s) => Math.max(1, s - 1))} disabled={step === 1} className="btn-ghost disabled:opacity-0">Back</button>
+        {step < 3 ? (
+          <button
+            type="button" onClick={() => setStep((s) => s + 1)}
+            disabled={(step === 1 && !regionName.trim()) || (step === 2 && !selectedTypes.length)}
+            className="btn-primary disabled:opacity-40"
+          >
+            Next
+          </button>
+        ) : (
+          <button type="button" onClick={finish} className="btn-primary"><Save size={16} /> Save region</button>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// Flat rename/delete editor for every custom region, type and exercise
+// created so far — the old "Add your own" behavior, now split into its own
+// tab alongside the step-by-step creation wizard above.
+function ManageTaxonomyPanel({ onChanged }) {
   const [regions, setRegions] = useState(() => getCustomRegions())
   const [types, setTypes] = useState(() => getCustomTypes())
   const [regionDraft, setRegionDraft] = useState('')
@@ -334,96 +528,82 @@ function CustomTaxonomyModal({ onClose, onChanged }) {
   function removeExercise(type, name) { if (!window.confirm(`Delete exercise "${name}"?`)) return; deleteCustomExercise(type, name); refreshExercises() }
 
   return (
-    <div className="fixed inset-0 z-[90] grid place-items-center bg-slate-900/50 p-4 backdrop-blur-sm">
-      <div className="max-h-[92vh] w-full max-w-2xl animate-pop-in space-y-5 overflow-y-auto rounded-3xl bg-white p-6 shadow-2xl">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-lg font-bold text-slate-900">Add your own — Region, Type &amp; Exercises</h2>
-            <p className="text-sm text-slate-500">Create a custom region, its types, and the exercises under each — they'll appear in the normal picker automatically.</p>
-          </div>
-          <button onClick={onClose} className="rounded-full p-1.5 text-slate-400 hover:bg-slate-100"><X size={20} /></button>
+    <div className="space-y-5">
+      <div>
+        <label className="label text-xs">Regions you've added</label>
+        <div className="flex gap-2">
+          <input className="input" value={regionDraft} onChange={(e) => setRegionDraft(e.target.value)} placeholder="e.g. Jaw / TMJ" onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addRegion() } }} />
+          <button type="button" onClick={addRegion} className="btn-primary shrink-0">Add</button>
         </div>
-
-        <div>
-          <label className="label text-xs">1. Region name</label>
-          <div className="flex gap-2">
-            <input className="input" value={regionDraft} onChange={(e) => setRegionDraft(e.target.value)} placeholder="e.g. Jaw / TMJ" onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addRegion() } }} />
-            <button type="button" onClick={addRegion} className="btn-primary shrink-0">Add</button>
+        {regions.length > 0 ? (
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {regions.map((r) => (
+              <EditableChip
+                key={r} label={r}
+                editing={editingRegion?.old === r} editVal={editingRegion?.val ?? ''}
+                onStartEdit={() => setEditingRegion({ old: r, val: r })}
+                onEditChange={(v) => setEditingRegion({ old: r, val: v })}
+                onSaveEdit={saveRegionEdit} onCancelEdit={() => setEditingRegion(null)}
+                onDelete={() => removeRegion(r)}
+              />
+            ))}
           </div>
-          {regions.length > 0 && (
-            <div className="mt-2 flex flex-wrap gap-1.5">
-              {regions.map((r) => (
-                <EditableChip
-                  key={r} label={r}
-                  editing={editingRegion?.old === r} editVal={editingRegion?.val ?? ''}
-                  onStartEdit={() => setEditingRegion({ old: r, val: r })}
-                  onEditChange={(v) => setEditingRegion({ old: r, val: v })}
-                  onSaveEdit={saveRegionEdit} onCancelEdit={() => setEditingRegion(null)}
-                  onDelete={() => removeRegion(r)}
-                />
-              ))}
-            </div>
-          )}
-        </div>
-
-        <div>
-          <label className="label text-xs">2. Exercise type(s)</label>
-          <div className="flex gap-2">
-            <input className="input" value={typeDraft} onChange={(e) => setTypeDraft(e.target.value)} placeholder="e.g. Manual Therapy" onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addType() } }} />
-            <button type="button" onClick={addType} className="btn-primary shrink-0">Add</button>
-          </div>
-          {types.length > 0 && (
-            <div className="mt-2 flex flex-wrap gap-1.5">
-              {types.map((t) => (
-                <EditableChip
-                  key={t} label={t}
-                  editing={editingType?.old === t} editVal={editingType?.val ?? ''}
-                  onStartEdit={() => setEditingType({ old: t, val: t })}
-                  onEditChange={(v) => setEditingType({ old: t, val: v })}
-                  onSaveEdit={saveTypeEdit} onCancelEdit={() => setEditingType(null)}
-                  onDelete={() => removeType(t)}
-                />
-              ))}
-            </div>
-          )}
-        </div>
-
-        {types.length > 0 && (
-          <div>
-            <label className="label text-xs">3. Exercises — pick a type to manage its list</label>
-            <div className="flex flex-wrap gap-1.5">
-              {types.map((t) => (
-                <button key={t} type="button" onClick={() => setExpandedType((v) => (v === t ? '' : t))} className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${expandedType === t ? 'bg-brand-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>{t}</button>
-              ))}
-            </div>
-            {expandedType && (
-              <div className="mt-2 rounded-xl bg-slate-50 p-3">
-                <div className="flex gap-2">
-                  <input className="input h-9 text-sm" value={exDraft} onChange={(e) => setExDraft(e.target.value)} placeholder={`Exercise for ${expandedType}…`} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addExercise() } }} />
-                  <button type="button" onClick={addExercise} className="btn-outline shrink-0 text-xs">Add</button>
-                </div>
-                <div className="mt-2 flex flex-wrap gap-1.5">
-                  {getCustomExercises(expandedType).map((ex) => (
-                    <EditableChip
-                      key={ex} label={ex}
-                      editing={editingEx?.type === expandedType && editingEx?.old === ex} editVal={editingEx?.val ?? ''}
-                      onStartEdit={() => setEditingEx({ type: expandedType, old: ex, val: ex })}
-                      onEditChange={(v) => setEditingEx({ type: expandedType, old: ex, val: v })}
-                      onSaveEdit={saveExEdit} onCancelEdit={() => setEditingEx(null)}
-                      onDelete={() => removeExercise(expandedType, ex)}
-                    />
-                  ))}
-                  {getCustomExercises(expandedType).length === 0 && <p className="text-xs text-slate-400">No exercises yet for {expandedType}.</p>}
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
-        <div className="flex justify-end">
-          <button type="button" onClick={onClose} className="btn-primary">Done</button>
-        </div>
+        ) : <p className="mt-2 text-xs text-slate-400">No custom regions yet — use "Create new region" above.</p>}
       </div>
+
+      <div>
+        <label className="label text-xs">Exercise types you've added</label>
+        <div className="flex gap-2">
+          <input className="input" value={typeDraft} onChange={(e) => setTypeDraft(e.target.value)} placeholder="e.g. Manual Therapy" onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addType() } }} />
+          <button type="button" onClick={addType} className="btn-primary shrink-0">Add</button>
+        </div>
+        {types.length > 0 ? (
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {types.map((t) => (
+              <EditableChip
+                key={t} label={t}
+                editing={editingType?.old === t} editVal={editingType?.val ?? ''}
+                onStartEdit={() => setEditingType({ old: t, val: t })}
+                onEditChange={(v) => setEditingType({ old: t, val: v })}
+                onSaveEdit={saveTypeEdit} onCancelEdit={() => setEditingType(null)}
+                onDelete={() => removeType(t)}
+              />
+            ))}
+          </div>
+        ) : <p className="mt-2 text-xs text-slate-400">No custom types yet.</p>}
+      </div>
+
+      {types.length > 0 && (
+        <div>
+          <label className="label text-xs">Exercises — pick a type to manage its list</label>
+          <div className="flex flex-wrap gap-1.5">
+            {types.map((t) => (
+              <button key={t} type="button" onClick={() => setExpandedType((v) => (v === t ? '' : t))} className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${expandedType === t ? 'bg-brand-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>{t}</button>
+            ))}
+          </div>
+          {expandedType && (
+            <div className="mt-2 rounded-xl bg-slate-50 p-3">
+              <div className="flex gap-2">
+                <input className="input h-9 text-sm" value={exDraft} onChange={(e) => setExDraft(e.target.value)} placeholder={`Exercise for ${expandedType}…`} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addExercise() } }} />
+                <button type="button" onClick={addExercise} className="btn-outline shrink-0 text-xs">Add</button>
+              </div>
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {getCustomExercises(expandedType).map((ex) => (
+                  <EditableChip
+                    key={ex} label={ex}
+                    editing={editingEx?.type === expandedType && editingEx?.old === ex} editVal={editingEx?.val ?? ''}
+                    onStartEdit={() => setEditingEx({ type: expandedType, old: ex, val: ex })}
+                    onEditChange={(v) => setEditingEx({ type: expandedType, old: ex, val: v })}
+                    onSaveEdit={saveExEdit} onCancelEdit={() => setEditingEx(null)}
+                    onDelete={() => removeExercise(expandedType, ex)}
+                  />
+                ))}
+                {getCustomExercises(expandedType).length === 0 && <p className="text-xs text-slate-400">No exercises yet for {expandedType}.</p>}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }
@@ -709,9 +889,12 @@ function DayEditor({ day, allDays, onCopyFromDay, onOpenCrossPatientCopy, onAppl
     setCopySource('')
   }
 
+  // A template is a blank slate to prescribe fresh each time it's applied —
+  // carry over the exercise identity and dosage, but never today's per-patient
+  // notes, progression ticks, or completion state.
   async function saveAsTemplate() {
     const n = templateName.trim(); if (!n || !exercises.length) return
-    try { await addRehabTemplate(n, [{ day: 1, exercises: exercises.map((e) => ({ ...e, done: false })) }]) } catch (_) { /* rules may need publishing */ }
+    try { await addRehabTemplate(n, [{ day: 1, exercises: exercises.map((e) => ({ ...e, done: false, notes: '', progression: [] })) }]) } catch (_) { /* rules may need publishing */ }
     setTemplateName(''); setSavingTemplate(false)
   }
   async function renameTemplate(id) {

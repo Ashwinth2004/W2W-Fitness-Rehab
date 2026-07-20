@@ -144,5 +144,7 @@ service cloud.firestore {
     match /bankAccounts/{id} { allow read, write: if isFullAdmin(); }
     // Reusable named rehab exercise-set templates (Rehab & Exercises module) → any admin.
     match /rehabTemplates/{id} { allow read, write: if isAdmin(); }
+    // Admin scratchpad notes/goals (Notes & Goals module) → any admin.
+    match /notes/{id} { allow read, write: if isAdmin(); }
   }
 }

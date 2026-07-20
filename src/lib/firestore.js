@@ -914,3 +914,24 @@ export async function updateRehabTemplate(id, data) {
 export async function deleteRehabTemplate(id) {
   return deleteDoc(doc(db, 'rehabTemplates', id))
 }
+
+// ---------- Notes & Goals (admin scratchpad: quick notes or checklists) ----
+// { title, type: 'text'|'checklist', content, items: [{text,done}], tags: [],
+//   color, archived, createdAt, updatedAt }.
+export function watchNotes(cb) {
+  const q = query(collection(db, 'notes'), orderBy('updatedAt', 'desc'))
+  return onSnapshot(q, (snap) => cb(snap.docs.map((d) => ({ id: d.id, ...d.data() }))), () => cb([]))
+}
+
+export async function addNote(data) {
+  const ref = await addDoc(collection(db, 'notes'), { ...data, createdAt: serverTimestamp(), updatedAt: serverTimestamp() })
+  return ref.id
+}
+
+export async function updateNote(id, data) {
+  return updateDoc(doc(db, 'notes', id), { ...data, updatedAt: serverTimestamp() })
+}
+
+export async function deleteNote(id) {
+  return deleteDoc(doc(db, 'notes', id))
+}

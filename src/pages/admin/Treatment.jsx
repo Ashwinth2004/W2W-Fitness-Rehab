@@ -44,19 +44,11 @@ export default function Treatment() {
   return <TreatmentForm key={`${client.id}:${params.get('session') || ''}`} client={client} editId={params.get('session') || ''} onChangeClient={() => setParams({})} navigate={navigate} />
 }
 
-const isPhysioClient = (c) => Array.isArray(c?.programs) && c.programs.includes('W2W Treatment')
-
 function ClientPicker({ clients, onPick, onNew, note }) {
   const [q, setQ] = useState('')
-  // Default to Treatment-registered patients only (Treatment-only or Both) —
-  // rehab-only patients don't come for physio, so hide them here by default.
-  // "Show all clients" below reveals everyone when needed.
-  const [showAll, setShowAll] = useState(false)
-  const physioClients = clients.filter(isPhysioClient)
-  const pool = showAll ? clients : physioClients
   const filtered = q
-    ? pool.filter((c) => [c.name, c.phone, c.clientId, c.email].filter(Boolean).join(' ').toLowerCase().includes(q.toLowerCase()))
-    : pool
+    ? clients.filter((c) => [c.name, c.phone, c.clientId, c.email].filter(Boolean).join(' ').toLowerCase().includes(q.toLowerCase()))
+    : clients
 
   return (
     <div className="space-y-5">
@@ -89,9 +81,7 @@ function ClientPicker({ clients, onPick, onNew, note }) {
       {clients.length === 0 ? (
         <p className="card py-12 text-center text-sm text-slate-400">No patients yet. Create your first patient above.</p>
       ) : filtered.length === 0 ? (
-        <p className="card py-12 text-center text-sm text-slate-400">
-          {showAll ? `No patients match “${q}”.` : physioClients.length === 0 ? 'No patients registered for W2W Treatment yet.' : `No patients match “${q}”.`}
-        </p>
+        <p className="card py-12 text-center text-sm text-slate-400">No patients match “{q}”.</p>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {filtered.map((c) => (
@@ -118,14 +108,6 @@ function ClientPicker({ clients, onPick, onNew, note }) {
               </div>
             </div>
           ))}
-        </div>
-      )}
-
-      {clients.length > 0 && physioClients.length !== clients.length && (
-        <div className="text-center">
-          <button type="button" onClick={() => setShowAll((v) => !v)} className="text-sm font-medium text-brand-600 hover:underline">
-            {showAll ? 'Hide Rehab & Exercises only patients ▲' : 'Show Rehab & Exercises only patients ▾'}
-          </button>
         </div>
       )}
     </div>
@@ -474,7 +456,7 @@ function TreatmentForm({ client, editId = '', onChangeClient, navigate }) {
           <div className={`grid gap-3 ${s.cols1 ? '' : 'sm:grid-cols-2'}`}>
             {s.fields.map((f) => (
               <Fragment key={f.k}>
-                <AssessmentField f={f} value={form[f.k]} ghost={last ? String(last[f.k] ?? '') : ''} onChange={set(f.k)} big />
+                <AssessmentField f={f} value={form[f.k]} ghost={last ? last[f.k] : undefined} onChange={set(f.k)} big />
                 {f.k === 'vas' && (
                   <div className="sm:col-span-2">
                     <VasScale value={form.vas} onChange={set('vas')} />

@@ -37,6 +37,7 @@ const Rehab = lazy(() => import('./pages/admin/Rehab'))
 const Reports = lazy(() => import('./pages/admin/Reports'))
 const Accounting = lazy(() => import('./pages/admin/Accounting'))
 const Content = lazy(() => import('./pages/admin/Content'))
+const Notes = lazy(() => import('./pages/admin/Notes'))
 const Workshops = lazy(() => import('./pages/admin/Workshops'))
 const Signatures = lazy(() => import('./pages/admin/Signatures'))
 
@@ -85,6 +86,7 @@ export default function App() {
               <Route path="reports" element={<Reports />} />
               <Route path="accounting" element={<Accounting />} />
               <Route path="content" element={<Content />} />
+              <Route path="notes" element={<Notes />} />
               <Route path="workshops" element={<Workshops />} />
             </Route>
           </Routes>

@@ -1,8 +1,9 @@
 import { useState } from 'react'
-import { X } from 'lucide-react'
+import { X, ArrowRightToLine } from 'lucide-react'
 import PhoneField from './PhoneField'
 import { RomField, GirthField, LimbLengthField, ListField } from './ClinicalFields'
 import { PAIN_DURATION_UNITS } from '../lib/constants'
+import { formatAssessmentValue } from '../lib/assessmentSchema'
 
 const STRUCTURED = ['chips', 'multi', 'posneg', 'duration', 'rom', 'girth', 'limb', 'list', 'programs']
 const chipCls = (on) =>
@@ -120,13 +121,54 @@ function Programs({ value, onChange }) {
   )
 }
 
-// One assessment field. `ghost` shows a returning patient's previous value
-// faintly (Tab to accept). `big` enlarges the text; `invalid` shows a red
-// border to flag a required/invalid field.
+// True when a field value counts as "nothing entered yet" — used to decide
+// whether to offer the previous-visit ghost value, regardless of that
+// field's shape (plain string, array, or a structured rom/girth/limb object).
+function isEmptyVal(v) {
+  if (v == null) return true
+  if (typeof v === 'string') return v.trim() === ''
+  if (Array.isArray(v)) return v.length === 0
+  if (typeof v === 'object') {
+    if (Array.isArray(v.joints)) return v.joints.length === 0 // rom
+    if ('type' in v || 'right' in v || 'left' in v) return !v.type && !v.right && !v.left // limb
+    return Object.keys(v).length === 0
+  }
+  return false
+}
+
+// Label row shared by every field type — adds a "Last visit: …" chip when a
+// returning patient has a previous value for this field and nothing has been
+// entered yet this session. Click (or Tab, for plain text fields) to pull the
+// previous value in as-is; it then behaves like normal, editable data.
+function LabelRow({ label, big, showGhost, ghostPreview, onFill }) {
+  return (
+    <div className="mb-1.5 flex flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5">
+      <label className={`block ${big ? 'text-sm' : 'text-xs'} font-medium text-slate-700`}>{label}</label>
+      {showGhost && (
+        <button
+          type="button" onClick={onFill}
+          title="Same as last visit — click (or press Tab) to fill"
+          className="flex max-w-full items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-400 transition hover:bg-brand-50 hover:text-brand-600"
+        >
+          <ArrowRightToLine size={11} className="shrink-0" /> Last visit:
+          <span className="max-w-[160px] truncate italic">{ghostPreview}</span>
+        </button>
+      )}
+    </div>
+  )
+}
+
+// One assessment field. `ghost` is the returning patient's previous value for
+// this field (raw — same shape `onChange` expects) — shown as a "Last visit"
+// hint when the field is still empty; Tab (plain text fields) or the hint
+// itself (any field type) fills it in as ordinary, editable current data.
+// `big` enlarges the text; `invalid` shows a red border to flag a required field.
 export default function AssessmentField({ f, value, ghost, onChange, big, invalid }) {
-  const onKey = (e) => { if (e.key === 'Tab' && !value && ghost) { e.preventDefault(); onChange(ghost) } }
+  const showGhost = isEmptyVal(value) && !isEmptyVal(ghost)
+  const ghostText = showGhost ? formatAssessmentValue(ghost).replace(/\n+/g, ' · ') : ''
+  const fillGhost = () => onChange(ghost)
+  const onKey = (e) => { if (e.key === 'Tab' && showGhost) { e.preventDefault(); fillGhost() } }
   const wrap = f.full || f.area ? 'sm:col-span-2' : ''
-  const lbl = `label ${big ? 'text-sm' : 'text-xs'}`
   const bigText = big ? 'text-[1.05rem]' : ''
   const err = invalid ? '!border-red-400 ring-2 ring-red-200' : ''
   const id = `f-${f.k}`
@@ -136,7 +178,7 @@ export default function AssessmentField({ f, value, ghost, onChange, big, invali
     const fullWrap = (f.full || ['rom', 'girth', 'limb', 'list'].includes(f.type)) ? 'sm:col-span-2' : ''
     return (
       <div className={fullWrap} id={id}>
-        <label className={lbl}>{f.label}</label>
+        <LabelRow label={f.label} big={big} showGhost={showGhost} ghostPreview={ghostText} onFill={fillGhost} />
         <div className={`mt-1 ${err ? 'rounded-xl p-1 ring-2 ring-red-200' : ''}`}>
           {f.type === 'chips' && <Chips f={f} value={value} onChange={onChange} />}
           {f.type === 'multi' && <Multi f={f} value={value} onChange={onChange} />}
@@ -155,7 +197,7 @@ export default function AssessmentField({ f, value, ghost, onChange, big, invali
   if (f.type === 'select') {
     return (
       <div className={wrap}>
-        <label className={lbl}>{f.label}</label>
+        <LabelRow label={f.label} big={big} showGhost={showGhost} ghostPreview={ghostText} onFill={fillGhost} />
         <select id={id} className={`input ${bigText} ${err}`} value={value} onChange={(e) => onChange(e.target.value)}>
           <option value="">—</option>
           {f.options.map((o) => <option key={o} value={o}>{o}</option>)}
@@ -166,7 +208,7 @@ export default function AssessmentField({ f, value, ghost, onChange, big, invali
   if (f.type === 'phone') {
     return (
       <div className={wrap}>
-        <label className={lbl}>{f.label}</label>
+        <LabelRow label={f.label} big={big} showGhost={showGhost} ghostPreview={ghostText} onFill={fillGhost} />
         <PhoneField id={id} value={value} onChange={onChange} invalid={invalid} big={big} />
       </div>
     )
@@ -180,7 +222,7 @@ export default function AssessmentField({ f, value, ghost, onChange, big, invali
   }
   return (
     <div className={wrap}>
-      <label className={lbl}>{f.label}</label>
+      <LabelRow label={f.label} big={big} showGhost={showGhost} ghostPreview={ghostText} onFill={fillGhost} />
       <T
         id={id}
         className={`input ${f.area ? (big ? 'min-h-[80px]' : 'min-h-[68px]') : ''} ${bigText} ${err}`}
@@ -188,7 +230,7 @@ export default function AssessmentField({ f, value, ghost, onChange, big, invali
         inputMode={f.num ? 'numeric' : undefined}
         maxLength={f.num ? f.maxLen : undefined}
         value={value}
-        placeholder={ghost || ''}
+        placeholder={showGhost ? ghostText : ''}
         onChange={handleChange}
         onKeyDown={onKey}
       />
