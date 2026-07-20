@@ -1,9 +1,9 @@
 // Admin roles, keyed by login email.
 //   'full'    → access to every module.
-//   'limited' → every module EXCEPT Reports and Accounting (those two stay
-//               full-admin only; everything else — Dashboard, Enquiries,
-//               Appointments, Clients, Treatment, Rehab & Exercises,
-//               Signatures, W2W Workshop, Blogs, Notes & Goals — is visible).
+//   'limited' → every module EXCEPT Reports, Accounting and Notes & Goals
+//               (those stay full-admin only; everything else — Dashboard,
+//               Enquiries, Appointments, Clients, Treatment, Rehab &
+//               Exercises, Signatures, W2W Workshop, Blogs — is visible).
 //
 // NOTE: these accounts must exist in Firebase Authentication (Email/Password)
 // with the agreed passwords. This file only decides what each one can SEE/OPEN
@@ -14,10 +14,10 @@ const ROLES = {
 }
 
 // Paths a 'limited' admin may open (Dashboard '/admin' is handled separately).
-// Reports and Accounting are deliberately NOT in this list.
+// Reports, Accounting and Notes & Goals are deliberately NOT in this list.
 const LIMITED_ALLOW = [
   '/admin/queries', '/admin/appointments', '/admin/clients', '/admin/treatment',
-  '/admin/rehab', '/admin/signatures', '/admin/workshops', '/admin/content', '/admin/notes',
+  '/admin/rehab', '/admin/signatures', '/admin/workshops', '/admin/content',
 ]
 
 // Role for an email, or null if it isn't one of the configured admins.

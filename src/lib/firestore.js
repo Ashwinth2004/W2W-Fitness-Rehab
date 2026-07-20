@@ -928,8 +928,10 @@ export async function addNote(data) {
   return ref.id
 }
 
-export async function updateNote(id, data) {
-  return updateDoc(doc(db, 'notes', id), { ...data, updatedAt: serverTimestamp() })
+// `touch: false` skips bumping updatedAt — used for ticking a checklist item
+// so the note doesn't jump around a "Last updated" sort just from that.
+export async function updateNote(id, data, { touch = true } = {}) {
+  return updateDoc(doc(db, 'notes', id), touch ? { ...data, updatedAt: serverTimestamp() } : data)
 }
 
 export async function deleteNote(id) {
