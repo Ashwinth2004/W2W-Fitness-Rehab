@@ -15,10 +15,12 @@ import {
 } from '../../lib/rehabExercises'
 import {
   getCustomExercises, addCustomExercise, updateCustomExercise, deleteCustomExercise,
+  getCustomExercisesForRegionType, addCustomExerciseForRegionType, deleteCustomExerciseForRegionType,
 } from '../../lib/customExercises'
 import {
   getCustomRegions, addCustomRegion, updateCustomRegion, deleteCustomRegion,
   getCustomTypes, addCustomType, updateCustomType, deleteCustomType,
+  getCustomTypesForRegion, addCustomTypeForRegion, deleteCustomTypeForRegion,
 } from '../../lib/customTaxonomy'
 import { useFavorites } from '../../lib/useFavorites'
 import PatientAvatar from '../../components/PatientAvatar'
@@ -609,11 +611,14 @@ function ManageTaxonomyPanel({ onChanged }) {
 }
 
 // Which exercise TYPES make sense for a region — built-in mapping for known
-// regions, everything for a custom (admin-added) region; admin-added custom
-// types are always offered everywhere, on top of that.
+// regions, everything for a custom (admin-added) region; global custom types
+// (from the "Add your own" popup) are offered everywhere, plus any
+// region-scoped types added inline for THIS region only.
 function typesForAnyRegion(region, customTypes) {
   const builtIn = REHAB_REGIONS.includes(region) ? typesForRegion(region) : [...REGION_TYPES, ...WHOLE_BODY_TYPES]
-  return [...builtIn, ...customTypes.filter((t) => !builtIn.includes(t))]
+  const merged = [...builtIn, ...customTypes.filter((t) => !builtIn.includes(t))]
+  const regionScoped = getCustomTypesForRegion(region).filter((t) => !merged.includes(t))
+  return [...merged, ...regionScoped]
 }
 
 // Multi-region, multi-type, multi-exercise bulk builder for the active day.
@@ -640,7 +645,9 @@ function AddExerciseWidget({ existingNames, onAdd }) {
   const [customRegions, setCustomRegions] = useState(() => getCustomRegions())
   const [customTypes, setCustomTypes] = useState(() => getCustomTypes())
   const [customModalOpen, setCustomModalOpen] = useState(false)
-  const [, forceTick] = useState(0) // bumped after a custom exercise is added, to refresh per-type lists
+  const [typeDraft, setTypeDraft] = useState('') // inline "add type" for the selected region(s)
+  const [exDraft, setExDraft] = useState({}) // inline "add exercise", keyed by "region|type"
+  const [, forceTick] = useState(0) // bumped after a custom exercise/type is added, to refresh lists
 
   const regionOptions = sortRegions([...REHAB_REGIONS, ...customRegions.filter((r) => !REHAB_REGIONS.includes(r))])
   const typeOptions = sortTypes([...new Set(selectedRegions.flatMap((r) => typesForAnyRegion(r, customTypes)))])
@@ -662,6 +669,26 @@ function AddExerciseWidget({ existingNames, onAdd }) {
   // The "Add your own" popup writes straight into the shared custom stores —
   // refresh what this widget reads once it's closed (or on each change).
   function refreshCustom() { setCustomRegions(getCustomRegions()); setCustomTypes(getCustomTypes()); forceTick((t) => t + 1) }
+
+  // Inline "add type" — creates a region-scoped custom type under EVERY
+  // currently-selected region, and auto-selects it so its exercise group
+  // opens right away. Scoped per region, so it never appears elsewhere.
+  function addTypeInline() {
+    const n = typeDraft.trim(); if (!n || !selectedRegions.length) return
+    selectedRegions.forEach((r) => addCustomTypeForRegion(r, n))
+    setSelectedTypes((ts) => (ts.some((x) => x.toLowerCase() === n.toLowerCase()) ? ts : [...ts, n]))
+    setTypeDraft(''); forceTick((t) => t + 1)
+  }
+
+  // Inline "add exercise" — creates a region+type-scoped custom exercise and
+  // ticks it, so it's included in this batch. Scoped to that exact region+type.
+  function addExerciseInline(region, type) {
+    const key = `${region}|${type}`
+    const n = (exDraft[key] || '').trim(); if (!n) return
+    addCustomExerciseForRegionType(region, type, n)
+    setChecked((c) => (c.some((e) => e.region === region && e.type === type && e.name === n) ? c : [...c, { region, type, name: n }]))
+    setExDraft((d) => ({ ...d, [key]: '' })); forceTick((t) => t + 1)
+  }
 
   // One visible group per valid region+type combination actually in play.
   const groups = selectedRegions.flatMap((region) =>
@@ -711,6 +738,15 @@ function AddExerciseWidget({ existingNames, onAdd }) {
               <StarChip key={t} label={t} active={selectedTypes.includes(t)} fav={isFavType(t)} onToggleFav={() => toggleFavType(t)} onClick={() => toggleType(t)} />
             ))}
           </div>
+          {/* Inline add — a new type just for the selected region(s) */}
+          <div className="mt-2 flex items-center gap-1.5">
+            <input
+              className="input h-8 max-w-[220px] text-xs" value={typeDraft} onChange={(e) => setTypeDraft(e.target.value)}
+              placeholder={`+ Add a type for ${selectedRegions.join(', ')}…`}
+              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addTypeInline() } }}
+            />
+            <button type="button" onClick={addTypeInline} disabled={!typeDraft.trim()} className="inline-flex items-center gap-1 rounded-full border border-dashed border-brand-300 bg-white px-2.5 py-1.5 text-xs font-medium text-brand-600 hover:bg-brand-50 disabled:opacity-40"><Plus size={12} /> Add type</button>
+          </div>
         </div>
       )}
 
@@ -719,13 +755,16 @@ function AddExerciseWidget({ existingNames, onAdd }) {
           <label className="label flex items-center gap-1 text-xs"><ListChecks size={12} /> 3. Exercises — tap all that apply</label>
           {groups.map(({ region, type }) => {
             const builtIn = exercisesFor(region, type)
-            const custom = getCustomExercises(type) // read fresh each render; forceTick triggers the re-render after an add
-            const exercises = sortEx([...builtIn, ...custom.filter((c) => !builtIn.includes(c))])
+            const custom = getCustomExercises(type) // global (from popup)
+            const rtCustom = getCustomExercisesForRegionType(region, type) // region+type scoped (inline)
+            // read fresh each render; forceTick triggers the re-render after an add
+            const exercises = sortEx([...builtIn, ...custom.filter((c) => !builtIn.includes(c)), ...rtCustom.filter((c) => !builtIn.includes(c) && !custom.includes(c))])
+            const key = `${region}|${type}`
             return (
-              <div key={`${region}|${type}`} className="rounded-xl bg-white/60 p-2.5 ring-1 ring-brand-100">
+              <div key={key} className="rounded-xl bg-white/60 p-2.5 ring-1 ring-brand-100">
                 <p className="mb-1.5 text-[11px] font-bold uppercase tracking-wide text-brand-500">{region} · {type}</p>
                 {exercises.length === 0 ? (
-                  <p className="text-xs text-slate-400">No exercises yet for this combination — use "Add your own" above.</p>
+                  <p className="mb-2 text-xs text-slate-400">No exercises yet for this combination — add one below.</p>
                 ) : (
                   <div className="flex flex-wrap items-center gap-1.5">
                     {exercises.map((name) => (
@@ -741,6 +780,15 @@ function AddExerciseWidget({ existingNames, onAdd }) {
                     ))}
                   </div>
                 )}
+                {/* Inline add — a new exercise just for THIS region + type */}
+                <div className="mt-2 flex items-center gap-1.5">
+                  <input
+                    className="input h-8 max-w-[220px] text-xs" value={exDraft[key] || ''} onChange={(e) => setExDraft((d) => ({ ...d, [key]: e.target.value }))}
+                    placeholder={`+ Add exercise for ${type}…`}
+                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addExerciseInline(region, type) } }}
+                  />
+                  <button type="button" onClick={() => addExerciseInline(region, type)} disabled={!(exDraft[key] || '').trim()} className="inline-flex items-center gap-1 rounded-full border border-dashed border-brand-300 bg-white px-2.5 py-1.5 text-xs font-medium text-brand-600 hover:bg-brand-50 disabled:opacity-40"><Plus size={12} /> Add</button>
+                </div>
               </div>
             )
           })}
@@ -766,7 +814,9 @@ function Field({ label, children }) {
 
 function exercisesForAnyMerged(region, type) {
   const builtIn = exercisesFor(region, type)
-  return [...builtIn, ...getCustomExercises(type).filter((c) => !builtIn.includes(c))]
+  const merged = [...builtIn, ...getCustomExercises(type).filter((c) => !builtIn.includes(c))]
+  const regionScoped = getCustomExercisesForRegionType(region, type).filter((c) => !merged.includes(c))
+  return [...merged, ...regionScoped]
 }
 
 // One prescribed exercise: sets/reps/hold/resistance/frequency/rest/notes +

@@ -5,7 +5,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
   StickyNote, Plus, X, Search, Trash2, Archive, ArchiveRestore,
-  Type, ListChecks, Check, Loader2, LayoutGrid,
+  Type, ListChecks, Check, Loader2, LayoutGrid, Pin,
 } from 'lucide-react'
 import { watchNotes, addNote, updateNote, deleteNote } from '../../lib/firestore'
 import { fmtDateTime } from '../../lib/format'
@@ -34,7 +34,7 @@ const CARD_BG = {
 }
 
 function blankNote() {
-  return { title: '', type: 'text', content: '', items: [], tags: [], color: '', archived: false }
+  return { title: '', type: 'text', content: '', items: [], tags: [], color: '', archived: false, pinned: false }
 }
 
 function parseTags(s) {
@@ -70,6 +70,11 @@ export default function Notes() {
       return (b.updatedAt?.seconds || 0) - (a.updatedAt?.seconds || 0) // last updated
     })
 
+  // Pinned notes float to the top in their own section (only for active notes —
+  // archived ones aren't pinned-grouped).
+  const pinned = showArchived ? [] : filtered.filter((n) => n.pinned)
+  const others = showArchived ? filtered : filtered.filter((n) => !n.pinned)
+
   const archivedCount = list.filter((n) => n.archived).length
 
   async function save(note) {
@@ -81,6 +86,7 @@ export default function Notes() {
       tags: note.tags,
       color: note.color,
       archived: !!note.archived,
+      pinned: !!note.pinned,
     }
     if (note.id) await updateNote(note.id, payload)
     else await addNote(payload)
@@ -88,6 +94,8 @@ export default function Notes() {
   }
 
   async function toggleArchive(n) { await updateNote(n.id, { archived: !n.archived }) }
+  // touch:false — pinning shouldn't reorder within a "last updated" sort.
+  async function togglePin(n) { await updateNote(n.id, { pinned: !n.pinned }, { touch: false }) }
   async function remove(n) { if (window.confirm(`Delete "${n.title || 'this note'}"? This cannot be undone.`)) await deleteNote(n.id) }
   // touch:false — ticking a box shouldn't bump "last updated" and jump the
   // note to a new spot in the grid while you're mid-click.
@@ -147,66 +155,90 @@ export default function Notes() {
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          {filtered.map((n) => (
-            <div
-              key={n.id} role="button" tabIndex={0}
-              onClick={() => setModalNote(n)}
-              onKeyDown={(e) => { if (e.key === 'Enter') setModalNote(n) }}
-              className={`flex h-72 cursor-pointer flex-col rounded-2xl border p-4 shadow-sm transition hover:shadow-soft ${CARD_BG[n.color] || CARD_BG['']}`}
-            >
-              <div className="flex shrink-0 items-start justify-between gap-2">
-                <p className="min-w-0 flex-1 break-words font-bold text-slate-900">{n.title || 'Untitled'}</p>
-                <div className="flex shrink-0 gap-1">
-                  <button type="button" onClick={(e) => { e.stopPropagation(); toggleArchive(n) }} title={n.archived ? 'Unarchive' : 'Archive'} className="grid h-7 w-7 place-items-center rounded-full text-slate-400 hover:bg-white hover:text-brand-600">
-                    {n.archived ? <ArchiveRestore size={14} /> : <Archive size={14} />}
-                  </button>
-                  <button type="button" onClick={(e) => { e.stopPropagation(); remove(n) }} title="Delete" className="grid h-7 w-7 place-items-center rounded-full text-slate-400 hover:bg-white hover:text-red-500"><Trash2 size={14} /></button>
-                </div>
-              </div>
-
-              <div className="mt-2 min-h-0 flex-1 overflow-y-auto pr-1">
-                {n.type === 'checklist' ? (
-                  <ul className="space-y-1.5">
-                    {(n.items || []).map((it, i) => (
-                      <li key={i} className="flex items-start gap-2 text-sm">
-                        <button
-                          type="button" onClick={(e) => { e.stopPropagation(); toggleChecklistItem(n, i) }}
-                          className={`mt-0.5 grid h-4 w-4 shrink-0 place-items-center rounded border ${it.done ? 'border-emerald-500 bg-emerald-500 text-white' : 'border-slate-300 bg-white'}`}
-                        >
-                          {it.done && <Check size={11} />}
-                        </button>
-                        <span className={it.done ? 'text-slate-400 line-through' : 'text-slate-700'}>{it.text}</span>
-                      </li>
-                    ))}
-                    {(n.items || []).length === 0 && <li className="text-sm text-slate-400">No items.</li>}
-                  </ul>
-                ) : (
-                  <p className="whitespace-pre-wrap break-words text-sm text-slate-600">{n.content || <span className="text-slate-400">Empty note.</span>}</p>
-                )}
-              </div>
-
-              {(n.tags || []).length > 0 && (
-                <div className="mt-2 flex shrink-0 flex-wrap gap-1.5">
-                  {n.tags.map((t) => (
-                    <button
-                      key={t} type="button"
-                      onClick={(e) => { e.stopPropagation(); setShowArchived(false); setTagFilter(t) }}
-                      className="rounded-full bg-white/70 px-2 py-0.5 text-[11px] font-semibold text-slate-500 ring-1 ring-slate-200 hover:text-brand-600"
-                    >
-                      #{t}
-                    </button>
-                  ))}
-                </div>
-              )}
-
-              <p className="mt-2 shrink-0 text-[11px] text-slate-400">Updated {fmtDateTime(n.updatedAt)}</p>
+        <div className="space-y-5">
+          {pinned.length > 0 && (
+            <div>
+              <p className="mb-2 flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-slate-400"><Pin size={13} /> Pinned</p>
+              <NoteGrid notes={pinned} onOpen={setModalNote} onTogglePin={togglePin} onToggleArchive={toggleArchive} onDelete={remove} onToggleItem={toggleChecklistItem} onPickTag={(t) => { setShowArchived(false); setTagFilter(t) }} />
             </div>
-          ))}
+          )}
+          {others.length > 0 && (
+            <div>
+              {pinned.length > 0 && !showArchived && <p className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-400">Others</p>}
+              <NoteGrid notes={others} onOpen={setModalNote} onTogglePin={togglePin} onToggleArchive={toggleArchive} onDelete={remove} onToggleItem={toggleChecklistItem} onPickTag={(t) => { setShowArchived(false); setTagFilter(t) }} />
+            </div>
+          )}
         </div>
       )}
 
       {modalNote && <NoteModal note={modalNote} onSave={save} onClose={() => setModalNote(null)} />}
+    </div>
+  )
+}
+
+function NoteGrid({ notes, onOpen, onTogglePin, onToggleArchive, onDelete, onToggleItem, onPickTag }) {
+  return (
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+      {notes.map((n) => (
+        <div
+          key={n.id} role="button" tabIndex={0}
+          onClick={() => onOpen(n)}
+          onKeyDown={(e) => { if (e.key === 'Enter') onOpen(n) }}
+          className={`flex h-72 cursor-pointer flex-col rounded-2xl border p-4 shadow-sm transition hover:shadow-soft ${CARD_BG[n.color] || CARD_BG['']}`}
+        >
+          <div className="flex shrink-0 items-start justify-between gap-2">
+            <p className="min-w-0 flex-1 break-words font-bold text-slate-900">{n.title || 'Untitled'}</p>
+            <div className="flex shrink-0 gap-1">
+              {!n.archived && (
+                <button type="button" onClick={(e) => { e.stopPropagation(); onTogglePin(n) }} title={n.pinned ? 'Unpin' : 'Pin to top'} className={`grid h-7 w-7 place-items-center rounded-full hover:bg-white ${n.pinned ? 'text-brand-600' : 'text-slate-400 hover:text-brand-600'}`}>
+                  <Pin size={14} className={n.pinned ? 'fill-brand-600' : ''} />
+                </button>
+              )}
+              <button type="button" onClick={(e) => { e.stopPropagation(); onToggleArchive(n) }} title={n.archived ? 'Unarchive' : 'Archive'} className="grid h-7 w-7 place-items-center rounded-full text-slate-400 hover:bg-white hover:text-brand-600">
+                {n.archived ? <ArchiveRestore size={14} /> : <Archive size={14} />}
+              </button>
+              <button type="button" onClick={(e) => { e.stopPropagation(); onDelete(n) }} title="Delete" className="grid h-7 w-7 place-items-center rounded-full text-slate-400 hover:bg-white hover:text-red-500"><Trash2 size={14} /></button>
+            </div>
+          </div>
+
+          <div className="mt-2 min-h-0 flex-1 overflow-y-auto pr-1">
+            {n.type === 'checklist' ? (
+              <ul className="space-y-1.5">
+                {(n.items || []).map((it, i) => (
+                  <li key={i} className="flex items-start gap-2 text-sm">
+                    <button
+                      type="button" onClick={(e) => { e.stopPropagation(); onToggleItem(n, i) }}
+                      className={`mt-0.5 grid h-4 w-4 shrink-0 place-items-center rounded border ${it.done ? 'border-emerald-500 bg-emerald-500 text-white' : 'border-slate-300 bg-white'}`}
+                    >
+                      {it.done && <Check size={11} />}
+                    </button>
+                    <span className={it.done ? 'text-slate-400 line-through' : 'text-slate-700'}>{it.text}</span>
+                  </li>
+                ))}
+                {(n.items || []).length === 0 && <li className="text-sm text-slate-400">No items.</li>}
+              </ul>
+            ) : (
+              <p className="whitespace-pre-wrap break-words text-sm text-slate-600">{n.content || <span className="text-slate-400">Empty note.</span>}</p>
+            )}
+          </div>
+
+          {(n.tags || []).length > 0 && (
+            <div className="mt-2 flex shrink-0 flex-wrap gap-1.5">
+              {n.tags.map((t) => (
+                <button
+                  key={t} type="button"
+                  onClick={(e) => { e.stopPropagation(); onPickTag(t) }}
+                  className="rounded-full bg-white/70 px-2 py-0.5 text-[11px] font-semibold text-slate-500 ring-1 ring-slate-200 hover:text-brand-600"
+                >
+                  #{t}
+                </button>
+              ))}
+            </div>
+          )}
+
+          <p className="mt-2 shrink-0 text-[11px] text-slate-400">Updated {fmtDateTime(n.updatedAt)}</p>
+        </div>
+      ))}
     </div>
   )
 }
@@ -219,6 +251,7 @@ function NoteModal({ note, onSave, onClose }) {
   const [itemDraft, setItemDraft] = useState('')
   const [tagsText, setTagsText] = useState((note.tags || []).join(', '))
   const [color, setColor] = useState(note.color || '')
+  const [pinned, setPinned] = useState(!!note.pinned)
   const [busy, setBusy] = useState(false)
 
   function addItem() {
@@ -232,7 +265,7 @@ function NoteModal({ note, onSave, onClose }) {
 
   async function submit() {
     setBusy(true)
-    await onSave({ ...note, title, type, content, items, tags: parseTags(tagsText), color })
+    await onSave({ ...note, title, type, content, items, tags: parseTags(tagsText), color, pinned })
     setBusy(false)
   }
 
@@ -241,7 +274,15 @@ function NoteModal({ note, onSave, onClose }) {
       <div className="max-h-[92vh] w-full max-w-xl animate-pop-in space-y-5 overflow-y-auto rounded-3xl bg-white p-6 shadow-2xl">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-bold text-slate-900">{note.id ? 'Edit note' : 'New note'}</h2>
-          <button onClick={onClose} className="rounded-full p-1.5 text-slate-400 hover:bg-slate-100"><X size={20} /></button>
+          <div className="flex items-center gap-1">
+            <button
+              type="button" onClick={() => setPinned((v) => !v)} title={pinned ? 'Unpin' : 'Pin to top'}
+              className={`grid h-8 w-8 place-items-center rounded-full hover:bg-slate-100 ${pinned ? 'text-brand-600' : 'text-slate-400 hover:text-brand-600'}`}
+            >
+              <Pin size={18} className={pinned ? 'fill-brand-600' : ''} />
+            </button>
+            <button onClick={onClose} className="rounded-full p-1.5 text-slate-400 hover:bg-slate-100"><X size={20} /></button>
+          </div>
         </div>
 
         <div>

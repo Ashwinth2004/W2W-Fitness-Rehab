@@ -37,3 +37,33 @@ export const getCustomTypes = () => readList(TYPE_KEY)
 export const addCustomType = (name) => addUnique(TYPE_KEY, name)
 export const updateCustomType = (oldName, newName) => renameOne(TYPE_KEY, oldName, newName)
 export const deleteCustomType = (name) => removeOne(TYPE_KEY, name)
+
+// Region-scoped custom types — added inline in the exercise picker for ONE
+// region only (e.g. a "Manual Therapy" type under Shoulder), so they show up
+// under that region and nowhere else. Stored as { [region]: [types] }, kept
+// separate from the global TYPE_KEY list above.
+const REGION_TYPE_KEY = 'w2w_custom_region_types'
+function readMap(key) {
+  try { const v = JSON.parse(localStorage.getItem(key) || '{}'); return v && typeof v === 'object' && !Array.isArray(v) ? v : {} }
+  catch { return {} }
+}
+function writeMap(key, m) {
+  try { localStorage.setItem(key, JSON.stringify(m)) } catch { /* ignore */ }
+}
+export function getCustomTypesForRegion(region) {
+  const l = readMap(REGION_TYPE_KEY)[region]
+  return Array.isArray(l) ? l : []
+}
+export function addCustomTypeForRegion(region, name) {
+  const n = String(name || '').trim()
+  if (!region || !n) return
+  const map = readMap(REGION_TYPE_KEY)
+  const list = Array.isArray(map[region]) ? map[region] : []
+  if (!list.some((x) => x.toLowerCase() === n.toLowerCase())) { map[region] = [...list, n]; writeMap(REGION_TYPE_KEY, map) }
+}
+export function deleteCustomTypeForRegion(region, name) {
+  const map = readMap(REGION_TYPE_KEY)
+  if (!Array.isArray(map[region])) return
+  map[region] = map[region].filter((x) => x !== name)
+  writeMap(REGION_TYPE_KEY, map)
+}
