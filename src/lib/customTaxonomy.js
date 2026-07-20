@@ -61,9 +61,22 @@ export function addCustomTypeForRegion(region, name) {
   const list = Array.isArray(map[region]) ? map[region] : []
   if (!list.some((x) => x.toLowerCase() === n.toLowerCase())) { map[region] = [...list, n]; writeMap(REGION_TYPE_KEY, map) }
 }
+export function updateCustomTypeForRegion(region, oldName, newName) {
+  const n = String(newName || '').trim()
+  if (!region || !n) return
+  const map = readMap(REGION_TYPE_KEY)
+  if (!Array.isArray(map[region])) return
+  map[region] = map[region].map((x) => (x === oldName ? n : x))
+  writeMap(REGION_TYPE_KEY, map)
+}
 export function deleteCustomTypeForRegion(region, name) {
   const map = readMap(REGION_TYPE_KEY)
   if (!Array.isArray(map[region])) return
   map[region] = map[region].filter((x) => x !== name)
   writeMap(REGION_TYPE_KEY, map)
+}
+// Every region that currently has at least one region-scoped custom type.
+export function getRegionsWithCustomTypes() {
+  const map = readMap(REGION_TYPE_KEY)
+  return Object.keys(map).filter((r) => Array.isArray(map[r]) && map[r].length > 0)
 }

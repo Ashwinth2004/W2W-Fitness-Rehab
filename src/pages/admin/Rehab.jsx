@@ -16,11 +16,13 @@ import {
 import {
   getCustomExercises, addCustomExercise, updateCustomExercise, deleteCustomExercise,
   getCustomExercisesForRegionType, addCustomExerciseForRegionType, deleteCustomExerciseForRegionType,
+  updateCustomExerciseForRegionType, renameRegionTypeExercises, deleteRegionTypeExercises,
 } from '../../lib/customExercises'
 import {
   getCustomRegions, addCustomRegion, updateCustomRegion, deleteCustomRegion,
   getCustomTypes, addCustomType, updateCustomType, deleteCustomType,
   getCustomTypesForRegion, addCustomTypeForRegion, deleteCustomTypeForRegion,
+  updateCustomTypeForRegion, getRegionsWithCustomTypes,
 } from '../../lib/customTaxonomy'
 import { useFavorites } from '../../lib/useFavorites'
 import PatientAvatar from '../../components/PatientAvatar'
@@ -509,10 +511,44 @@ function ManageTaxonomyPanel({ onChanged }) {
   const [expandedType, setExpandedType] = useState('')
   const [exDraft, setExDraft] = useState('')
   const [editingEx, setEditingEx] = useState(null)
+  // Region-specific (inline-added) types & exercises management.
+  const [manageRegion, setManageRegion] = useState('')
+  const [expandedRTType, setExpandedRTType] = useState('')
+  const [rtExDraft, setRtExDraft] = useState('')
+  const [editingRegionType, setEditingRegionType] = useState(null)
+  const [editingRTEx, setEditingRTEx] = useState(null)
   const [, forceTick] = useState(0)
 
   function refresh() { setRegions(getCustomRegions()); setTypes(getCustomTypes()); onChanged?.() }
   function refreshExercises() { forceTick((t) => t + 1); onChanged?.() }
+  function bump() { forceTick((t) => t + 1); onChanged?.() }
+
+  // Region-scoped type management (inline-added under a specific region).
+  function saveRegionTypeEdit() {
+    const { region, old, val } = editingRegionType
+    const n = (val || '').trim()
+    if (n && n !== old) { updateCustomTypeForRegion(region, old, n); renameRegionTypeExercises(region, old, n) }
+    if (expandedRTType === old) setExpandedRTType(n || old)
+    setEditingRegionType(null); bump()
+  }
+  function removeRegionType(region, type) {
+    if (!window.confirm(`Delete "${type}" (and its exercises) from ${region}?`)) return
+    deleteCustomTypeForRegion(region, type); deleteRegionTypeExercises(region, type)
+    if (expandedRTType === type) setExpandedRTType('')
+    bump()
+  }
+  function addRTExercise(region, type) {
+    const n = rtExDraft.trim(); if (!n) return
+    addCustomExerciseForRegionType(region, type, n); setRtExDraft(''); bump()
+  }
+  function saveRTExEdit() {
+    updateCustomExerciseForRegionType(editingRTEx.region, editingRTEx.type, editingRTEx.old, editingRTEx.val)
+    setEditingRTEx(null); bump()
+  }
+  function removeRTExercise(region, type, name) {
+    if (!window.confirm(`Delete exercise "${name}"?`)) return
+    deleteCustomExerciseForRegionType(region, type, name); bump()
+  }
 
   function addRegion() { const n = regionDraft.trim(); if (!n) return; addCustomRegion(n); setRegionDraft(''); refresh() }
   function saveRegionEdit() { updateCustomRegion(editingRegion.old, editingRegion.val); setEditingRegion(null); refresh() }
@@ -606,6 +642,65 @@ function ManageTaxonomyPanel({ onChanged }) {
           )}
         </div>
       )}
+
+      {/* Region-specific additions — types/exercises added inline under one
+          region (e.g. Shoulder). Pick a region to rename or delete them. */}
+      <div className="border-t border-slate-100 pt-4">
+        <label className="label text-xs">Region-specific types &amp; exercises</label>
+        <p className="mb-2 text-xs text-slate-400">Manage the types &amp; exercises you added inline under a specific region.</p>
+        {getRegionsWithCustomTypes().length === 0 ? (
+          <p className="text-xs text-slate-400">Nothing yet — add a type under a region from the exercise picker's "+ Add type".</p>
+        ) : (
+          <>
+            <select className="input" value={manageRegion} onChange={(e) => { setManageRegion(e.target.value); setExpandedRTType('') }}>
+              <option value="">Choose a region…</option>
+              {getRegionsWithCustomTypes().map((r) => <option key={r} value={r}>{r}</option>)}
+            </select>
+            {manageRegion && (
+              <div className="mt-2 space-y-2">
+                <div className="flex flex-wrap gap-1.5">
+                  {getCustomTypesForRegion(manageRegion).map((t) => (
+                    <EditableChip
+                      key={t} label={t}
+                      editing={editingRegionType?.region === manageRegion && editingRegionType?.old === t} editVal={editingRegionType?.val ?? ''}
+                      onStartEdit={() => setEditingRegionType({ region: manageRegion, old: t, val: t })}
+                      onEditChange={(v) => setEditingRegionType({ region: manageRegion, old: t, val: v })}
+                      onSaveEdit={saveRegionTypeEdit} onCancelEdit={() => setEditingRegionType(null)}
+                      onDelete={() => removeRegionType(manageRegion, t)}
+                    />
+                  ))}
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {getCustomTypesForRegion(manageRegion).map((t) => (
+                    <button key={t} type="button" onClick={() => setExpandedRTType((v) => (v === t ? '' : t))} className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${expandedRTType === t ? 'bg-brand-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>{t} exercises</button>
+                  ))}
+                </div>
+                {expandedRTType && (
+                  <div className="rounded-xl bg-slate-50 p-3">
+                    <div className="flex gap-2">
+                      <input className="input h-9 text-sm" value={rtExDraft} onChange={(e) => setRtExDraft(e.target.value)} placeholder={`Exercise for ${manageRegion} · ${expandedRTType}…`} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addRTExercise(manageRegion, expandedRTType) } }} />
+                      <button type="button" onClick={() => addRTExercise(manageRegion, expandedRTType)} className="btn-outline shrink-0 text-xs">Add</button>
+                    </div>
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      {getCustomExercisesForRegionType(manageRegion, expandedRTType).map((ex) => (
+                        <EditableChip
+                          key={ex} label={ex}
+                          editing={editingRTEx?.region === manageRegion && editingRTEx?.type === expandedRTType && editingRTEx?.old === ex} editVal={editingRTEx?.val ?? ''}
+                          onStartEdit={() => setEditingRTEx({ region: manageRegion, type: expandedRTType, old: ex, val: ex })}
+                          onEditChange={(v) => setEditingRTEx({ region: manageRegion, type: expandedRTType, old: ex, val: v })}
+                          onSaveEdit={saveRTExEdit} onCancelEdit={() => setEditingRTEx(null)}
+                          onDelete={() => removeRTExercise(manageRegion, expandedRTType, ex)}
+                        />
+                      ))}
+                      {getCustomExercisesForRegionType(manageRegion, expandedRTType).length === 0 && <p className="text-xs text-slate-400">No exercises yet for {expandedRTType}.</p>}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </>
+        )}
+      </div>
     </div>
   )
 }
@@ -646,6 +741,7 @@ function AddExerciseWidget({ existingNames, onAdd }) {
   const [customTypes, setCustomTypes] = useState(() => getCustomTypes())
   const [customModalOpen, setCustomModalOpen] = useState(false)
   const [typeDraft, setTypeDraft] = useState('') // inline "add type" for the selected region(s)
+  const [typeScope, setTypeScope] = useState('all') // 'all' selected regions, or one region name
   const [exDraft, setExDraft] = useState({}) // inline "add exercise", keyed by "region|type"
   const [, forceTick] = useState(0) // bumped after a custom exercise/type is added, to refresh lists
 
@@ -670,12 +766,15 @@ function AddExerciseWidget({ existingNames, onAdd }) {
   // refresh what this widget reads once it's closed (or on each change).
   function refreshCustom() { setCustomRegions(getCustomRegions()); setCustomTypes(getCustomTypes()); forceTick((t) => t + 1) }
 
-  // Inline "add type" — creates a region-scoped custom type under EVERY
-  // currently-selected region, and auto-selects it so its exercise group
-  // opens right away. Scoped per region, so it never appears elsewhere.
+  // Inline "add type" — creates a region-scoped custom type and auto-selects
+  // it so its exercise group opens right away. Scope decides which region(s)
+  // get it: 'all' currently-selected regions, or one specific region. Either
+  // way it's stored per region, so it never appears under regions that didn't
+  // get it.
   function addTypeInline() {
     const n = typeDraft.trim(); if (!n || !selectedRegions.length) return
-    selectedRegions.forEach((r) => addCustomTypeForRegion(r, n))
+    const targets = typeScope === 'all' || !selectedRegions.includes(typeScope) ? selectedRegions : [typeScope]
+    targets.forEach((r) => addCustomTypeForRegion(r, n))
     setSelectedTypes((ts) => (ts.some((x) => x.toLowerCase() === n.toLowerCase()) ? ts : [...ts, n]))
     setTypeDraft(''); forceTick((t) => t + 1)
   }
@@ -738,13 +837,22 @@ function AddExerciseWidget({ existingNames, onAdd }) {
               <StarChip key={t} label={t} active={selectedTypes.includes(t)} fav={isFavType(t)} onToggleFav={() => toggleFavType(t)} onClick={() => toggleType(t)} />
             ))}
           </div>
-          {/* Inline add — a new type just for the selected region(s) */}
-          <div className="mt-2 flex items-center gap-1.5">
+          {/* Inline add — a new type scoped to the chosen region(s) */}
+          <div className="mt-2 flex flex-wrap items-center gap-1.5">
             <input
               className="input h-8 max-w-[220px] text-xs" value={typeDraft} onChange={(e) => setTypeDraft(e.target.value)}
-              placeholder={`+ Add a type for ${selectedRegions.join(', ')}…`}
+              placeholder={selectedRegions.length > 1 ? '+ Add your own type…' : `+ Add a type for ${selectedRegions[0]}…`}
               onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addTypeInline() } }}
             />
+            {selectedRegions.length > 1 && (
+              <select
+                className="input h-8 w-auto text-xs" value={selectedRegions.includes(typeScope) ? typeScope : 'all'}
+                onChange={(e) => setTypeScope(e.target.value)} title="Which region(s) should get this type?"
+              >
+                <option value="all">for all {selectedRegions.length} selected regions</option>
+                {selectedRegions.map((r) => <option key={r} value={r}>for {r} only</option>)}
+              </select>
+            )}
             <button type="button" onClick={addTypeInline} disabled={!typeDraft.trim()} className="inline-flex items-center gap-1 rounded-full border border-dashed border-brand-300 bg-white px-2.5 py-1.5 text-xs font-medium text-brand-600 hover:bg-brand-50 disabled:opacity-40"><Plus size={12} /> Add type</button>
           </div>
         </div>
