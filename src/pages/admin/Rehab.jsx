@@ -3,6 +3,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import {
   Dumbbell, Search, Loader2, Save, ArrowRight, Plus, CheckCircle2, Circle, BadgeCheck, X, Copy, Pencil, Trash2,
   IndianRupee, Star, PlayCircle, ListChecks, MapPin, Layers, Wand2, Check, Lightbulb, TrendingUp, LayoutTemplate,
+  LayoutGrid,
 } from 'lucide-react'
 import {
   watchClients, addRehabPlan, updateRehabPlan, watchRehabPlans, deleteRehabPlan,
@@ -36,6 +37,7 @@ import ServiceSelect from '../../components/ServiceSelect'
 import FavSelect from '../../components/FavSelect'
 import PackagePriceList from '../../components/PackagePriceList'
 import RehabPerformance from '../../components/RehabPerformance'
+import RehabClusterTrack from '../../components/RehabClusterTrack'
 import ContactActions from '../../components/ContactActions'
 import RehabBadge from '../../components/RehabBadge'
 import AdminPageHeader from '../../components/AdminPageHeader'
@@ -1339,6 +1341,7 @@ function RehabPlanner({ client, clients = [], editId = '', onChangeClient, navig
   const [activeDay, setActiveDay] = useState(1)
   const [billOpen, setBillOpen] = useState(false)
   const [showPerf, setShowPerf] = useState(false)
+  const [trackPlan, setTrackPlan] = useState(null)
   const [copyModalOpen, setCopyModalOpen] = useState(false)
   const [busy, setBusy] = useState(false)
   const [saved, setSaved] = useState(false)
@@ -1597,6 +1600,7 @@ function RehabPlanner({ client, clients = [], editId = '', onChangeClient, navig
                         <p className="text-xs text-slate-500">Started {fmtDate(p.startDate)}{p.reason ? ` · ${p.reason}` : ''}</p>
                       </div>
                       <div className="flex flex-wrap gap-2">
+                        <button type="button" onClick={() => setTrackPlan(p)} className="btn-outline px-3 py-1.5 text-xs"><LayoutGrid size={13} /> Track</button>
                         <button type="button" onClick={() => guard(() => navigate(`/admin/rehab?client=${client.id}&plan=${p.id}`))} className="btn-primary px-3 py-1.5 text-xs">Continue <ArrowRight size={14} /></button>
                         <button type="button" onClick={() => markPlanComplete(p)} className="btn-outline px-3 py-1.5 text-xs"><CheckCircle2 size={13} /> Mark complete</button>
                       </div>
@@ -1729,6 +1733,7 @@ function RehabPlanner({ client, clients = [], editId = '', onChangeClient, navig
                   {' · '}<span className={isPlanComplete(p) ? 'font-semibold text-emerald-600' : 'text-emerald-600'}>{(p.days || []).filter((d) => d.completed).length}/{p.days?.length || p.totalDays} completed</span>
                 </span>
                 <div className="flex gap-3">
+                  <button type="button" onClick={() => setTrackPlan(p)} className="flex items-center gap-1 text-xs font-semibold text-brand-600 hover:underline"><LayoutGrid size={13} /> Track</button>
                   <Link to={`/admin/rehab?client=${client.id}&plan=${p.id}`} className="flex items-center gap-1 text-xs font-semibold text-brand-600 hover:underline"><Pencil size={13} /> Edit</Link>
                   {!isPlanComplete(p) && <button type="button" onClick={() => markPlanComplete(p)} className="flex items-center gap-1 text-xs font-semibold text-emerald-600 hover:underline"><CheckCircle2 size={13} /> Mark complete</button>}
                   <button type="button" onClick={() => removePlan(p)} className="flex items-center gap-1 text-xs font-semibold text-red-500 hover:underline"><Trash2 size={13} /> Delete</button>
@@ -1740,6 +1745,7 @@ function RehabPlanner({ client, clients = [], editId = '', onChangeClient, navig
       )}
 
       {showPerf && <RehabPerformance client={client} plans={plans} onClose={() => setShowPerf(false)} />}
+      {trackPlan && <RehabClusterTrack client={client} plan={trackPlan} onClose={() => setTrackPlan(null)} />}
       {copyModalOpen && (
         <CopyFromPatientModal
           clients={clients}

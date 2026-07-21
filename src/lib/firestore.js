@@ -692,6 +692,19 @@ export async function deleteAccountingForRehabPlan(planId) {
   return deleteDoc(doc(db, 'accounting', `r_${planId}`))
 }
 
+// Same mirroring for a charge entered straight on an Appointment (doc id
+// `a_<appointmentId>`), so a walk-in/consult billed from the Appointments
+// list lands in Accounting without needing a full Treatment record.
+export async function setAccountingForAppointment(appointmentId, data) {
+  return setDoc(doc(db, 'accounting', `a_${appointmentId}`), {
+    ...data, type: 'income', appointmentId, source: 'appointment', updatedAt: serverTimestamp(),
+  }, { merge: true })
+}
+
+export async function deleteAccountingForAppointment(appointmentId) {
+  return deleteDoc(doc(db, 'accounting', `a_${appointmentId}`))
+}
+
 // Bank account names (for tagging cash vs bank in Accounting). Editable list.
 export function watchBankAccounts(cb) {
   const q = query(collection(db, 'bankAccounts'), orderBy('name'))

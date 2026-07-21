@@ -1,18 +1,20 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
   CalendarDays, Plus, Check, X, Loader2, CalendarClock, MessageSquarePlus, Pencil, Copy, Trash2,
-  CalendarOff, Ban, RotateCcw, Lock,
+  CalendarOff, Ban, RotateCcw, Lock, IndianRupee,
 } from 'lucide-react'
 import {
   watchAppointments, addAppointmentByAdmin, setAppointmentStatus, cancelAppointment,
   rescheduleAppointment, setAppointmentRemarks, updateAppointment, getBookedTimes, deleteAppointment,
   blockSlots, unblockSlots, watchBlockedDays, migrateLegacyBlocks,
+  watchServiceCharges, setAccountingForAppointment, deleteAccountingForAppointment,
 } from '../../lib/firestore'
 import { fmt12h, fmtDate, todayISO, matchesDateFilter } from '../../lib/format'
 import { SERVICE_OPTIONS, BOOKABLE_SERVICES, SLOT_TIMES, BUSINESS } from '../../lib/constants'
 
 const SERVICE_FILTERS = ['All', ...BOOKABLE_SERVICES]
-import { isValidMobile } from '../../lib/validate'
+const PAY_MODES = ['Cash', 'UPI', 'Card', 'Bank transfer', 'Other']
+import { isValidMobile, onlyDigits } from '../../lib/validate'
 import SlotPicker, { formatSlot } from '../../components/SlotPicker'
 import DateField from '../../components/DateField'
 import PhoneField from '../../components/PhoneField'
@@ -20,6 +22,8 @@ import ContactActions from '../../components/ContactActions'
 import StatusBadge from '../../components/StatusBadge'
 import AdminFilter from '../../components/AdminFilter'
 import AdminPageHeader from '../../components/AdminPageHeader'
+import ServiceSelect from '../../components/ServiceSelect'
+import TherapistSelect from '../../components/TherapistSelect'
 import { useUnsaved } from '../../context/UnsavedContext'
 
 // Ready-to-send WhatsApp confirmation for an appointment.
@@ -37,6 +41,7 @@ export default function Appointments() {
   const [reschedule, setReschedule] = useState(null) // appt being rescheduled
   const [remarkOf, setRemarkOf] = useState(null) // appt whose remark is being edited
   const [editOf, setEditOf] = useState(null) // appt whose details are being edited
+  const [billOf, setBillOf] = useState(null) // appt whose charges are being entered
   const [filter, setFilter] = useState({ day: '', month: '' })
   const [serviceFilter, setServiceFilter] = useState('All')
 
@@ -147,7 +152,7 @@ export default function Appointments() {
                   <td className="px-4 py-3 text-slate-600">{a.service}</td>
                   <td className="px-4 py-3"><StatusBadge status={a.status} /></td>
                   <td className="px-4 py-3"><RemarkCell appt={a} onEdit={() => setRemarkOf(a)} /></td>
-                  <td className="px-4 py-3"><RowActions appt={a} onReschedule={setReschedule} onEdit={setEditOf} /></td>
+                  <td className="px-4 py-3"><RowActions appt={a} onReschedule={setReschedule} onEdit={setEditOf} onBill={setBillOf} /></td>
                 </tr>
               ))}
             </tbody>
@@ -168,7 +173,7 @@ export default function Appointments() {
                 <div className="mt-2"><RemarkCell appt={a} onEdit={() => setRemarkOf(a)} /></div>
                 <div className="mt-3 flex items-center justify-between">
                   <ContactActions phone={a.phone} size="sm" message={apptWhatsApp(a)} />
-                  <RowActions appt={a} onReschedule={setReschedule} onEdit={setEditOf} />
+                  <RowActions appt={a} onReschedule={setReschedule} onEdit={setEditOf} onBill={setBillOf} />
                 </div>
               </li>
             ))}
@@ -179,6 +184,7 @@ export default function Appointments() {
       {reschedule && <RescheduleModal appt={reschedule} onClose={() => setReschedule(null)} />}
       {remarkOf && <RemarkModal appt={remarkOf} onClose={() => setRemarkOf(null)} />}
       {editOf && <EditApptModal appt={editOf} onClose={() => setEditOf(null)} />}
+      {billOf && <BillingModal appt={billOf} onClose={() => setBillOf(null)} />}
     </div>
   )
 }
@@ -221,9 +227,10 @@ function RemarkCell({ appt, onEdit }) {
   )
 }
 
-function RowActions({ appt, onReschedule, onEdit }) {
+function RowActions({ appt, onReschedule, onEdit, onBill }) {
   const visited = appt.status === 'completed'
   const cancelled = appt.status === 'cancelled'
+  const billed = Number(appt.bill?.amount) > 0 || Number(appt.bill?.paid) > 0
 
   // Tick toggles "visited"; X toggles "cancelled". Neither removes the row —
   // the active state is shown by a filled, highlighted button.
@@ -244,6 +251,15 @@ function RowActions({ appt, onReschedule, onEdit }) {
         className="grid h-8 w-8 place-items-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-brand-600"
       >
         <Pencil size={16} />
+      </button>
+      <button
+        onClick={() => onBill(appt)}
+        title={billed ? `Charges: Rs. ${Number(appt.bill.amount || 0).toLocaleString('en-IN')} — click to edit` : 'Add charges & payment'}
+        className={`grid h-8 w-8 place-items-center rounded-lg transition ${
+          billed ? 'bg-amber-500 text-white shadow-sm hover:bg-amber-600' : 'text-amber-600 hover:bg-amber-50'
+        }`}
+      >
+        <IndianRupee size={16} />
       </button>
       <button
         onClick={() => !cancelled && window.confirm('Do you want to reschedule this appointment?') && onReschedule(appt)}
@@ -371,6 +387,120 @@ function RemarkModal({ appt, onClose }) {
         <button onClick={save} disabled={busy} className="btn-primary">
           {busy ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />} Save remark
         </button>
+      </div>
+    </Modal>
+  )
+}
+
+// ---- Charges & Billing ----------------------------------------------------
+// Bill a visit straight from the Appointments list (walk-ins, consults) without
+// needing a full Treatment record. The charge is stored on the appointment AND
+// mirrored into Accounting → Patient Charges under a deterministic doc id, so
+// editing here keeps the accounting entry in sync and clearing it removes it.
+function BillingModal({ appt, onClose }) {
+  const b = appt.bill || {}
+  const [services, setServices] = useState([])
+  const [service, setService] = useState(b.service || appt.service || '')
+  const [amount, setAmount] = useState(b.amount != null ? String(b.amount) : '')
+  const [paid, setPaid] = useState(b.paid != null ? String(b.paid) : '')
+  const [mode, setMode] = useState(b.mode || 'Cash')
+  const [date, setDate] = useState(b.date || appt.date || todayISO())
+  const [therapist, setTherapist] = useState(b.therapist || '')
+  const [toAccounting, setToAccounting] = useState(b.addToAccounting !== false)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+
+  useEffect(() => watchServiceCharges(setServices), [])
+
+  const balance = Math.max(0, (Number(amount) || 0) - (Number(paid) || 0))
+  const money = (set) => (e) => set(onlyDigits(e.target.value).slice(0, 7))
+
+  async function save() {
+    setBusy(true); setError('')
+    const bill = {
+      service: (service || '').trim(), amount: Number(amount) || 0, paid: Number(paid) || 0,
+      balance, mode, date: date || appt.date, therapist: therapist || '', addToAccounting: toAccounting,
+    }
+    try {
+      await updateAppointment(appt.id, { bill })
+      // Best-effort accounting sync — a limited admin has no accounting access,
+      // so a failure here must not block saving the charge on the appointment.
+      try {
+        if (toAccounting && (bill.amount > 0 || bill.paid > 0)) {
+          await setAccountingForAppointment(appt.id, {
+            date: bill.date, clientName: appt.name || '', clientId: '', service: bill.service,
+            therapist: bill.therapist, amount: bill.amount, paid: bill.paid, balance: bill.balance, mode: bill.mode,
+          })
+        } else {
+          await deleteAccountingForAppointment(appt.id)
+        }
+      } catch (_) { /* accounting sync is best-effort */ }
+      onClose()
+    } catch {
+      setError('Could not save the charge. Please try again.')
+      setBusy(false)
+    }
+  }
+
+  async function clearCharge() {
+    if (!window.confirm('Remove the charge from this appointment (and from Accounting)?')) return
+    setBusy(true)
+    try {
+      await updateAppointment(appt.id, { bill: null })
+      try { await deleteAccountingForAppointment(appt.id) } catch (_) { /* best-effort */ }
+      onClose()
+    } catch { setError('Could not clear the charge.'); setBusy(false) }
+  }
+
+  return (
+    <Modal title="Charges & Billing" onClose={onClose} wide>
+      <div className="space-y-4">
+        <div className="rounded-xl bg-slate-50 p-3 text-sm">
+          <p className="font-semibold text-slate-800">{appt.name}</p>
+          <p className="text-slate-500">{fmtDate(appt.date)} · {fmt12h(appt.time)}{appt.service ? ` · ${appt.service}` : ''}</p>
+        </div>
+
+        <div>
+          <label className="label">Service / Package</label>
+          <ServiceSelect
+            value={service} services={services}
+            onChange={(name, amt) => { setService(name); if (amt != null) setAmount(String(amt)) }}
+          />
+        </div>
+
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div><label className="label">Amount charged (Rs.)</label><input className="input" inputMode="numeric" value={amount} onChange={money(setAmount)} placeholder="0" /></div>
+          <div><label className="label">Amount paid (Rs.)</label><input className="input" inputMode="numeric" value={paid} onChange={money(setPaid)} placeholder="0" /></div>
+          <div><label className="label">Mode of payment</label><select className="input" value={mode} onChange={(e) => setMode(e.target.value)}>{PAY_MODES.map((m) => <option key={m}>{m}</option>)}</select></div>
+          <div><label className="label">Charge date</label><DateField value={date} onChange={setDate} /></div>
+        </div>
+
+        <div>
+          <label className="label">Handled by (optional)</label>
+          <TherapistSelect value={therapist} onChange={setTherapist} />
+        </div>
+
+        <div className="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2 text-sm">
+          <span className="text-slate-500">Balance due</span>
+          <span className={`font-bold ${balance > 0 ? 'text-red-600' : 'text-emerald-600'}`}>Rs. {balance.toLocaleString('en-IN')}</span>
+        </div>
+
+        <label className="flex items-center gap-2 text-sm font-semibold text-slate-700">
+          <input type="checkbox" checked={toAccounting} onChange={(e) => setToAccounting(e.target.checked)} className="h-4 w-4 rounded border-slate-300 text-brand-600" />
+          Add this charge to Accounting → Patient Charges
+        </label>
+
+        {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}
+
+        <div className="flex flex-wrap justify-end gap-2">
+          {(Number(b.amount) > 0 || Number(b.paid) > 0) && (
+            <button type="button" onClick={clearCharge} disabled={busy} className="btn-ghost mr-auto text-red-500 hover:bg-red-50">Clear charge</button>
+          )}
+          <button type="button" onClick={onClose} className="btn-ghost">Cancel</button>
+          <button type="button" onClick={save} disabled={busy} className="btn-primary">
+            {busy ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />} Save charge
+          </button>
+        </div>
       </div>
     </Modal>
   )
