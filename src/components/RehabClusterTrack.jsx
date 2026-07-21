@@ -4,7 +4,9 @@ import {
   TrendingUp, FileDown, Dumbbell, RotateCcw, Waves, Shuffle, Target, Zap, HeartPulse,
 } from 'lucide-react'
 import { updateRehabPlan } from '../lib/firestore'
-import { PROGRESSION_OPTIONS } from '../lib/rehabExercises'
+import {
+  PROGRESSION_OPTIONS, SETS_OPTIONS, REPS_OPTIONS, HOLD_OPTIONS, RESISTANCE_OPTIONS, FREQUENCY_OPTIONS, REST_OPTIONS,
+} from '../lib/rehabExercises'
 import { generateRehabReport } from '../lib/pdf'
 import { fmtDate } from '../lib/format'
 import RehabPerformance from './RehabPerformance'
@@ -38,23 +40,31 @@ function DayRing({ pct, size = 40, tone }) {
   )
 }
 
-const PRESCRIBED_FIELDS = [
-  ['Sets', 'sets'], ['Reps', 'reps'], ['Hold', 'hold'], ['Resistance', 'resistance'], ['Frequency', 'frequency'], ['Rest', 'rest'],
+// One editable dropdown per prescribed attribute — [label, field stored on
+// the exercise, the original prescribed key it defaults from, option list].
+const SESSION_FIELDS = [
+  ['Sets', 'actualSets', 'sets', SETS_OPTIONS.map(String)],
+  ['Reps', 'actualReps', 'reps', REPS_OPTIONS.map(String)],
+  ['Hold', 'actualHold', 'hold', HOLD_OPTIONS],
+  ['Resistance', 'actualResistance', 'resistance', RESISTANCE_OPTIONS],
+  ['Frequency', 'actualFrequency', 'frequency', FREQUENCY_OPTIONS],
+  ['Rest', 'actualRest', 'rest', REST_OPTIONS],
 ]
 
-// A tile that opens into a full detail dropdown: the prescribed dosage for
-// reference, editable "what the patient actually did" fields, notes, and
-// progression — everything needed to log a real session without leaving the
-// cluster. The corner check is a separate tap target so a quick done/undone
-// toggle never fights with opening the dropdown.
-// Displays the prescribed value until the admin actually edits it — clicking
-// in and typing overrides it. Once touched (even cleared to ''), the typed
-// value wins so the field stays editable rather than snapping back.
-function actualValue(ex, field, prescribedKey) {
-  return ex[field] != null ? ex[field] : (prescribedKey && ex[prescribedKey] !== 'None' ? ex[prescribedKey] || '' : '')
+// Shows the prescribed value until the admin picks a different one from the
+// dropdown — no separate "prescribed vs. actual" display, just one editable
+// value per attribute that starts at what was prescribed.
+function fieldValue(ex, field, prescribedKey) {
+  return ex[field] != null ? ex[field] : (ex[prescribedKey] && ex[prescribedKey] !== 'None' ? ex[prescribedKey] : '')
 }
 
-function ExerciseTile({ ex, expanded, onToggleExpand, onToggleDone, onNotesChange, onNotesBlur, onActualChange, onActualBlur, onToggleProgression }) {
+// A tile that opens into a dropdown of editable session details (sets, reps,
+// hold, resistance, frequency, rest — each a native <select> pre-filled with
+// what was prescribed, one tap to change), plus notes and progression.
+// Everything needed to log a real session without leaving the cluster. The
+// corner check is a separate tap target so a quick done/undone toggle never
+// fights with opening the dropdown.
+function ExerciseTile({ ex, expanded, onToggleExpand, onToggleDone, onNotesChange, onNotesBlur, onFieldSelect, onToggleProgression }) {
   const Icon = exerciseIcon(ex.type)
   const dose = [ex.sets && `${ex.sets} sets`, ex.reps && `${ex.reps} reps`, ex.hold && ex.hold !== 'None' && ex.hold].filter(Boolean).join(' · ')
   return (
@@ -83,32 +93,24 @@ function ExerciseTile({ ex, expanded, onToggleExpand, onToggleDone, onNotesChang
       {expanded && (
         <div className="space-y-4 border-t border-slate-100 bg-slate-50/60 p-4">
           <div>
-            <p className="mb-2 text-[11px] font-bold uppercase tracking-wide text-slate-400">Prescribed</p>
-            <div className="grid grid-cols-2 gap-2 text-center sm:grid-cols-3">
-              {PRESCRIBED_FIELDS.map(([label, key]) => (
-                <div key={key} className="rounded-lg bg-white px-2 py-2 ring-1 ring-slate-100">
-                  <p className="text-[10px] uppercase text-slate-400">{label}</p>
-                  <p className="text-xs font-semibold leading-snug text-slate-700">{ex[key] && ex[key] !== 'None' ? ex[key] : '—'}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div>
-            <p className="mb-2 text-[11px] font-bold uppercase tracking-wide text-brand-600">What the patient actually did — tap to change</p>
-            <div className="grid grid-cols-3 gap-2">
-              <div>
-                <label className="mb-1 block text-center text-[10px] text-slate-400">Sets</label>
-                <input className="input h-10 text-center text-sm" inputMode="numeric" value={actualValue(ex, 'actualSets', 'sets')} onChange={(e) => onActualChange('actualSets', e.target.value)} onBlur={onActualBlur} />
-              </div>
-              <div>
-                <label className="mb-1 block text-center text-[10px] text-slate-400">Reps</label>
-                <input className="input h-10 text-center text-sm" inputMode="numeric" value={actualValue(ex, 'actualReps', 'reps')} onChange={(e) => onActualChange('actualReps', e.target.value)} onBlur={onActualBlur} />
-              </div>
-              <div>
-                <label className="mb-1 block text-center text-[10px] text-slate-400">Hold</label>
-                <input className="input h-10 text-center text-sm" value={actualValue(ex, 'actualHold', 'hold')} onChange={(e) => onActualChange('actualHold', e.target.value)} onBlur={onActualBlur} />
-              </div>
+            <p className="mb-2 text-[11px] font-bold uppercase tracking-wide text-brand-600">Session details — tap a dropdown to update</p>
+            <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
+              {SESSION_FIELDS.map(([label, field, prescribedKey, options]) => {
+                const current = fieldValue(ex, field, prescribedKey)
+                const opts = current && !options.includes(current) ? [current, ...options] : options
+                return (
+                  <div key={field}>
+                    <label className="mb-1 block text-center text-[10px] font-semibold uppercase tracking-wide text-slate-400">{label}</label>
+                    <select
+                      className="input h-11 w-full cursor-pointer px-2 text-center text-sm font-semibold text-slate-700"
+                      value={current} onChange={(e) => onFieldSelect(field, e.target.value)}
+                    >
+                      {!current && <option value="">—</option>}
+                      {opts.map((o) => <option key={o} value={o}>{o}</option>)}
+                    </select>
+                  </div>
+                )
+              })}
             </div>
           </div>
 
@@ -194,6 +196,13 @@ export default function RehabClusterTrack({ client, plan, plans = [], onClose })
   }
 
   function commitEdits() { persist(daysRef.current) }
+
+  // Dropdown picks (sets/reps/hold/resistance/frequency/rest) are a discrete
+  // choice, not free typing — persist the moment one is selected.
+  function setSessionField(dayNum, idx, field, value) {
+    const next = applyToDay(dayNum, (d) => ({ ...d, exercises: d.exercises.map((e, i) => (i === idx ? { ...e, [field]: value } : e)) }))
+    persist(next)
+  }
 
   // Marking a day complete also ticks off every exercise prescribed that day
   // (unmarking leaves individual ticks as they were — only completion forces
@@ -315,8 +324,7 @@ export default function RehabClusterTrack({ client, plan, plans = [], onClose })
                         onToggleDone={() => toggleExerciseDone(activeDay, idx)}
                         onNotesChange={(e) => setFieldLocal(activeDay, idx, 'notes', e.target.value)}
                         onNotesBlur={commitEdits}
-                        onActualChange={(field, value) => setFieldLocal(activeDay, idx, field, value)}
-                        onActualBlur={commitEdits}
+                        onFieldSelect={(field, value) => setSessionField(activeDay, idx, field, value)}
                         onToggleProgression={(p) => toggleProgression(activeDay, idx, p)}
                       />
                     )
@@ -337,8 +345,7 @@ export default function RehabClusterTrack({ client, plan, plans = [], onClose })
                           onToggleDone={() => toggleExerciseDone(activeDay, idx)}
                           onNotesChange={(e) => setFieldLocal(activeDay, idx, 'notes', e.target.value)}
                           onNotesBlur={commitEdits}
-                          onActualChange={(field, value) => setFieldLocal(activeDay, idx, field, value)}
-                          onActualBlur={commitEdits}
+                          onFieldSelect={(field, value) => setSessionField(activeDay, idx, field, value)}
                           onToggleProgression={(p) => toggleProgression(activeDay, idx, p)}
                         />
                       )
