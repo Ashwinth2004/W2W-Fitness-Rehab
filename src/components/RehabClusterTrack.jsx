@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import {
   X, Check, Circle, CheckCircle2, ChevronDown, StickyNote, Loader2, LayoutGrid, Home,
-  TrendingUp, FileDown,
+  TrendingUp, FileDown, Dumbbell, RotateCcw, Waves, Shuffle, Target, Zap, HeartPulse,
 } from 'lucide-react'
 import { updateRehabPlan } from '../lib/firestore'
 import { PROGRESSION_OPTIONS } from '../lib/rehabExercises'
@@ -9,53 +9,18 @@ import { generateRehabReport } from '../lib/pdf'
 import { fmtDate } from '../lib/format'
 import RehabPerformance from './RehabPerformance'
 
-// One tinted badge colour per exercise type — the icon inside it is always
-// the region body-map (see RegionIcon), so colour = category, glyph = where
-// on the body. Keeps the cluster scannable at a glance.
+// One glanceable icon + tinted badge colour per exercise type.
+const TYPE_ICON = {
+  Mobility: RotateCcw, Strengthening: Dumbbell, Stretching: Waves,
+  Functional: Shuffle, Balance: Target, Plyometric: Zap, Cardio: HeartPulse,
+}
 const TYPE_COLOR = {
   Mobility: 'bg-sky-100 text-sky-600', Strengthening: 'bg-brand-100 text-brand-700', Stretching: 'bg-violet-100 text-violet-600',
   Functional: 'bg-amber-100 text-amber-700', Balance: 'bg-fuchsia-100 text-fuchsia-600',
   Plyometric: 'bg-rose-100 text-rose-600', Cardio: 'bg-red-100 text-red-600',
 }
+export function exerciseIcon(type) { return TYPE_ICON[type] || Dumbbell }
 export function exerciseColor(type) { return TYPE_COLOR[type] || 'bg-slate-100 text-slate-600' }
-
-// Where on a simple stick-figure body map each prescribed region sits — so a
-// tile for "Knee" or "Shoulder" is recognisable by silhouette before the
-// label is even read. Unlisted/custom regions fall back to a chest-level dot.
-const REGION_POINT = {
-  Neck: [22, 16], Shoulder: [34, 22], Chest: [22, 26], 'Upper Arm': [35.5, 29],
-  Elbow: [37, 36], 'Forearm & Wrist': [38, 43], 'Wrist & Hand': [39, 50],
-  'Thoracic Spine': [22, 24], 'Lumbar Spine': [22, 40], Back: [22, 32], Abdomen: [22, 34],
-  Core: [22, 36], Hip: [22, 44], Thigh: [28, 55], Knee: [29, 66], 'Lower Leg': [29.5, 76],
-  Ankle: [30, 84], 'Ankle & Foot': [30, 86], Foot: [30, 88],
-}
-
-function RegionIcon({ region, className = '' }) {
-  const whole = region === 'Whole Body'
-  const point = REGION_POINT[region] || REGION_POINT.Chest
-  return (
-    <span className={className}>
-      <svg viewBox="0 0 44 92" className="h-full w-full overflow-visible">
-        <g fill="none" stroke="currentColor" strokeWidth={4.5} strokeLinecap="round" strokeLinejoin="round" opacity={whole ? 0.9 : 0.45}>
-          <circle cx="22" cy="9" r="6" fill="currentColor" stroke="none" />
-          <line x1="22" y1="16" x2="22" y2="44" />
-          <line x1="10" y1="22" x2="34" y2="22" />
-          <line x1="10" y1="22" x2="7" y2="36" />
-          <line x1="7" y1="36" x2="5" y2="50" />
-          <line x1="34" y1="22" x2="37" y2="36" />
-          <line x1="37" y1="36" x2="39" y2="50" />
-          <line x1="14" y1="44" x2="30" y2="44" />
-          <line x1="17" y1="44" x2="15" y2="66" />
-          <line x1="15" y1="66" x2="14" y2="86" />
-          <line x1="27" y1="44" x2="29" y2="66" />
-          <line x1="29" y1="66" x2="30" y2="86" />
-        </g>
-        {!whole && <circle cx={point[0]} cy={point[1]} r="10" className="fill-current opacity-20" />}
-        {!whole && <circle cx={point[0]} cy={point[1]} r="6" className="fill-current" />}
-      </svg>
-    </span>
-  )
-}
 
 function DayRing({ pct, size = 40, tone }) {
   const r = (size - 4) / 2
@@ -82,13 +47,21 @@ const PRESCRIBED_FIELDS = [
 // progression — everything needed to log a real session without leaving the
 // cluster. The corner check is a separate tap target so a quick done/undone
 // toggle never fights with opening the dropdown.
+// Displays the prescribed value until the admin actually edits it — clicking
+// in and typing overrides it. Once touched (even cleared to ''), the typed
+// value wins so the field stays editable rather than snapping back.
+function actualValue(ex, field, prescribedKey) {
+  return ex[field] != null ? ex[field] : (prescribedKey && ex[prescribedKey] !== 'None' ? ex[prescribedKey] || '' : '')
+}
+
 function ExerciseTile({ ex, expanded, onToggleExpand, onToggleDone, onNotesChange, onNotesBlur, onActualChange, onActualBlur, onToggleProgression }) {
+  const Icon = exerciseIcon(ex.type)
   const dose = [ex.sets && `${ex.sets} sets`, ex.reps && `${ex.reps} reps`, ex.hold && ex.hold !== 'None' && ex.hold].filter(Boolean).join(' · ')
   return (
     <div className={`overflow-hidden rounded-2xl border-2 transition ${ex.done ? 'border-emerald-300 bg-emerald-50/60' : 'border-slate-200 bg-white'}`}>
-      <div className="flex w-full items-start gap-3 p-3.5">
+      <div className="flex w-full items-start gap-3 p-4">
         <button type="button" onClick={onToggleExpand} className="flex min-w-0 flex-1 items-start gap-3 text-left">
-          <span className={`grid h-11 w-11 shrink-0 place-items-center rounded-xl p-1.5 ${exerciseColor(ex.type)}`}><RegionIcon region={ex.region} className="h-full w-full" /></span>
+          <span className={`grid h-11 w-11 shrink-0 place-items-center rounded-xl ${exerciseColor(ex.type)}`}><Icon size={20} /></span>
           <span className="min-w-0 flex-1">
             <span className="block truncate text-sm font-bold text-slate-900">{ex.name}</span>
             <span className="block truncate text-xs text-slate-400">{ex.region} · {dose || ex.type}</span>
@@ -96,52 +69,61 @@ function ExerciseTile({ ex, expanded, onToggleExpand, onToggleDone, onNotesChang
         </button>
         <button
           type="button" onClick={(e) => { e.stopPropagation(); onToggleDone() }} title={ex.done ? 'Mark not done' : 'Mark done'}
-          className={`grid h-8 w-8 shrink-0 place-items-center rounded-full border-2 transition ${ex.done ? 'border-emerald-500 bg-emerald-500 text-white' : 'border-slate-300 text-transparent hover:border-emerald-400'}`}
+          className={`grid h-9 w-9 shrink-0 place-items-center rounded-full border-2 transition ${ex.done ? 'border-emerald-500 bg-emerald-500 text-white' : 'border-slate-300 text-transparent hover:border-emerald-400'}`}
         >
-          <Check size={15} />
+          <Check size={16} />
         </button>
       </div>
       <button
         type="button" onClick={onToggleExpand}
-        className="flex w-full items-center justify-center gap-1 border-t border-slate-100 py-1.5 text-[11px] font-semibold text-slate-400 transition hover:bg-slate-50 hover:text-brand-600"
+        className="flex w-full items-center justify-center gap-1.5 border-t border-slate-100 py-2.5 text-xs font-semibold text-slate-400 transition hover:bg-slate-50 hover:text-brand-600"
       >
-        <StickyNote size={11} /> {expanded ? 'Hide details' : 'View & update details'} <ChevronDown size={12} className={`transition ${expanded ? 'rotate-180' : ''}`} />
+        <StickyNote size={13} /> {expanded ? 'Hide details' : 'View & update details'} <ChevronDown size={13} className={`transition ${expanded ? 'rotate-180' : ''}`} />
       </button>
       {expanded && (
-        <div className="space-y-3 border-t border-slate-100 bg-slate-50/60 p-3.5">
+        <div className="space-y-4 border-t border-slate-100 bg-slate-50/60 p-4">
           <div>
-            <p className="mb-1.5 text-[10px] font-bold uppercase tracking-wide text-slate-400">Prescribed</p>
-            <div className="grid grid-cols-3 gap-1.5 text-center sm:grid-cols-6">
+            <p className="mb-2 text-[11px] font-bold uppercase tracking-wide text-slate-400">Prescribed</p>
+            <div className="grid grid-cols-2 gap-2 text-center sm:grid-cols-3">
               {PRESCRIBED_FIELDS.map(([label, key]) => (
-                <div key={key} className="rounded-lg bg-white p-1.5 ring-1 ring-slate-100">
-                  <p className="text-[9px] uppercase text-slate-400">{label}</p>
-                  <p className="truncate text-xs font-semibold text-slate-700">{ex[key] && ex[key] !== 'None' ? ex[key] : '—'}</p>
+                <div key={key} className="rounded-lg bg-white px-2 py-2 ring-1 ring-slate-100">
+                  <p className="text-[10px] uppercase text-slate-400">{label}</p>
+                  <p className="text-xs font-semibold leading-snug text-slate-700">{ex[key] && ex[key] !== 'None' ? ex[key] : '—'}</p>
                 </div>
               ))}
             </div>
           </div>
 
           <div>
-            <p className="mb-1.5 text-[10px] font-bold uppercase tracking-wide text-brand-600">What the patient actually did</p>
-            <div className="grid grid-cols-3 gap-1.5">
-              <input className="input h-9 text-center text-xs" inputMode="numeric" value={ex.actualSets || ''} placeholder={ex.sets ? `${ex.sets} sets` : 'Sets'} onChange={(e) => onActualChange('actualSets', e.target.value)} onBlur={onActualBlur} />
-              <input className="input h-9 text-center text-xs" inputMode="numeric" value={ex.actualReps || ''} placeholder={ex.reps ? `${ex.reps} reps` : 'Reps'} onChange={(e) => onActualChange('actualReps', e.target.value)} onBlur={onActualBlur} />
-              <input className="input h-9 text-center text-xs" value={ex.actualHold || ''} placeholder={ex.hold && ex.hold !== 'None' ? ex.hold : 'Hold'} onChange={(e) => onActualChange('actualHold', e.target.value)} onBlur={onActualBlur} />
+            <p className="mb-2 text-[11px] font-bold uppercase tracking-wide text-brand-600">What the patient actually did — tap to change</p>
+            <div className="grid grid-cols-3 gap-2">
+              <div>
+                <label className="mb-1 block text-center text-[10px] text-slate-400">Sets</label>
+                <input className="input h-10 text-center text-sm" inputMode="numeric" value={actualValue(ex, 'actualSets', 'sets')} onChange={(e) => onActualChange('actualSets', e.target.value)} onBlur={onActualBlur} />
+              </div>
+              <div>
+                <label className="mb-1 block text-center text-[10px] text-slate-400">Reps</label>
+                <input className="input h-10 text-center text-sm" inputMode="numeric" value={actualValue(ex, 'actualReps', 'reps')} onChange={(e) => onActualChange('actualReps', e.target.value)} onBlur={onActualBlur} />
+              </div>
+              <div>
+                <label className="mb-1 block text-center text-[10px] text-slate-400">Hold</label>
+                <input className="input h-10 text-center text-sm" value={actualValue(ex, 'actualHold', 'hold')} onChange={(e) => onActualChange('actualHold', e.target.value)} onBlur={onActualBlur} />
+              </div>
             </div>
           </div>
 
           <div>
-            <label className="mb-1 block text-[10px] font-bold uppercase tracking-wide text-slate-400">Notes for this session</label>
-            <input className="input h-9 text-xs" value={ex.notes || ''} placeholder="e.g. mild pain at end range, reduced reps…" onChange={onNotesChange} onBlur={onNotesBlur} />
+            <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wide text-slate-400">Notes for this session</label>
+            <input className="input h-10 text-sm" value={ex.notes || ''} placeholder="e.g. mild pain at end range, reduced reps…" onChange={onNotesChange} onBlur={onNotesBlur} />
           </div>
 
           <div>
-            <p className="mb-1 text-[10px] font-bold uppercase tracking-wide text-slate-400">Progression</p>
-            <div className="flex flex-wrap gap-1.5">
+            <p className="mb-1.5 text-[11px] font-bold uppercase tracking-wide text-slate-400">Progression</p>
+            <div className="flex flex-wrap gap-2">
               {PROGRESSION_OPTIONS.map((p) => (
                 <button
                   key={p} type="button" onClick={() => onToggleProgression(p)}
-                  className={`rounded-full border px-2 py-1 text-[10px] font-medium transition ${
+                  className={`rounded-full border px-3 py-1.5 text-xs font-medium transition ${
                     (ex.progression || []).includes(p) ? 'border-brand-600 bg-brand-600 text-white' : 'border-slate-200 bg-white text-slate-500 hover:bg-brand-50'
                   }`}
                 >
@@ -276,7 +258,7 @@ export default function RehabClusterTrack({ client, plan, plans = [], onClose })
                 <div className="fixed inset-0 z-[5]" onClick={() => setReportMenuOpen(false)} />
                 <div className="absolute left-0 z-10 mt-1 w-56 overflow-hidden rounded-xl border border-slate-200 bg-white py-1 shadow-xl">
                   <button type="button" onClick={() => downloadReport('day')} className="block w-full px-3.5 py-2.5 text-left text-xs font-semibold text-slate-700 hover:bg-slate-50">Day {activeDay} plan &amp; results</button>
-                  <button type="button" onClick={() => downloadReport('all')} className="block w-full px-3.5 py-2.5 text-left text-xs font-semibold text-slate-700 hover:bg-slate-50">Full rehab history (all plans)</button>
+                  <button type="button" onClick={() => downloadReport('all')} className="block w-full px-3.5 py-2.5 text-left text-xs font-semibold text-slate-700 hover:bg-slate-50">Full rehab history (all days)</button>
                 </div>
               </>
             )}
@@ -322,7 +304,7 @@ export default function RehabClusterTrack({ client, plan, plans = [], onClose })
           ) : (
             <div className="space-y-5">
               {main.length > 0 && (
-                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
                   {main.map((ex) => {
                     const idx = exercises.indexOf(ex)
                     const key = `${activeDay}-${idx}`
@@ -344,7 +326,7 @@ export default function RehabClusterTrack({ client, plan, plans = [], onClose })
               {stretches.length > 0 && (
                 <div>
                   <p className="mb-2 text-sm font-bold text-brand-700">Stretches</p>
-                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
                     {stretches.map((ex) => {
                       const idx = exercises.indexOf(ex)
                       const key = `${activeDay}-${idx}`
