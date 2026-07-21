@@ -405,7 +405,7 @@ function BillingModal({ appt, onClose }) {
   const [paid, setPaid] = useState(b.paid != null ? String(b.paid) : '')
   const [mode, setMode] = useState(b.mode || 'Cash')
   const [date, setDate] = useState(b.date || appt.date || todayISO())
-  const [therapist, setTherapist] = useState(b.therapist || '')
+  const [therapist, setTherapist] = useState(b.therapist || 'Sakthi Saravanan')
   const [toAccounting, setToAccounting] = useState(b.addToAccounting !== false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')

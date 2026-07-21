@@ -1342,6 +1342,7 @@ function RehabPlanner({ client, clients = [], editId = '', onChangeClient, navig
   const [billOpen, setBillOpen] = useState(false)
   const [showPerf, setShowPerf] = useState(false)
   const [trackPlan, setTrackPlan] = useState(null)
+  const [savedPlan, setSavedPlan] = useState(null) // just-saved plan, offered for immediate tracking
   const [copyModalOpen, setCopyModalOpen] = useState(false)
   const [busy, setBusy] = useState(false)
   const [saved, setSaved] = useState(false)
@@ -1522,6 +1523,7 @@ function RehabPlanner({ client, clients = [], editId = '', onChangeClient, navig
         }
       } catch (_) { /* best-effort */ }
 
+      setSavedPlan({ ...data, id: planId })
       setDirty(false); setSaved(true)
     } catch (err) {
       console.error('save rehab plan failed:', err)
@@ -1557,12 +1559,23 @@ function RehabPlanner({ client, clients = [], editId = '', onChangeClient, navig
           <p className="mt-1 text-slate-500">
             {form.totalDays}-day plan {editId ? 'updated' : 'created'} for {client.name} ({client.clientId}){form.bill.service ? ` — ${form.bill.service}` : ''}.
           </p>
-          <div className="mt-6 flex flex-wrap justify-center gap-2">
+
+          {savedPlan && (
+            <button
+              type="button" onClick={() => setTrackPlan(savedPlan)}
+              className="mt-6 flex w-full items-center justify-center gap-2.5 rounded-2xl bg-gradient-to-r from-violet-600 to-indigo-600 px-6 py-4 text-lg font-extrabold text-white shadow-lg shadow-violet-200 transition hover:scale-[1.01] hover:shadow-xl"
+            >
+              <LayoutGrid size={22} /> Open to Start Tracking <ArrowRight size={20} />
+            </button>
+          )}
+
+          <div className="mt-4 flex flex-wrap justify-center gap-2">
             <Link to={`/admin/clients/${client.id}`} className="btn-primary">Open patient page <ArrowRight size={16} /></Link>
             <button onClick={() => { if (editId) navigate(`/admin/rehab?client=${client.id}`); else { setForm(blankPlan()); setActiveDay(1); setBillOpen(false); setSaved(false) } }} className="btn-outline">Add another plan</button>
             <button onClick={onChangeClient} className="btn-ghost">Another patient</button>
           </div>
         </div>
+        {trackPlan && <RehabClusterTrack client={client} plan={trackPlan} plans={plans} onClose={() => setTrackPlan(null)} />}
       </div>
     )
   }
@@ -1600,8 +1613,13 @@ function RehabPlanner({ client, clients = [], editId = '', onChangeClient, navig
                         <p className="text-xs text-slate-500">Started {fmtDate(p.startDate)}{p.reason ? ` · ${p.reason}` : ''}</p>
                       </div>
                       <div className="flex flex-wrap gap-2">
-                        <button type="button" onClick={() => setTrackPlan(p)} className="btn-outline px-3 py-1.5 text-xs"><LayoutGrid size={13} /> Track</button>
-                        <button type="button" onClick={() => guard(() => navigate(`/admin/rehab?client=${client.id}&plan=${p.id}`))} className="btn-primary px-3 py-1.5 text-xs">Continue <ArrowRight size={14} /></button>
+                        <button
+                          type="button" onClick={() => setTrackPlan(p)} title="Open the cluster tracker for this plan"
+                          className="flex items-center gap-1.5 rounded-full bg-gradient-to-r from-violet-600 to-indigo-600 px-3.5 py-1.5 text-xs font-bold text-white shadow-sm transition hover:scale-[1.03] hover:shadow-md"
+                        >
+                          <LayoutGrid size={14} /> Track Progress
+                        </button>
+                        <button type="button" onClick={() => guard(() => navigate(`/admin/rehab?client=${client.id}&plan=${p.id}`))} className="btn-primary px-3 py-1.5 text-xs">Update Plan <ArrowRight size={14} /></button>
                         <button type="button" onClick={() => markPlanComplete(p)} className="btn-outline px-3 py-1.5 text-xs"><CheckCircle2 size={13} /> Mark complete</button>
                       </div>
                     </div>
@@ -1732,9 +1750,14 @@ function RehabPlanner({ client, clients = [], editId = '', onChangeClient, navig
                   {p.bill?.service ? ` · ${p.bill.service}` : ''}{p.reason ? ` · ${p.reason}` : ''}
                   {' · '}<span className={isPlanComplete(p) ? 'font-semibold text-emerald-600' : 'text-emerald-600'}>{(p.days || []).filter((d) => d.completed).length}/{p.days?.length || p.totalDays} completed</span>
                 </span>
-                <div className="flex gap-3">
-                  <button type="button" onClick={() => setTrackPlan(p)} className="flex items-center gap-1 text-xs font-semibold text-brand-600 hover:underline"><LayoutGrid size={13} /> Track</button>
-                  <Link to={`/admin/rehab?client=${client.id}&plan=${p.id}`} className="flex items-center gap-1 text-xs font-semibold text-brand-600 hover:underline"><Pencil size={13} /> Edit</Link>
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button" onClick={() => setTrackPlan(p)} title="Open the cluster tracker for this plan"
+                    className="flex items-center gap-1.5 rounded-full bg-gradient-to-r from-violet-600 to-indigo-600 px-3 py-1 text-xs font-bold text-white shadow-sm transition hover:scale-[1.03] hover:shadow-md"
+                  >
+                    <LayoutGrid size={13} /> Track Progress
+                  </button>
+                  <Link to={`/admin/rehab?client=${client.id}&plan=${p.id}`} className="flex items-center gap-1 text-xs font-semibold text-brand-600 hover:underline"><Pencil size={13} /> Update Plan</Link>
                   {!isPlanComplete(p) && <button type="button" onClick={() => markPlanComplete(p)} className="flex items-center gap-1 text-xs font-semibold text-emerald-600 hover:underline"><CheckCircle2 size={13} /> Mark complete</button>}
                   <button type="button" onClick={() => removePlan(p)} className="flex items-center gap-1 text-xs font-semibold text-red-500 hover:underline"><Trash2 size={13} /> Delete</button>
                 </div>
@@ -1745,7 +1768,7 @@ function RehabPlanner({ client, clients = [], editId = '', onChangeClient, navig
       )}
 
       {showPerf && <RehabPerformance client={client} plans={plans} onClose={() => setShowPerf(false)} />}
-      {trackPlan && <RehabClusterTrack client={client} plan={trackPlan} onClose={() => setTrackPlan(null)} />}
+      {trackPlan && <RehabClusterTrack client={client} plan={trackPlan} plans={plans} onClose={() => setTrackPlan(null)} />}
       {copyModalOpen && (
         <CopyFromPatientModal
           clients={clients}

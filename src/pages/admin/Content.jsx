@@ -24,7 +24,7 @@ async function copyText(text) {
 }
 
 // A share/copy button that briefly confirms it copied.
-function CopyLinkButton({ url, label = 'Copy link', title, className = '' }) {
+function CopyLinkButton({ url, label = 'Copy link', title, className = '', iconSize = 14 }) {
   const [done, setDone] = useState(false)
   async function go() {
     if (await copyText(url)) { setDone(true); setTimeout(() => setDone(false), 1600) }
@@ -34,7 +34,7 @@ function CopyLinkButton({ url, label = 'Copy link', title, className = '' }) {
       type="button" onClick={go} title={title || url}
       className={className || 'inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs font-semibold text-slate-500 transition hover:bg-slate-100 hover:text-brand-600'}
     >
-      {done ? <Check size={14} className="text-emerald-600" /> : <Link2 size={14} />}
+      {done ? <Check size={iconSize} className="text-emerald-600" /> : <Link2 size={iconSize} />}
       {done ? 'Copied!' : label}
     </button>
   )
@@ -45,8 +45,8 @@ export default function Content() {
     <div className="space-y-5">
       <AdminPageHeader title="Blogs">
         <CopyLinkButton
-          url={`${SITE_URL}/blog`} label="Copy blog page link" title="Share the blog page with clients"
-          className="inline-flex items-center gap-1.5 rounded-full border-2 border-brand-600 px-3 py-1.5 text-xs font-semibold text-brand-700 transition hover:bg-brand-50"
+          url={`${SITE_URL}/blog`} label="Copy blog page link" title="Share the blog page with clients" iconSize={20}
+          className="inline-flex items-center gap-2 rounded-full bg-brand-600 px-5 py-2.5 text-sm font-bold text-white shadow-md transition hover:bg-brand-700 hover:shadow-lg"
         />
       </AdminPageHeader>
       <BlogManager />
