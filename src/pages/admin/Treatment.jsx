@@ -1,9 +1,13 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { Stethoscope, Search, Loader2, Save, ArrowRight, Plus, CheckCircle2, BadgeCheck, IndianRupee, Sparkles, Send, FileDown } from 'lucide-react'
+import {
+  Stethoscope, Search, Loader2, Save, ArrowRight, Plus, CheckCircle2, BadgeCheck, IndianRupee, Sparkles, Send, FileDown,
+  Pencil, Users, Dumbbell,
+} from 'lucide-react'
 import {
   watchClients, watchTreatments, addTreatment, updateTreatment, watchServiceCharges,
   setAccountingForTreatment, deleteAccountingForTreatment, getClientNotesOnce, updateClient,
+  migrateLegacyClientPrograms,
 } from '../../lib/firestore'
 import { CLINICAL_SECTIONS, CLINICAL_KEYS, formatAssessmentValue } from '../../lib/assessmentSchema'
 import { todayISO, fmtDate } from '../../lib/format'
@@ -21,6 +25,7 @@ import ContactActions from '../../components/ContactActions'
 import AdminPageHeader from '../../components/AdminPageHeader'
 import RehabBadge from '../../components/RehabBadge'
 import PatientAvatar from '../../components/PatientAvatar'
+import ClientForm from '../../components/ClientForm'
 import { useUnsaved } from '../../context/UnsavedContext'
 
 const PAY_MODES = ['Cash', 'UPI', 'Card', 'Bank transfer', 'Other']
@@ -33,6 +38,9 @@ export default function Treatment() {
   const navigate = useNavigate()
 
   useEffect(() => watchClients(setClients), [])
+  // One-time backfill so pre-existing clients (registered before program
+  // tagging existed) show up correctly under the Physio filter below.
+  useEffect(() => { migrateLegacyClientPrograms() }, [])
 
   const clientId = params.get('client') || ''
   const client = useMemo(() => clients.find((c) => c.id === clientId) || null, [clients, clientId])
@@ -49,9 +57,9 @@ export default function Treatment() {
 const isPhysioClient = (c) => Array.isArray(c?.programs) && c.programs.includes('W2W Treatment')
 const isRehabClient = (c) => Array.isArray(c?.programs) && c.programs.includes('W2W Fitness & Rehab')
 const PROGRAM_FILTERS = [
-  { key: 'all', label: 'All' },
-  { key: 'physio', label: 'Physio' },
-  { key: 'rehab', label: 'Rehab & Exercises' },
+  { key: 'all', label: 'All', icon: Users },
+  { key: 'physio', label: 'Physio', icon: Stethoscope },
+  { key: 'rehab', label: 'Rehab & Exercises', icon: Dumbbell },
 ]
 
 function ClientPicker({ clients, onPick, onNew, note }) {
@@ -78,17 +86,32 @@ function ClientPicker({ clients, onPick, onNew, note }) {
           </div>
         </div>
         {note && <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-700">{note}</p>}
-        <div className="flex flex-wrap gap-1.5 rounded-xl bg-slate-100 p-1">
-          {PROGRAM_FILTERS.map((f) => (
-            <button
-              key={f.key} type="button" onClick={() => setProgramFilter(f.key)}
-              className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
-                programFilter === f.key ? 'bg-white text-brand-600 shadow' : 'text-slate-500 hover:text-slate-700'
-              }`}
-            >
-              {f.label}
-            </button>
-          ))}
+        <div>
+          <p className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-400">Filter by program</p>
+          <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-3">
+            {PROGRAM_FILTERS.map((f) => {
+              const count = f.key === 'physio' ? clients.filter(isPhysioClient).length
+                : f.key === 'rehab' ? clients.filter(isRehabClient).length
+                : clients.length
+              const active = programFilter === f.key
+              return (
+                <button
+                  key={f.key} type="button" onClick={() => setProgramFilter(f.key)}
+                  className={`flex items-center gap-3 rounded-2xl border-2 px-4 py-3.5 text-left transition ${
+                    active ? 'border-brand-600 bg-brand-600 text-white shadow-lg' : 'border-slate-200 bg-white text-slate-600 hover:border-brand-300 hover:bg-brand-50'
+                  }`}
+                >
+                  <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl ${active ? 'bg-white/20' : 'bg-brand-50 text-brand-600'}`}>
+                    <f.icon size={20} />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-sm font-extrabold leading-tight">{f.label}</span>
+                    <span className={`block text-xs ${active ? 'text-white/80' : 'text-slate-400'}`}>{count} patient{count === 1 ? '' : 's'}</span>
+                  </span>
+                </button>
+              )
+            })}
+          </div>
         </div>
         <div className="flex flex-col gap-3 sm:flex-row">
           <div className="relative flex-1">
@@ -226,6 +249,7 @@ function TreatmentForm({ client, editId = '', onChangeClient, navigate }) {
   const [reportMsg, setReportMsg] = useState('')
   const [error, setError] = useState('')
   const [therapistInvalid, setTherapistInvalid] = useState(false)
+  const [editRegOpen, setEditRegOpen] = useState(false)
   const { setDirty, guard } = useUnsaved()
 
   const editLoaded = useRef(false)
@@ -407,6 +431,7 @@ function TreatmentForm({ client, editId = '', onChangeClient, navigate }) {
   }
 
   return (
+    <>
     <form onSubmit={save} onKeyDown={(e) => { if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA') e.preventDefault() }} className="space-y-5">
       <AdminPageHeader title="Physio Treatment">
         <button type="button" onClick={() => guard(() => navigate(`/admin/clients/${client.id}`))} className="text-sm font-medium text-brand-600 hover:underline">Open patient page →</button>
@@ -418,7 +443,10 @@ function TreatmentForm({ client, editId = '', onChangeClient, navigate }) {
             <p className="text-lg font-bold text-slate-900">{client.name}</p>
             <p className="flex items-center text-sm text-slate-500">{client.clientId}<RehabBadge client={client} /> · {client.phone}</p>
           </div>
-          <button type="button" onClick={() => guard(onChangeClient)} className="btn-ghost px-3 py-1.5 text-sm">Change patient</button>
+          <div className="flex flex-wrap gap-2">
+            <button type="button" onClick={() => setEditRegOpen(true)} className="btn-outline px-3 py-1.5 text-sm"><Pencil size={14} /> Update Registration</button>
+            <button type="button" onClick={() => guard(onChangeClient)} className="btn-ghost px-3 py-1.5 text-sm">Change patient</button>
+          </div>
         </div>
 
         <PatientSummary client={client} />
@@ -540,5 +568,14 @@ function TreatmentForm({ client, editId = '', onChangeClient, navigate }) {
       </div>
       {reportMsg && <p className="text-right text-sm text-slate-500">{reportMsg}</p>}
     </form>
+
+    {editRegOpen && (
+      <div className="fixed inset-0 z-[90] overflow-y-auto bg-slate-900/50 p-4 backdrop-blur-sm">
+        <div className="mx-auto my-4 max-w-3xl">
+          <ClientForm editClient={client} onCreated={() => setEditRegOpen(false)} onClose={() => setEditRegOpen(false)} />
+        </div>
+      </div>
+    )}
+    </>
   )
 }

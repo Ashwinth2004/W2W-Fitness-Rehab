@@ -17,11 +17,20 @@ const blankForm = (programs = ['W2W Treatment']) => ({ ...Object.fromEntries(BAS
 // Front-desk client intake — Basic Details only. The clinical assessment is
 // done by the physiotherapist in the Treatment module. onCreated(id) is called
 // with the client id (new or returning) so the caller can open Treatment.
-export default function ClientForm({ clients = [], onCreated, onClose, defaultPrograms }) {
-  const [form, setForm] = useState(() => blankForm(defaultPrograms))
+//
+// Pass `editClient` to skip the "returning patient" search entirely and open
+// straight into editing that one client's registration (used by the "Update
+// Registration" popup inside Treatment/Rehab, where the client is already known).
+export default function ClientForm({ clients = [], onCreated, onClose, defaultPrograms, editClient }) {
+  const [form, setForm] = useState(() => {
+    if (!editClient) return blankForm(defaultPrograms)
+    const next = blankForm()
+    BASIC_KEYS.forEach((k) => { next[k] = editClient[k] ?? '' })
+    return next
+  })
   const [regDate, setRegDate] = useState(todayISO())
-  const [existing, setExisting] = useState(null)
-  const [editing, setEditing] = useState(false)
+  const [existing, setExisting] = useState(() => editClient || null)
+  const [editing, setEditing] = useState(() => !!editClient)
   const [lookup, setLookup] = useState('')
   const [active, setActive] = useState(0)
   const [busy, setBusy] = useState(false)
@@ -30,7 +39,7 @@ export default function ClientForm({ clients = [], onCreated, onClose, defaultPr
   const [manualId, setManualId] = useState(false)
   const [customId, setCustomId] = useState('')
   const [agreed, setAgreed] = useState(false)
-  const [painAreas, setPainAreas] = useState([])
+  const [painAreas, setPainAreas] = useState(() => (editClient && Array.isArray(editClient.painAreas) ? editClient.painAreas : []))
   const { setDirty } = useUnsaved()
 
   // Clear the unsaved flag when this form unmounts (closed / navigated away).
@@ -62,7 +71,12 @@ export default function ClientForm({ clients = [], onCreated, onClose, defaultPr
     else if (e.key === 'ArrowUp') { e.preventDefault(); setActive((i) => Math.max(0, i - 1)) }
     else if (e.key === 'Enter') { e.preventDefault(); if (matches[active]) selectReturning(matches[active]) }
   }
-  function clearReturning() { setExisting(null); setEditing(false); setForm(blankForm(defaultPrograms)); setPainAreas([]) }
+  // In the forced single-client edit mode (editClient), there's no "search
+  // for a different patient" to fall back to — Cancel just closes the popup.
+  function clearReturning() {
+    if (editClient) { onClose(); return }
+    setExisting(null); setEditing(false); setForm(blankForm(defaultPrograms)); setPainAreas([])
+  }
   function startEdit() {
     const next = blankForm()
     BASIC_KEYS.forEach((k) => { next[k] = existing[k] ?? '' })

@@ -326,6 +326,24 @@ export async function deleteClient(id) {
   return deleteDoc(doc(db, 'clients', id))
 }
 
+// One-time backfill: clients registered before the "Registered for" program
+// tagging existed have no (or an empty) `programs` array, so they were
+// dropped from the Physio filter even though they were physio patients all
+// along. Tag any such client `['W2W Treatment']` — never touches a client
+// that already has a real programs array (Rehab-only or Both stay as-is).
+export async function migrateLegacyClientPrograms() {
+  if (typeof localStorage !== 'undefined' && localStorage.getItem('w2w_client_programs_migrated_v1') === '1') return
+  try {
+    const snap = await getDocs(collection(db, 'clients'))
+    for (const d of snap.docs) {
+      const programs = d.data().programs
+      if (Array.isArray(programs) && programs.length > 0) continue
+      try { await updateDoc(doc(db, 'clients', d.id), { programs: ['W2W Treatment'] }) } catch (_) { /* best-effort */ }
+    }
+    if (typeof localStorage !== 'undefined') localStorage.setItem('w2w_client_programs_migrated_v1', '1')
+  } catch (_) { /* best-effort — offline or rules not yet published */ }
+}
+
 // Notes (dated report / visit text — also used for previous/old reports)
 export async function addClientNote(clientId, note) {
   return addDoc(collection(db, 'clients', clientId, 'notes'), {
