@@ -146,6 +146,26 @@ export const CONSENT_DECLARATION =
   + 'or decline any part of the treatment at any time. I take responsibility for the information '
   + 'I have provided and willingly agree to proceed with the treatment.'
 
+// Same declaration, worded for patients on the Rehab & Exercises program
+// (exercise-plan based care) rather than physiotherapy treatment sessions.
+export const CONSENT_DECLARATION_REHAB =
+  'I voluntarily consent to rehabilitation and exercise assessment and my prescribed exercise '
+  + 'program at W2W Fitness & Rehab, Balaiah Avenue, Mylapore, Chennai. I confirm that this is my '
+  + 'own decision, that the nature and purpose of the rehab & exercise program have been explained '
+  + 'to me, and that I am free to ask questions or decline any part of the program at any time. '
+  + 'I take responsibility for the information I have provided and willingly agree to proceed with '
+  + 'the rehab & exercise program.'
+
+// Picks the right wording for a client/registration: rehab-only patients get
+// the rehab-specific consent, everyone else (physio-only or on both
+// programs) gets the physiotherapy wording.
+export function consentDeclarationFor(programs) {
+  const list = Array.isArray(programs) ? programs : []
+  const onRehab = list.includes('W2W Fitness & Rehab')
+  const onPhysio = list.includes('W2W Treatment')
+  return onRehab && !onPhysio ? CONSENT_DECLARATION_REHAB : CONSENT_DECLARATION
+}
+
 // Gallery images (optimised copies live in /public/gallery). Captions are
 // generic but descriptive — tweak any time without touching the page.
 export const GALLERY_PHOTOS = [

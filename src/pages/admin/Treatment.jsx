@@ -44,11 +44,27 @@ export default function Treatment() {
   return <TreatmentForm key={`${client.id}:${params.get('session') || ''}`} client={client} editId={params.get('session') || ''} onChangeClient={() => setParams({})} navigate={navigate} />
 }
 
+// A client can be enrolled in either or both programs — a client on both
+// shows up under both single-program filters as well as under "All".
+const isPhysioClient = (c) => Array.isArray(c?.programs) && c.programs.includes('W2W Treatment')
+const isRehabClient = (c) => Array.isArray(c?.programs) && c.programs.includes('W2W Fitness & Rehab')
+const PROGRAM_FILTERS = [
+  { key: 'all', label: 'All' },
+  { key: 'physio', label: 'Physio' },
+  { key: 'rehab', label: 'Rehab & Exercises' },
+]
+
 function ClientPicker({ clients, onPick, onNew, note }) {
   const [q, setQ] = useState('')
-  const filtered = q
-    ? clients.filter((c) => [c.name, c.phone, c.clientId, c.email].filter(Boolean).join(' ').toLowerCase().includes(q.toLowerCase()))
+  const [programFilter, setProgramFilter] = useState('all')
+
+  const pool = programFilter === 'physio' ? clients.filter(isPhysioClient)
+    : programFilter === 'rehab' ? clients.filter(isRehabClient)
     : clients
+
+  const filtered = q
+    ? pool.filter((c) => [c.name, c.phone, c.clientId, c.email].filter(Boolean).join(' ').toLowerCase().includes(q.toLowerCase()))
+    : pool
 
   return (
     <div className="space-y-5">
@@ -62,6 +78,18 @@ function ClientPicker({ clients, onPick, onNew, note }) {
           </div>
         </div>
         {note && <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-700">{note}</p>}
+        <div className="flex flex-wrap gap-1.5 rounded-xl bg-slate-100 p-1">
+          {PROGRAM_FILTERS.map((f) => (
+            <button
+              key={f.key} type="button" onClick={() => setProgramFilter(f.key)}
+              className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
+                programFilter === f.key ? 'bg-white text-brand-600 shadow' : 'text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
         <div className="flex flex-col gap-3 sm:flex-row">
           <div className="relative flex-1">
             <Search className="pointer-events-none absolute left-3 top-3 text-slate-400" size={16} />
@@ -81,7 +109,9 @@ function ClientPicker({ clients, onPick, onNew, note }) {
       {clients.length === 0 ? (
         <p className="card py-12 text-center text-sm text-slate-400">No patients yet. Create your first patient above.</p>
       ) : filtered.length === 0 ? (
-        <p className="card py-12 text-center text-sm text-slate-400">No patients match “{q}”.</p>
+        <p className="card py-12 text-center text-sm text-slate-400">
+          {q ? `No patients match “${q}”.` : `No ${programFilter === 'physio' ? 'physio' : 'rehab & exercises'} patients yet.`}
+        </p>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {filtered.map((c) => (

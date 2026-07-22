@@ -4,7 +4,7 @@ import { createClient, updateClient } from '../lib/firestore'
 import { isValidMobile } from '../lib/validate'
 import { todayISO } from '../lib/format'
 import { BASIC_SECTIONS, BASIC_KEYS } from '../lib/assessmentSchema'
-import { CONSENT_DECLARATION } from '../lib/constants'
+import { consentDeclarationFor } from '../lib/constants'
 import { useUnsaved } from '../context/UnsavedContext'
 import DateField from './DateField'
 import AssessmentField from './AssessmentField'
@@ -195,7 +195,7 @@ export default function ClientForm({ clients = [], onCreated, onClose, defaultPr
       {/* Declaration & consent — shown at the end, after the pain-areas chart */}
       <div className="rounded-2xl border border-brand-100 bg-brand-50/60 p-4">
         <p className="text-sm font-bold text-brand-700">Declaration &amp; Consent</p>
-        <p className="mt-2 text-sm leading-relaxed text-slate-600">{CONSENT_DECLARATION}</p>
+        <p className="mt-2 text-sm leading-relaxed text-slate-600">{consentDeclarationFor(form.programs)}</p>
         <label className="mt-3 flex items-start gap-2 text-sm font-medium text-slate-700">
           <input type="checkbox" checked={agreed} onChange={(e) => { setAgreed(e.target.checked); setDirty(true) }} className="mt-0.5 h-4 w-4 rounded border-slate-300 text-brand-600" />
           <span>The information provided is accurate and the patient consents to the assessment &amp; treatment.</span>
