@@ -2,7 +2,7 @@ import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import {
   Stethoscope, Search, Loader2, Save, ArrowRight, Plus, CheckCircle2, BadgeCheck, IndianRupee, Sparkles, Send, FileDown,
-  Pencil, Users, Dumbbell,
+  Pencil, Users, Dumbbell, Activity,
 } from 'lucide-react'
 import {
   watchClients, watchTreatments, addTreatment, updateTreatment, watchServiceCharges,
@@ -53,14 +53,16 @@ export default function Treatment() {
   return <TreatmentForm key={`${client.id}:${params.get('session') || ''}`} client={client} editId={params.get('session') || ''} onChangeClient={() => setParams({})} navigate={navigate} />
 }
 
-// A client can be enrolled in either or both programs — a client on both
-// shows up under both single-program filters as well as under "All".
+// A client can be enrolled in any combination of programs — a client on
+// several shows up under each matching single-program filter as well as "All".
 const isPhysioClient = (c) => Array.isArray(c?.programs) && c.programs.includes('W2W Treatment')
 const isRehabClient = (c) => Array.isArray(c?.programs) && c.programs.includes('W2W Fitness & Rehab')
+const isFitnessClient = (c) => Array.isArray(c?.programs) && c.programs.includes('W2W Fitness')
 const PROGRAM_FILTERS = [
   { key: 'all', label: 'All', icon: Users },
   { key: 'physio', label: 'Physio', icon: Stethoscope },
   { key: 'rehab', label: 'Rehab & Exercises', icon: Dumbbell },
+  { key: 'fitness', label: 'Fitness', icon: Activity },
 ]
 
 function ClientPicker({ clients, onPick, onNew, note }) {
@@ -69,6 +71,7 @@ function ClientPicker({ clients, onPick, onNew, note }) {
 
   const pool = programFilter === 'physio' ? clients.filter(isPhysioClient)
     : programFilter === 'rehab' ? clients.filter(isRehabClient)
+    : programFilter === 'fitness' ? clients.filter(isFitnessClient)
     : clients
 
   const filtered = q
@@ -89,10 +92,11 @@ function ClientPicker({ clients, onPick, onNew, note }) {
         {note && <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-700">{note}</p>}
         <div>
           <p className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-400">Filter by program</p>
-          <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-3">
+          <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-4">
             {PROGRAM_FILTERS.map((f) => {
               const count = f.key === 'physio' ? clients.filter(isPhysioClient).length
                 : f.key === 'rehab' ? clients.filter(isRehabClient).length
+                : f.key === 'fitness' ? clients.filter(isFitnessClient).length
                 : clients.length
               const active = programFilter === f.key
               return (
@@ -134,7 +138,7 @@ function ClientPicker({ clients, onPick, onNew, note }) {
         <p className="card py-12 text-center text-sm text-slate-400">No patients yet. Create your first patient above.</p>
       ) : filtered.length === 0 ? (
         <p className="card py-12 text-center text-sm text-slate-400">
-          {q ? `No patients match “${q}”.` : `No ${programFilter === 'physio' ? 'physio' : 'rehab & exercises'} patients yet.`}
+          {q ? `No patients match “${q}”.` : `No ${programFilter === 'physio' ? 'physio' : programFilter === 'fitness' ? 'fitness' : 'rehab & exercises'} patients yet.`}
         </p>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">

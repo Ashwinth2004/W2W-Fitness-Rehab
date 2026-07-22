@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { Users, Plus, Search, X, BadgeCheck } from 'lucide-react'
+import { Users, Plus, Search, X, BadgeCheck, Stethoscope, Dumbbell, Activity } from 'lucide-react'
 import { watchClients, findClientByClientId } from '../../lib/firestore'
 import { fmtDate, matchesDateFilter } from '../../lib/format'
 import ContactActions from '../../components/ContactActions'
@@ -11,6 +11,18 @@ import RehabBadge from '../../components/RehabBadge'
 import FitnessBadge from '../../components/FitnessBadge'
 import PatientAvatar from '../../components/PatientAvatar'
 
+// A client can be enrolled in any combination of programs — a client on
+// several shows up under each matching single-program filter as well as "All".
+const isPhysioClient = (c) => Array.isArray(c?.programs) && c.programs.includes('W2W Treatment')
+const isRehabClient = (c) => Array.isArray(c?.programs) && c.programs.includes('W2W Fitness & Rehab')
+const isFitnessClient = (c) => Array.isArray(c?.programs) && c.programs.includes('W2W Fitness')
+const PROGRAM_FILTERS = [
+  { key: 'all', label: 'All', icon: Users },
+  { key: 'physio', label: 'Physio', icon: Stethoscope },
+  { key: 'rehab', label: 'Rehab & Exercises', icon: Dumbbell },
+  { key: 'fitness', label: 'Fitness', icon: Activity },
+]
+
 export default function Clients() {
   const [clients, setClients] = useState([])
   const [search, setSearch] = useState('')
@@ -18,11 +30,17 @@ export default function Clients() {
   const [showForm, setShowForm] = useState(searchParams.get('new') === '1')
   const [lookupMsg, setLookupMsg] = useState('')
   const [dateFilter, setDateFilter] = useState({ day: '', month: '' })
+  const [programFilter, setProgramFilter] = useState('all')
   const navigate = useNavigate()
 
   useEffect(() => watchClients(setClients), [])
 
-  const filtered = clients
+  const programPool = programFilter === 'physio' ? clients.filter(isPhysioClient)
+    : programFilter === 'rehab' ? clients.filter(isRehabClient)
+    : programFilter === 'fitness' ? clients.filter(isFitnessClient)
+    : clients
+
+  const filtered = programPool
     .filter((c) => matchesDateFilter(c.createdAt, dateFilter))
     .filter((c) =>
       !search ? true : [c.name, c.clientId, c.phone, c.email].join(' ').toLowerCase().includes(search.toLowerCase())
@@ -65,12 +83,45 @@ export default function Clients() {
       </form>
       {lookupMsg && <p className="text-sm text-red-500">{lookupMsg}</p>}
 
+      <div className="card space-y-2 p-4">
+        <p className="text-xs font-bold uppercase tracking-wide text-slate-400">Filter by program</p>
+        <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-4">
+          {PROGRAM_FILTERS.map((f) => {
+            const count = f.key === 'physio' ? clients.filter(isPhysioClient).length
+              : f.key === 'rehab' ? clients.filter(isRehabClient).length
+              : f.key === 'fitness' ? clients.filter(isFitnessClient).length
+              : clients.length
+            const active = programFilter === f.key
+            return (
+              <button
+                key={f.key} type="button" onClick={() => setProgramFilter(f.key)}
+                className={`flex items-center gap-3 rounded-2xl border-2 px-4 py-3.5 text-left transition ${
+                  active ? 'border-brand-600 bg-brand-600 text-white shadow-lg' : 'border-slate-200 bg-white text-slate-600 hover:border-brand-300 hover:bg-brand-50'
+                }`}
+              >
+                <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl ${active ? 'bg-white/20' : 'bg-brand-50 text-brand-600'}`}>
+                  <f.icon size={20} />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-extrabold leading-tight">{f.label}</span>
+                  <span className={`block text-xs ${active ? 'text-white/80' : 'text-slate-400'}`}>{count} patient{count === 1 ? '' : 's'}</span>
+                </span>
+              </button>
+            )
+          })}
+        </div>
+      </div>
+
       <div className="card p-4"><AdminFilter filter={dateFilter} setFilter={setDateFilter} /></div>
 
       {filtered.length === 0 ? (
         <div className="card grid place-items-center py-16 text-center">
           <Users className="text-slate-300" size={48} />
-          <p className="mt-3 text-slate-400">{clients.length ? 'No matches.' : 'No clients yet. Add your first client.'}</p>
+          <p className="mt-3 text-slate-400">
+            {clients.length
+              ? (programFilter !== 'all' ? `No ${PROGRAM_FILTERS.find((f) => f.key === programFilter)?.label.toLowerCase()} patients match.` : 'No matches.')
+              : 'No clients yet. Add your first client.'}
+          </p>
         </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">

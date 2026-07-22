@@ -105,7 +105,14 @@ function Duration({ value, onChange }) {
 // Which program(s) the client is registered for — any combination of
 // W2W Treatment / W2W Fitness & Rehab / W2W Fitness, stored as an array so
 // the rest of the app (badges, module filters) can just check `.includes(...)`.
-const PROGRAM_OPTIONS = ['W2W Treatment', 'W2W Fitness & Rehab', 'W2W Fitness']
+// Displayed as "W2W Physio" / "W2W Rehab" / "W2W Fitness" — the stored value
+// stays the original identifier so existing client data and filters elsewhere
+// never need to change, only the label shown here.
+const PROGRAM_OPTIONS = [
+  { value: 'W2W Treatment', label: 'W2W Physio' },
+  { value: 'W2W Fitness & Rehab', label: 'W2W Rehab' },
+  { value: 'W2W Fitness', label: 'W2W Fitness' },
+]
 function Programs({ value, onChange }) {
   const arr = Array.isArray(value) ? value : []
   function toggle(opt) {
@@ -113,7 +120,7 @@ function Programs({ value, onChange }) {
   }
   return (
     <div className="flex flex-wrap gap-2">
-      {PROGRAM_OPTIONS.map((o) => <button type="button" key={o} className={chipCls(arr.includes(o))} onClick={() => toggle(o)}>{o}</button>)}
+      {PROGRAM_OPTIONS.map((o) => <button type="button" key={o.value} className={chipCls(arr.includes(o.value))} onClick={() => toggle(o.value)}>{o.label}</button>)}
     </div>
   )
 }

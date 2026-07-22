@@ -69,18 +69,20 @@ export default function ServiceSelect({ value, services = [], onChange, showClas
       </button>
 
       {open && (
-        <div className="absolute z-30 mt-1 w-full overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl">
+        <div className="absolute z-30 mt-1 w-[23rem] max-w-[92vw] overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl">
           <ul className="max-h-72 overflow-y-auto py-1 text-sm">
             {list.length === 0 && <li className="px-3 py-2 text-slate-400">No services yet.</li>}
             {list.map((c) => (
               <li key={c.id || c.name} className="flex items-center justify-between gap-0.5 pr-1">
                 {editId === c.id ? (
-                  <div className="flex w-full flex-wrap items-center gap-1 px-2 py-1.5">
-                    <input className="input h-8 min-w-[7rem] flex-1 text-sm" value={editName} autoFocus onChange={(e) => setEditName(e.target.value)} placeholder="Service" />
-                    <input className="input h-8 w-20 text-sm" inputMode="numeric" value={editAmt} onChange={(e) => setEditAmt(digits(e.target.value).slice(0, 8))} placeholder="Rs." />
-                    {showClasses && <input className="input h-8 w-16 text-sm" inputMode="numeric" value={editClasses} onChange={(e) => setEditClasses(digits(e.target.value).slice(0, 3))} placeholder="Classes" />}
-                    <button type="button" onClick={() => saveEdit(c)} className="p-1 text-green-600"><Check size={15} /></button>
-                    <button type="button" onClick={() => setEditId(null)} className="p-1 text-slate-400"><X size={15} /></button>
+                  <div className="flex w-full flex-wrap items-center gap-1.5 px-2 py-2">
+                    <input className="input h-8 min-w-[8rem] flex-1 text-sm" value={editName} autoFocus onChange={(e) => setEditName(e.target.value)} placeholder="Service" />
+                    <input className="input h-8 w-20 shrink-0 text-sm" inputMode="numeric" value={editAmt} onChange={(e) => setEditAmt(digits(e.target.value).slice(0, 8))} placeholder="Rs." />
+                    {showClasses && <input className="input h-8 w-20 shrink-0 text-sm" inputMode="numeric" value={editClasses} onChange={(e) => setEditClasses(digits(e.target.value).slice(0, 3))} placeholder="Classes" />}
+                    <div className="flex shrink-0 items-center gap-0.5">
+                      <button type="button" onClick={() => saveEdit(c)} className="p-1 text-green-600"><Check size={15} /></button>
+                      <button type="button" onClick={() => setEditId(null)} className="p-1 text-slate-400"><X size={15} /></button>
+                    </div>
                   </div>
                 ) : (
                   <>
@@ -94,9 +96,9 @@ export default function ServiceSelect({ value, services = [], onChange, showClas
                     )}
                     <button
                       type="button" onClick={() => pick(c)}
-                      className={`flex flex-1 items-center justify-between gap-2 px-2 py-2 text-left ${value === c.name ? 'font-semibold text-brand-700' : 'text-slate-700'} hover:bg-brand-50`}
+                      className={`flex min-w-0 flex-1 items-center justify-between gap-2 px-2 py-2 text-left ${value === c.name ? 'font-semibold text-brand-700' : 'text-slate-700'} hover:bg-brand-50`}
                     >
-                      <span className="truncate">{c.name}</span>
+                      <span className="min-w-0 truncate">{c.name}</span>
                       <span className="shrink-0 text-xs text-slate-400">{rs(c.amount)}{c.classes ? ` · ${c.classes} class${c.classes > 1 ? 'es' : ''}` : ''}</span>
                     </button>
                     {c.id && (
@@ -110,10 +112,10 @@ export default function ServiceSelect({ value, services = [], onChange, showClas
               </li>
             ))}
           </ul>
-          <div className="flex flex-wrap gap-1.5 border-t border-slate-100 p-2">
-            <input className="input h-9 min-w-[7rem] flex-1 text-sm" value={addName} placeholder="Add service…" onChange={(e) => setAddName(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); add() } }} />
-            <input className="input h-9 w-20 text-sm" inputMode="numeric" value={addAmt} placeholder="Rs." onChange={(e) => setAddAmt(digits(e.target.value).slice(0, 8))} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); add() } }} />
-            {showClasses && <input className="input h-9 w-16 text-sm" inputMode="numeric" value={addClasses} placeholder="Classes" onChange={(e) => setAddClasses(digits(e.target.value).slice(0, 3))} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); add() } }} />}
+          <div className="flex flex-wrap items-center gap-1.5 border-t border-slate-100 p-2">
+            <input className="input h-9 min-w-[8rem] flex-1 text-sm" value={addName} placeholder="Add service…" onChange={(e) => setAddName(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); add() } }} />
+            <input className="input h-9 w-20 shrink-0 text-sm" inputMode="numeric" value={addAmt} placeholder="Rs." onChange={(e) => setAddAmt(digits(e.target.value).slice(0, 8))} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); add() } }} />
+            {showClasses && <input className="input h-9 w-20 shrink-0 text-sm" inputMode="numeric" value={addClasses} placeholder="Classes" onChange={(e) => setAddClasses(digits(e.target.value).slice(0, 3))} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); add() } }} />}
             <button type="button" onClick={add} className="btn-outline shrink-0 px-2.5 py-1.5 text-xs"><Plus size={14} /> Add</button>
           </div>
         </div>

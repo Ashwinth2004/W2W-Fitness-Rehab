@@ -5,6 +5,7 @@ import { isValidMobile } from '../lib/validate'
 import { todayISO } from '../lib/format'
 import { BASIC_SECTIONS, BASIC_KEYS } from '../lib/assessmentSchema'
 import { consentDeclarationFor, FITNESS_GOALS } from '../lib/constants'
+import { getCustomFitnessGoals, addCustomFitnessGoal, deleteCustomFitnessGoal } from '../lib/customFitnessGoals'
 import { useUnsaved } from '../context/UnsavedContext'
 import DateField from './DateField'
 import AssessmentField from './AssessmentField'
@@ -51,7 +52,31 @@ export default function ClientForm({ clients = [], onCreated, onClose, defaultPr
   const [agreed, setAgreed] = useState(false)
   const [painAreas, setPainAreas] = useState(() => (editClient && Array.isArray(editClient.painAreas) ? editClient.painAreas : []))
   const [fitnessGoals, setFitnessGoals] = useState(() => (editClient && Array.isArray(editClient.fitnessGoals) ? editClient.fitnessGoals : []))
+  const [customGoals, setCustomGoals] = useState(() => getCustomFitnessGoals())
+  const [goalDraft, setGoalDraft] = useState('')
   const { setDirty } = useUnsaved()
+
+  function toggleGoal(g) {
+    setFitnessGoals((gs) => (gs.includes(g) ? gs.filter((x) => x !== g) : [...gs, g]))
+    setDirty(true)
+  }
+  function addGoal() {
+    const g = goalDraft.trim()
+    if (!g) return
+    if (!FITNESS_GOALS.includes(g) && !customGoals.includes(g)) {
+      addCustomFitnessGoal(g)
+      setCustomGoals((gs) => [...gs, g])
+    }
+    setFitnessGoals((gs) => (gs.includes(g) ? gs : [...gs, g]))
+    setGoalDraft('')
+    setDirty(true)
+  }
+  function removeCustomGoal(g) {
+    deleteCustomFitnessGoal(g)
+    setCustomGoals((gs) => gs.filter((x) => x !== g))
+    setFitnessGoals((gs) => gs.filter((x) => x !== g))
+    setDirty(true)
+  }
 
   // Clear the unsaved flag when this form unmounts (closed / navigated away).
   useEffect(() => () => setDirty(false), [setDirty])
@@ -219,13 +244,29 @@ export default function ClientForm({ clients = [], onCreated, onClose, defaultPr
           <legend className="px-2 text-sm font-bold text-brand-700">Fitness goals</legend>
           <div className="flex flex-wrap gap-2">
             {FITNESS_GOALS.map((g) => (
-              <button
-                type="button" key={g} className={goalChipCls(fitnessGoals.includes(g))}
-                onClick={() => { setFitnessGoals((gs) => (gs.includes(g) ? gs.filter((x) => x !== g) : [...gs, g])); setDirty(true) }}
-              >
+              <button type="button" key={g} className={goalChipCls(fitnessGoals.includes(g))} onClick={() => toggleGoal(g)}>
                 {g}
               </button>
             ))}
+            {customGoals.map((g) => (
+              <span key={g} className={`inline-flex items-center gap-1 rounded-full border pl-3.5 pr-1.5 py-1 text-xs font-semibold transition ${fitnessGoals.includes(g) ? 'border-brand-600 bg-brand-600 text-white shadow' : 'border-slate-200 bg-white text-slate-600 hover:bg-brand-50'}`}>
+                <button type="button" onClick={() => toggleGoal(g)}>{g}</button>
+                <button
+                  type="button" title="Remove this goal option" onClick={() => removeCustomGoal(g)}
+                  className={`grid h-5 w-5 place-items-center rounded-full ${fitnessGoals.includes(g) ? 'hover:bg-white/20' : 'text-slate-400 hover:bg-slate-200'}`}
+                >
+                  <X size={12} />
+                </button>
+              </span>
+            ))}
+          </div>
+          <div className="mt-2 flex gap-2">
+            <input
+              className="input h-9 text-sm" value={goalDraft} onChange={(e) => setGoalDraft(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addGoal() } }}
+              placeholder="Add another goal…"
+            />
+            <button type="button" onClick={addGoal} className="btn-outline shrink-0 text-sm">Add</button>
           </div>
         </fieldset>
       ) : (
@@ -238,7 +279,7 @@ export default function ClientForm({ clients = [], onCreated, onClose, defaultPr
       {/* Declaration & consent — shown at the end, after the pain-areas chart */}
       <div className="rounded-2xl border border-brand-100 bg-brand-50/60 p-4">
         <p className="text-sm font-bold text-brand-700">Declaration &amp; Consent</p>
-        <p className="mt-2 text-sm leading-relaxed text-slate-600">{consentDeclarationFor(form.programs)}</p>
+        <p className={`mt-2 text-sm leading-relaxed text-slate-600 ${isFitness ? 'text-justify' : ''}`}>{consentDeclarationFor(form.programs)}</p>
         <label className="mt-3 flex items-start gap-2 text-sm font-medium text-slate-700">
           <input type="checkbox" checked={agreed} onChange={(e) => { setAgreed(e.target.checked); setDirty(true) }} className="mt-0.5 h-4 w-4 rounded border-slate-300 text-brand-600" />
           <span>The information provided is accurate and the patient consents to the assessment &amp; treatment.</span>

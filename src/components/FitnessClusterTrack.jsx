@@ -309,7 +309,7 @@ export default function FitnessClusterTrack({ client, plan, plans = [], onClose 
           ) : (
             <div className="space-y-5">
               {main.length > 0 && (
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 2xl:grid-cols-3">
                   {main.map((ex) => {
                     const idx = exercises.indexOf(ex)
                     const key = `${activeDay}-${idx}`
@@ -330,7 +330,7 @@ export default function FitnessClusterTrack({ client, plan, plans = [], onClose 
               {cardio.length > 0 && (
                 <div>
                   <p className="mb-2 text-sm font-bold text-brand-700">Cardio</p>
-                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 2xl:grid-cols-3">
                     {cardio.map((ex) => {
                       const idx = exercises.indexOf(ex)
                       const key = `${activeDay}-${idx}`
