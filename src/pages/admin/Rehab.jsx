@@ -40,6 +40,7 @@ import RehabPerformance from '../../components/RehabPerformance'
 import RehabClusterTrack from '../../components/RehabClusterTrack'
 import ContactActions from '../../components/ContactActions'
 import RehabBadge from '../../components/RehabBadge'
+import FitnessBadge from '../../components/FitnessBadge'
 import AdminPageHeader from '../../components/AdminPageHeader'
 import { useUnsaved } from '../../context/UnsavedContext'
 
@@ -237,7 +238,7 @@ function RehabClientPicker({ clients, onPick, onNew, onTemplates, note }) {
                   <PatientAvatar client={c} />
                   <div className="min-w-0">
                     <p className="truncate font-semibold text-slate-900">{c.name}</p>
-                    <p className="flex items-center gap-1 text-xs font-medium text-brand-600"><BadgeCheck size={13} /> {c.clientId}<RehabBadge client={c} /></p>
+                    <p className="flex items-center gap-1 text-xs font-medium text-brand-600"><BadgeCheck size={13} /> {c.clientId}<RehabBadge client={c} /><FitnessBadge client={c} /></p>
                   </div>
                 </div>
               </div>
@@ -1594,7 +1595,7 @@ function RehabPlanner({ client, clients = [], editId = '', onChangeClient, navig
           <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-brand-50 p-4">
             <div>
               <p className="text-lg font-bold text-slate-900">{client.name}</p>
-              <p className="flex items-center text-sm text-slate-500">{client.clientId}<RehabBadge client={client} /> · {client.phone}</p>
+              <p className="flex items-center text-sm text-slate-500">{client.clientId}<RehabBadge client={client} /><FitnessBadge client={client} /> · {client.phone}</p>
             </div>
             <Link to={`/admin/clients/${client.id}`} className="btn-outline shrink-0 px-3 py-1.5 text-xs">View Profile <ArrowRight size={14} /></Link>
           </div>

@@ -102,21 +102,18 @@ function Duration({ value, onChange }) {
   )
 }
 
-// Which program(s) the client is registered for — a single choice among
-// W2W Treatment / W2W Fitness & Rehab / Both, stored as an array so the rest
-// of the app (e.g. the rehab "R" badge) can just check `.includes(...)`.
-const PROGRAM_OPTIONS = ['W2W Treatment', 'W2W Fitness & Rehab', 'Both']
+// Which program(s) the client is registered for — any combination of
+// W2W Treatment / W2W Fitness & Rehab / W2W Fitness, stored as an array so
+// the rest of the app (badges, module filters) can just check `.includes(...)`.
+const PROGRAM_OPTIONS = ['W2W Treatment', 'W2W Fitness & Rehab', 'W2W Fitness']
 function Programs({ value, onChange }) {
   const arr = Array.isArray(value) ? value : []
-  const isBoth = arr.includes('W2W Treatment') && arr.includes('W2W Fitness & Rehab')
-  const current = isBoth ? 'Both' : arr[0] || ''
-  function pick(opt) {
-    if (opt === 'Both') onChange(['W2W Treatment', 'W2W Fitness & Rehab'])
-    else onChange([opt])
+  function toggle(opt) {
+    onChange(arr.includes(opt) ? arr.filter((x) => x !== opt) : [...arr, opt])
   }
   return (
     <div className="flex flex-wrap gap-2">
-      {PROGRAM_OPTIONS.map((o) => <button type="button" key={o} className={chipCls(current === o)} onClick={() => pick(o)}>{o}</button>)}
+      {PROGRAM_OPTIONS.map((o) => <button type="button" key={o} className={chipCls(arr.includes(o))} onClick={() => toggle(o)}>{o}</button>)}
     </div>
   )
 }

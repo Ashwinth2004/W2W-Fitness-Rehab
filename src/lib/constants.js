@@ -156,15 +156,29 @@ export const CONSENT_DECLARATION_REHAB =
   + 'I take responsibility for the information I have provided and willingly agree to proceed with '
   + 'the rehab & exercise program.'
 
-// Picks the right wording for a client/registration: rehab-only patients get
-// the rehab-specific consent, everyone else (physio-only or on both
-// programs) gets the physiotherapy wording.
+// Same declaration again, worded for patients on the Fitness program
+// (general training/gym-style sessions rather than clinical treatment).
+export const CONSENT_DECLARATION_FITNESS =
+  'I voluntarily consent to fitness assessment and my prescribed fitness/exercise program at '
+  + 'W2W Fitness & Rehab, Balaiah Avenue, Mylapore, Chennai. I confirm that this is my own decision, '
+  + 'that the nature and purpose of the fitness program have been explained to me, and that I am '
+  + 'free to ask questions or decline any part of the program at any time. I confirm I have '
+  + 'disclosed any existing medical conditions or injuries relevant to this program. I take '
+  + 'responsibility for the information I have provided and willingly agree to proceed with the '
+  + 'fitness program.'
+
+// Picks the right wording for a client/registration, in order of priority:
+// physio (most comprehensive) > rehab-only > fitness-only > default physio.
 export function consentDeclarationFor(programs) {
   const list = Array.isArray(programs) ? programs : []
-  const onRehab = list.includes('W2W Fitness & Rehab')
-  const onPhysio = list.includes('W2W Treatment')
-  return onRehab && !onPhysio ? CONSENT_DECLARATION_REHAB : CONSENT_DECLARATION
+  if (list.includes('W2W Treatment')) return CONSENT_DECLARATION
+  if (list.includes('W2W Fitness & Rehab')) return CONSENT_DECLARATION_REHAB
+  if (list.includes('W2W Fitness')) return CONSENT_DECLARATION_FITNESS
+  return CONSENT_DECLARATION
 }
+
+// Fitness-goal options (multi-select) captured at registration.
+export const FITNESS_GOALS = ['Weight loss', 'Muscle strength', 'Muscle gain', 'Cardio vascular endurance', 'General fitness']
 
 // Gallery images (optimised copies live in /public/gallery). Captions are
 // generic but descriptive — tweak any time without touching the page.

@@ -19,6 +19,7 @@ import AssessmentField from '../../components/AssessmentField'
 import TherapistSelect from '../../components/TherapistSelect'
 import BodyPainSelector from '../../components/BodyPainSelector'
 import RehabBadge from '../../components/RehabBadge'
+import FitnessBadge from '../../components/FitnessBadge'
 import PatientAvatar from '../../components/PatientAvatar'
 import { generateClientReport, generateRehabReport } from '../../lib/pdf'
 
@@ -80,7 +81,7 @@ export default function ClientDetail() {
             <PatientAvatar client={client} size="lg" />
             <div>
               <h1 className="text-2xl font-bold text-slate-900">{client.name}</h1>
-              <p className="flex items-center gap-1.5 text-sm font-medium text-brand-600"><BadgeCheck size={15} /> {client.clientId}<RehabBadge client={client} /></p>
+              <p className="flex items-center gap-1.5 text-sm font-medium text-brand-600"><BadgeCheck size={15} /> {client.clientId}<RehabBadge client={client} /><FitnessBadge client={client} /></p>
               <div className="mt-2"><ContactActions phone={client.phone} showNumber /></div>
             </div>
           </div>

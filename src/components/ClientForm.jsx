@@ -4,11 +4,16 @@ import { createClient, updateClient } from '../lib/firestore'
 import { isValidMobile } from '../lib/validate'
 import { todayISO } from '../lib/format'
 import { BASIC_SECTIONS, BASIC_KEYS } from '../lib/assessmentSchema'
-import { consentDeclarationFor } from '../lib/constants'
+import { consentDeclarationFor, FITNESS_GOALS } from '../lib/constants'
 import { useUnsaved } from '../context/UnsavedContext'
 import DateField from './DateField'
 import AssessmentField from './AssessmentField'
 import BodyPainSelector from './BodyPainSelector'
+
+const goalChipCls = (active) =>
+  `inline-flex cursor-pointer items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
+    active ? 'border-brand-600 bg-brand-600 text-white shadow' : 'border-slate-200 bg-white text-slate-600 hover:bg-brand-50'
+  }`
 
 // New clients default to Physiotherapy as the primary service (changeable in the dropdown).
 // `programs` defaults to W2W Treatment unless the caller (e.g. the Rehab module) overrides it.
@@ -21,7 +26,12 @@ const blankForm = (programs = ['W2W Treatment']) => ({ ...Object.fromEntries(BAS
 // Pass `editClient` to skip the "returning patient" search entirely and open
 // straight into editing that one client's registration (used by the "Update
 // Registration" popup inside Treatment/Rehab, where the client is already known).
-export default function ClientForm({ clients = [], onCreated, onClose, defaultPrograms, editClient }) {
+//
+// `variant="fitness"` swaps the Pain areas chart for a Fitness goals picker —
+// used only by the Fitness module's registration flow. Every other module
+// keeps the pain-areas chart, unchanged.
+export default function ClientForm({ clients = [], onCreated, onClose, defaultPrograms, editClient, variant = 'clinical' }) {
+  const isFitness = variant === 'fitness'
   const [form, setForm] = useState(() => {
     if (!editClient) return blankForm(defaultPrograms)
     const next = blankForm()
@@ -40,6 +50,7 @@ export default function ClientForm({ clients = [], onCreated, onClose, defaultPr
   const [customId, setCustomId] = useState('')
   const [agreed, setAgreed] = useState(false)
   const [painAreas, setPainAreas] = useState(() => (editClient && Array.isArray(editClient.painAreas) ? editClient.painAreas : []))
+  const [fitnessGoals, setFitnessGoals] = useState(() => (editClient && Array.isArray(editClient.fitnessGoals) ? editClient.fitnessGoals : []))
   const { setDirty } = useUnsaved()
 
   // Clear the unsaved flag when this form unmounts (closed / navigated away).
@@ -75,13 +86,14 @@ export default function ClientForm({ clients = [], onCreated, onClose, defaultPr
   // for a different patient" to fall back to — Cancel just closes the popup.
   function clearReturning() {
     if (editClient) { onClose(); return }
-    setExisting(null); setEditing(false); setForm(blankForm(defaultPrograms)); setPainAreas([])
+    setExisting(null); setEditing(false); setForm(blankForm(defaultPrograms)); setPainAreas([]); setFitnessGoals([])
   }
   function startEdit() {
     const next = blankForm()
     BASIC_KEYS.forEach((k) => { next[k] = existing[k] ?? '' })
     setForm(next); setEditing(true)
     setPainAreas(Array.isArray(existing.painAreas) ? existing.painAreas : [])
+    setFitnessGoals(Array.isArray(existing.fitnessGoals) ? existing.fitnessGoals : [])
   }
 
   async function submit(dest) {
@@ -96,7 +108,8 @@ export default function ClientForm({ clients = [], onCreated, onClose, defaultPr
     const data = {}
     BASIC_KEYS.forEach((k) => { const v = form[k]; data[k] = typeof v === 'string' ? v.trim() : v })
     data.registeredOn = regDate || todayISO()
-    data.painAreas = painAreas
+    if (isFitness) data.fitnessGoals = fitnessGoals
+    else data.painAreas = painAreas
     setBusy(true)
     try {
       if (existing && editing) {
@@ -201,10 +214,26 @@ export default function ClientForm({ clients = [], onCreated, onClose, defaultPr
         </fieldset>
       ))}
 
-      <fieldset className="rounded-2xl border border-slate-100 p-4">
-        <legend className="px-2 text-sm font-bold text-brand-700">Pain areas (tap on the body)</legend>
-        <BodyPainSelector value={painAreas} onChange={(v) => { setPainAreas(v); setDirty(true) }} />
-      </fieldset>
+      {isFitness ? (
+        <fieldset className="rounded-2xl border border-slate-100 p-4">
+          <legend className="px-2 text-sm font-bold text-brand-700">Fitness goals</legend>
+          <div className="flex flex-wrap gap-2">
+            {FITNESS_GOALS.map((g) => (
+              <button
+                type="button" key={g} className={goalChipCls(fitnessGoals.includes(g))}
+                onClick={() => { setFitnessGoals((gs) => (gs.includes(g) ? gs.filter((x) => x !== g) : [...gs, g])); setDirty(true) }}
+              >
+                {g}
+              </button>
+            ))}
+          </div>
+        </fieldset>
+      ) : (
+        <fieldset className="rounded-2xl border border-slate-100 p-4">
+          <legend className="px-2 text-sm font-bold text-brand-700">Pain areas (tap on the body)</legend>
+          <BodyPainSelector value={painAreas} onChange={(v) => { setPainAreas(v); setDirty(true) }} />
+        </fieldset>
+      )}
 
       {/* Declaration & consent — shown at the end, after the pain-areas chart */}
       <div className="rounded-2xl border border-brand-100 bg-brand-50/60 p-4">

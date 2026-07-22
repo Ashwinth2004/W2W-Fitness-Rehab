@@ -710,6 +710,17 @@ export async function deleteAccountingForRehabPlan(planId) {
   return deleteDoc(doc(db, 'accounting', `r_${planId}`))
 }
 
+// Same mirroring for a Fitness plan's billed package (doc id `f_<planId>`).
+export async function setAccountingForFitnessPlan(planId, data) {
+  return setDoc(doc(db, 'accounting', `f_${planId}`), {
+    ...data, type: 'income', fitnessPlanId: planId, source: 'fitness', updatedAt: serverTimestamp(),
+  }, { merge: true })
+}
+
+export async function deleteAccountingForFitnessPlan(planId) {
+  return deleteDoc(doc(db, 'accounting', `f_${planId}`))
+}
+
 // Same mirroring for a charge entered straight on an Appointment (doc id
 // `a_<appointmentId>`), so a walk-in/consult billed from the Appointments
 // list lands in Accounting without needing a full Treatment record.
@@ -944,6 +955,57 @@ export async function updateRehabTemplate(id, data) {
 
 export async function deleteRehabTemplate(id) {
   return deleteDoc(doc(db, 'rehabTemplates', id))
+}
+
+// ---------- Fitness exercise plans (Fitness module) -------------------------
+// Same shape and pattern as Rehab plans above, stored under a separate
+// clients/{id}/fitnessPlans subcollection so the two modules never mix data.
+export async function addFitnessPlan(clientId, data) {
+  const ref = await addDoc(collection(db, 'clients', clientId, 'fitnessPlans'), {
+    ...data,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  })
+  return ref.id
+}
+
+export function watchFitnessPlans(clientId, cb) {
+  const q = query(collection(db, 'clients', clientId, 'fitnessPlans'), orderBy('createdAt', 'desc'))
+  return onSnapshot(q, (snap) => cb(snap.docs.map((d) => ({ id: d.id, ...d.data() }))))
+}
+
+// One-time fetch (for report generation, which doesn't need a live listener).
+export async function getFitnessPlansOnce(clientId) {
+  const snap = await getDocs(query(collection(db, 'clients', clientId, 'fitnessPlans'), orderBy('createdAt', 'desc')))
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+}
+
+export async function updateFitnessPlan(clientId, id, data) {
+  return updateDoc(doc(db, 'clients', clientId, 'fitnessPlans', id), { ...data, updatedAt: serverTimestamp() })
+}
+
+export async function deleteFitnessPlan(clientId, id) {
+  return deleteDoc(doc(db, 'clients', clientId, 'fitnessPlans', id))
+}
+
+// Reusable, named, multi-day fitness plan templates — a top-level collection
+// (not per-client), kept in its own `fitnessTemplates` collection.
+export async function addFitnessTemplate(name, days) {
+  const ref = await addDoc(collection(db, 'fitnessTemplates'), { name: String(name).trim(), days, createdAt: serverTimestamp() })
+  return ref.id
+}
+
+export function watchFitnessTemplates(cb) {
+  const q = query(collection(db, 'fitnessTemplates'), orderBy('createdAt', 'desc'))
+  return onSnapshot(q, (snap) => cb(snap.docs.map((d) => ({ id: d.id, ...d.data() }))), () => cb([]))
+}
+
+export async function updateFitnessTemplate(id, data) {
+  return updateDoc(doc(db, 'fitnessTemplates', id), data)
+}
+
+export async function deleteFitnessTemplate(id) {
+  return deleteDoc(doc(db, 'fitnessTemplates', id))
 }
 
 // ---------- Notes & Goals (admin scratchpad: quick notes or checklists) ----

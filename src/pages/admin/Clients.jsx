@@ -8,6 +8,7 @@ import AdminFilter from '../../components/AdminFilter'
 import ClientForm from '../../components/ClientForm'
 import AdminPageHeader from '../../components/AdminPageHeader'
 import RehabBadge from '../../components/RehabBadge'
+import FitnessBadge from '../../components/FitnessBadge'
 import PatientAvatar from '../../components/PatientAvatar'
 
 export default function Clients() {
@@ -80,7 +81,7 @@ export default function Clients() {
                   <PatientAvatar client={c} />
                   <div className="min-w-0">
                     <p className="truncate font-semibold text-slate-900">{c.name}</p>
-                    <p className="flex items-center gap-1 text-xs font-medium text-brand-600"><BadgeCheck size={13} /> {c.clientId}<RehabBadge client={c} /></p>
+                    <p className="flex items-center gap-1 text-xs font-medium text-brand-600"><BadgeCheck size={13} /> {c.clientId}<RehabBadge client={c} /><FitnessBadge client={c} /></p>
                   </div>
                 </div>
               </div>
