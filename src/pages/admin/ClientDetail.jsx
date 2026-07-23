@@ -3,13 +3,15 @@ import { Link, useParams, useNavigate } from 'react-router-dom'
 import {
   ArrowLeft, BadgeCheck, FileDown, Pencil, Trash2, Plus, Save, X, Loader2,
   NotebookPen, Stethoscope, User, Calendar, Send, IndianRupee, MapPin,
-  CalendarClock, Activity, ChevronRight,
+  CalendarClock, Activity, ChevronRight, PlayCircle, LayoutGrid, ArrowRight, Dumbbell,
 } from 'lucide-react'
 import {
   getClient, updateClient, deleteClient, watchClientNotes, addClientNote, deleteClientNote,
   watchTreatments, deleteTreatment, updateTreatment, getClientNotesOnce, addAccountingEntry,
-  deleteAccountingForTreatment, getRehabPlansOnce,
+  deleteAccountingForTreatment, getRehabPlansOnce, watchRehabPlans, watchFitnessPlans,
 } from '../../lib/firestore'
+import RehabClusterTrack from '../../components/RehabClusterTrack'
+import FitnessClusterTrack from '../../components/FitnessClusterTrack'
 import { fmtDate, fmtDateTime, todayISO } from '../../lib/format'
 import { onlyDigits, isValidMobile } from '../../lib/validate'
 import { BASIC_SECTIONS, BASIC_KEYS, formatAssessmentValue } from '../../lib/assessmentSchema'
@@ -88,6 +90,7 @@ export default function ClientDetail() {
           <div className="flex flex-wrap justify-center gap-2 md:justify-start">
             <Link to={`/admin/treatment?client=${id}`} className="btn-outline"><Stethoscope size={16} /> New Physio Treatment</Link>
             <Link to={`/admin/rehab?client=${id}`} className="btn-outline"><Activity size={16} /> Rehab &amp; Exercises</Link>
+            <Link to={`/admin/fitness?client=${id}`} className="btn-outline"><Dumbbell size={16} /> Fitness</Link>
             <button onClick={() => setReporting(true)} className="btn-primary"><FileDown size={18} /> Generate Report</button>
             <button onClick={() => setEditing(true)} className="btn-ghost"><Pencil size={16} /> Update Registration</button>
             <button onClick={handleDelete} className="btn-ghost text-red-500 hover:bg-red-50"><Trash2 size={16} /></button>
@@ -107,6 +110,9 @@ export default function ClientDetail() {
           {client.updatedAt && <span className="inline-flex items-center gap-1"><CalendarClock size={12} /> Last updated: <span className="font-medium text-slate-500">{fmtDateTime(client.updatedAt)}</span></span>}
         </p>
       </div>
+
+      {/* In-progress rehab / fitness plans — track or update without leaving here */}
+      <ActiveSessions client={client} />
 
       {/* Registration details — every field entered at intake */}
       {reg.length > 0 && (
@@ -324,6 +330,79 @@ function NotesSection({ clientId, notes }) {
           ))}
         </ul>
       )}
+    </div>
+  )
+}
+
+// ---- Active sessions ------------------------------------------------------
+// A plan counts as finished once every one of its days is ticked complete.
+function isPlanComplete(p) {
+  const days = p.days || []
+  return days.length > 0 && days.every((d) => d.completed)
+}
+
+// Mirrors the "Active Session" banner inside the Rehab & Fitness modules, but
+// on the patient's own profile — so an in-progress plan can be tracked or
+// updated straight from here instead of going back into the module and
+// re-picking the patient. Shows Rehab and Fitness plans side by side.
+function ActiveSessions({ client }) {
+  const [rehabPlans, setRehabPlans] = useState([])
+  const [fitnessPlans, setFitnessPlans] = useState([])
+  const [trackRehab, setTrackRehab] = useState(null)
+  const [trackFitness, setTrackFitness] = useState(null)
+
+  useEffect(() => watchRehabPlans(client.id, setRehabPlans), [client.id])
+  useEffect(() => watchFitnessPlans(client.id, setFitnessPlans), [client.id])
+
+  const rows = [
+    ...rehabPlans.filter((p) => !isPlanComplete(p)).map((p) => ({ p, kind: 'rehab' })),
+    ...fitnessPlans.filter((p) => !isPlanComplete(p)).map((p) => ({ p, kind: 'fitness' })),
+  ]
+  if (!rows.length) return null
+
+  const meta = {
+    rehab: { label: 'Rehab plan', icon: Activity, href: '/admin/rehab', onTrack: setTrackRehab },
+    fitness: { label: 'Fitness plan', icon: Dumbbell, href: '/admin/fitness', onTrack: setTrackFitness },
+  }
+
+  return (
+    <div className="rounded-2xl border-2 border-emerald-400 bg-emerald-50 p-4">
+      <p className="flex items-center gap-2 text-sm font-extrabold uppercase tracking-wide text-emerald-700">
+        <PlayCircle size={20} /> Active Session{rows.length > 1 ? 's' : ''}
+      </p>
+      <div className="mt-2 space-y-2">
+        {rows.map(({ p, kind }) => {
+          const m = meta[kind]
+          const Icon = m.icon
+          const done = (p.days || []).filter((d) => d.completed).length
+          const total = p.totalDays || p.days?.length || 0
+          return (
+            <div key={`${kind}:${p.id}`} className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-white p-3 shadow-sm">
+              <div className="flex min-w-0 items-center gap-2.5">
+                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-brand-50 text-brand-600"><Icon size={17} /></span>
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-bold text-slate-900">{p.bill?.service || m.label} · Day {Math.min(done + 1, total)} of {total}</p>
+                  <p className="truncate text-xs text-slate-500">Started {fmtDate(p.startDate)}{p.reason ? ` · ${p.reason}` : ''}</p>
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button" onClick={() => m.onTrack(p)} title="Open the cluster tracker for this plan"
+                  className="flex items-center gap-1.5 rounded-full bg-gradient-to-r from-violet-600 to-indigo-600 px-3.5 py-1.5 text-xs font-bold text-white shadow-sm transition hover:scale-[1.03] hover:shadow-md"
+                >
+                  <LayoutGrid size={14} /> Track Progress
+                </button>
+                <Link to={`${m.href}?client=${client.id}&plan=${p.id}`} className="btn-primary px-3 py-1.5 text-xs">
+                  Update Plan <ArrowRight size={14} />
+                </Link>
+              </div>
+            </div>
+          )
+        })}
+      </div>
+
+      {trackRehab && <RehabClusterTrack client={client} plan={trackRehab} plans={rehabPlans} onClose={() => setTrackRehab(null)} />}
+      {trackFitness && <FitnessClusterTrack client={client} plan={trackFitness} plans={fitnessPlans} onClose={() => setTrackFitness(null)} />}
     </div>
   )
 }

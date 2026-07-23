@@ -128,12 +128,12 @@ export function exercisesFor(region, type) {
 // (e.g. a hold-only or cardio entry, or a day the patient didn't perform it).
 export const SETS_OPTIONS = [0, 1, 2, 3, 4, 5]
 export const REPS_OPTIONS = Array.from({ length: 31 }, (_, i) => i) // 0..30
-// Short holds first (2-3, 3-5 sec), then 5-second ranges up to 60 sec, with the
-// exact single values kept alongside each range.
+// Ranges only — a hold is prescribed as a band to aim for ("hold 5-10 sec"),
+// never an exact figure, so no standalone values like "5 sec" here. Starts
+// with two short bands, then 5-second steps up to 60 sec.
 export const HOLD_OPTIONS = [
-  'None', '2-3 sec', '3-5 sec', '5 sec', '5-10 sec', '10 sec', '10-15 sec', '15 sec', '15-20 sec',
-  '20 sec', '20-25 sec', '25 sec', '25-30 sec', '30 sec', '30-35 sec', '35 sec', '35-40 sec',
-  '40 sec', '40-45 sec', '45 sec', '45-50 sec', '50 sec', '50-55 sec', '55 sec', '55-60 sec', '60 sec',
+  'None', '2-3 sec', '3-5 sec', '5-10 sec', '10-15 sec', '15-20 sec', '20-25 sec', '25-30 sec',
+  '30-35 sec', '35-40 sec', '40-45 sec', '45-50 sec', '50-55 sec', '55-60 sec',
 ]
 export const RESISTANCE_OPTIONS = ['Bodyweight', 'Band', 'Dumbbell', 'Barbell', 'Machine', 'Ankle weights']
 export const FREQUENCY_OPTIONS = ['Daily', 'Alternate Days', '2× Week', '3× Week', '4× Week', '5× Week']
