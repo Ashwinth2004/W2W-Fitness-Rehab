@@ -626,15 +626,17 @@ export async function generateFitnessReport(client, opts = {}) {
         return
       }
 
+      // No Frequency column — that's Rehab-only (a fitness plan's cadence is
+      // its day schedule), so the freed width goes to the exercise name.
       autoTable(doc, {
         startY: y,
-        head: [['#', 'Exercise', 'Sets', 'Reps', 'Hold', 'Resistance', 'Frequency', 'Rest', 'Done']],
+        head: [['#', 'Exercise', 'Sets', 'Reps', 'Hold', 'Resistance', 'Rest', 'Done']],
         body: exercises.map((e, i) => [
           String(i + 1),
           e.name + (e.notes ? `\n${e.notes}` : ''),
           e.sets || '—', e.reps || '—',
           e.hold && e.hold !== 'None' ? e.hold : '—',
-          e.resistance || '—', e.frequency || '—', e.rest || '—',
+          e.resistance || '—', e.rest || '—',
           '',
         ]),
         theme: 'grid',
@@ -647,13 +649,12 @@ export async function generateFitnessReport(client, opts = {}) {
           3: { cellWidth: 13, halign: 'center' },
           4: { cellWidth: 18, halign: 'center' },
           5: { cellWidth: 22, halign: 'center' },
-          6: { cellWidth: 18, halign: 'center' },
-          7: { cellWidth: 14, halign: 'center' },
-          8: { cellWidth: 12, halign: 'center' },
+          6: { cellWidth: 14, halign: 'center' },
+          7: { cellWidth: 12, halign: 'center' },
         },
         margin: { left: M, right: M },
         didDrawCell(data) {
-          if (data.section !== 'body' || data.column.index !== 8) return
+          if (data.section !== 'body' || data.column.index !== 7) return
           const done = !!exercises[data.row.index]?.done
           const cx = data.cell.x + data.cell.width / 2
           const cy = data.cell.y + data.cell.height / 2

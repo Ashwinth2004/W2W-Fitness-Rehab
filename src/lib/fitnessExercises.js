@@ -3,8 +3,10 @@
 // its own region/exercise set built for general training rather than
 // clinical rehab. The generic prescription option lists (sets/reps/hold/etc.)
 // are shared with Rehab — imported straight from there rather than duplicated.
+// FREQUENCY_OPTIONS is deliberately NOT re-exported: Frequency is a Rehab-only
+// field, since a fitness plan's cadence is the plan's own day schedule.
 export {
-  SETS_OPTIONS, REPS_OPTIONS, HOLD_OPTIONS, RESISTANCE_OPTIONS, FREQUENCY_OPTIONS, REST_OPTIONS, PROGRESSION_OPTIONS,
+  SETS_OPTIONS, REPS_OPTIONS, HOLD_OPTIONS, RESISTANCE_OPTIONS, REST_OPTIONS, PROGRESSION_OPTIONS,
 } from './rehabExercises'
 
 export const FITNESS_REGIONS = [
@@ -75,11 +77,12 @@ export function exercisesFor(region, type) {
 }
 
 // Blank prescription for a newly-added exercise. `done` tracks whether the
-// client has completed it, ticked off during a session.
+// client has completed it, ticked off during a session. No `frequency` here —
+// unlike Rehab, a fitness plan's cadence is the plan's own day schedule.
 export function blankPrescription(region, type, name) {
   return {
     region, type, name,
-    sets: '3', reps: '12', hold: 'None', resistance: 'Bodyweight', frequency: '3× Week', rest: '60 sec',
+    sets: '3', reps: '12', hold: 'None', resistance: 'Bodyweight', rest: '60 sec',
     notes: '', progression: [], done: false,
   }
 }

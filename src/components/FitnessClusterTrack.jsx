@@ -5,7 +5,7 @@ import {
 } from 'lucide-react'
 import { updateFitnessPlan } from '../lib/firestore'
 import {
-  PROGRESSION_OPTIONS, SETS_OPTIONS, REPS_OPTIONS, HOLD_OPTIONS, RESISTANCE_OPTIONS, FREQUENCY_OPTIONS, REST_OPTIONS,
+  PROGRESSION_OPTIONS, SETS_OPTIONS, REPS_OPTIONS, HOLD_OPTIONS, RESISTANCE_OPTIONS, REST_OPTIONS,
 } from '../lib/fitnessExercises'
 import { generateFitnessReport } from '../lib/pdf'
 import { fmtDate } from '../lib/format'
@@ -38,12 +38,13 @@ function DayRing({ pct, size = 40, tone }) {
 
 // One editable dropdown per prescribed attribute — [label, field stored on
 // the exercise, the original prescribed key it defaults from, option list].
+// Frequency is deliberately absent here (Rehab-only) — a fitness plan's
+// cadence is its day schedule, so there's nothing per-exercise to log.
 const SESSION_FIELDS = [
   ['Sets', 'actualSets', 'sets', SETS_OPTIONS.map(String)],
   ['Reps', 'actualReps', 'reps', REPS_OPTIONS.map(String)],
   ['Hold', 'actualHold', 'hold', HOLD_OPTIONS],
   ['Resistance', 'actualResistance', 'resistance', RESISTANCE_OPTIONS],
-  ['Frequency', 'actualFrequency', 'frequency', FREQUENCY_OPTIONS],
   ['Rest', 'actualRest', 'rest', REST_OPTIONS],
 ]
 
@@ -55,7 +56,7 @@ function fieldValue(ex, field, prescribedKey) {
 }
 
 // A tile that opens into a dropdown of editable session details (sets, reps,
-// hold, resistance, frequency, rest — each a native <select> pre-filled with
+// hold, resistance, rest — each a native <select> pre-filled with
 // what was prescribed, one tap to change), plus notes and progression.
 // Everything needed to log a real session without leaving the cluster. The
 // corner check is a separate tap target so a quick done/undone toggle never
@@ -193,7 +194,7 @@ export default function FitnessClusterTrack({ client, plan, plans = [], onClose 
 
   function commitEdits() { persist(daysRef.current) }
 
-  // Dropdown picks (sets/reps/hold/resistance/frequency/rest) are a discrete
+  // Dropdown picks (sets/reps/hold/resistance/rest) are a discrete
   // choice, not free typing — persist the moment one is selected.
   function setSessionField(dayNum, idx, field, value) {
     const next = applyToDay(dayNum, (d) => ({ ...d, exercises: d.exercises.map((e, i) => (i === idx ? { ...e, [field]: value } : e)) }))

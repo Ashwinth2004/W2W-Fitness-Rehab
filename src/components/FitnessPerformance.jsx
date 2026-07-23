@@ -23,7 +23,7 @@ function buildRows(plans) {
 function recommend(rows) {
   if (!rows.length) return 'No sessions recorded yet — build a fitness plan to start tracking progress here.'
   const rate = Math.round((rows.filter((r) => r.completed).length / rows.length) * 100)
-  if (rate >= 80) return `Excellent consistency — ${rate}% of sessions completed. Keep the current plan and frequency going.`
+  if (rate >= 80) return `Excellent consistency — ${rate}% of sessions completed. Keep the current plan going.`
   if (rate >= 50) return `Moderate consistency — ${rate}% of sessions completed. Consider a reminder call before each session, or simplifying the program.`
   return `Low consistency — only ${rate}% of sessions completed. Recommend a check-in call, and possibly fewer exercises per day to improve adherence.`
 }

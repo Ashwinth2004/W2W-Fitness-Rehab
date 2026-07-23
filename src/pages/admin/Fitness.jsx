@@ -12,7 +12,7 @@ import {
 } from '../../lib/firestore'
 import {
   FITNESS_REGIONS, FITNESS_TYPES, typesForRegion, exercisesFor, SETS_OPTIONS, REPS_OPTIONS, HOLD_OPTIONS,
-  RESISTANCE_OPTIONS, FREQUENCY_OPTIONS, REST_OPTIONS, PROGRESSION_OPTIONS, blankPrescription,
+  RESISTANCE_OPTIONS, REST_OPTIONS, PROGRESSION_OPTIONS, blankPrescription,
 } from '../../lib/fitnessExercises'
 import {
   getCustomExercises, addCustomExercise, updateCustomExercise, deleteCustomExercise,
@@ -740,13 +740,12 @@ function typesForAnyRegion(region, customTypes) {
 // region/type/exercise at a time. Supports admin-added custom regions, types
 // and exercises (all "Add your own"), and favorites (starred region/type/
 // exercise bubble to the top — and the most recently starred/pinned sets/
-// reps/hold/resistance/frequency/rest becomes the default for new exercises).
+// reps/hold/resistance/rest becomes the default for new exercises).
 function AddExerciseWidget({ existingNames, onAdd }) {
   const favSets = useFavorites('fitness_sets')
   const favReps = useFavorites('fitness_reps')
   const favHold = useFavorites('fitness_hold')
   const favResistance = useFavorites('fitness_resistance')
-  const favFrequency = useFavorites('fitness_frequency')
   const favRest = useFavorites('fitness_rest')
   const { isFav: isFavRegion, toggle: toggleFavRegion, sortWithFavs: sortRegions } = useFavorites('fitness_region')
   const { isFav: isFavType, toggle: toggleFavType, sortWithFavs: sortTypes } = useFavorites('fitness_type')
@@ -880,7 +879,6 @@ function AddExerciseWidget({ existingNames, onAdd }) {
     if (favReps.latest) overrides.reps = favReps.latest
     if (favHold.latest) overrides.hold = favHold.latest
     if (favResistance.latest) overrides.resistance = favResistance.latest
-    if (favFrequency.latest) overrides.frequency = favFrequency.latest
     if (favRest.latest) overrides.rest = favRest.latest
     onAdd(checked.map(({ region, type, name }) => ({ ...blankPrescription(region, type, name), ...overrides })))
     setChecked([])
@@ -1022,7 +1020,7 @@ function exercisesForAnyMerged(region, type) {
   return [...merged, ...regionScoped]
 }
 
-// One prescribed exercise: sets/reps/hold/resistance/frequency/rest/notes +
+// One prescribed exercise: sets/reps/hold/resistance/rest/notes +
 // progression, plus a bold "Mark as Completed" action for follow-up tracking.
 // The exercise's identity (region/type/name) is editable in place via the
 // pencil toggle — no need to remove and re-add to swap which exercise this is.
@@ -1070,12 +1068,13 @@ function ExerciseCard({ ex, onChange, onRemove, hideDone }) {
           <button type="button" onClick={onRemove} className="grid h-7 w-7 place-items-center rounded-full text-slate-400 hover:bg-red-50 hover:text-red-500"><X size={16} /></button>
         </div>
       </div>
-      <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+      {/* No Frequency here — a fitness plan's cadence is the plan's day
+          schedule itself, so it's Rehab-only (see Rehab.jsx). */}
+      <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
         <Field label="Sets"><FavSelect favKey="fitness_sets" value={ex.sets} options={SETS_OPTIONS.map(String)} onChange={set('sets')} /></Field>
         <Field label="Reps"><FavSelect favKey="fitness_reps" value={ex.reps} options={REPS_OPTIONS.map(String)} onChange={set('reps')} /></Field>
         <Field label="Hold"><FavSelect favKey="fitness_hold" value={ex.hold} options={HOLD_OPTIONS} onChange={set('hold')} /></Field>
         <Field label="Resistance"><FavSelect favKey="fitness_resistance" value={ex.resistance} options={RESISTANCE_OPTIONS} onChange={set('resistance')} /></Field>
-        <Field label="Frequency"><FavSelect favKey="fitness_frequency" value={ex.frequency} options={FREQUENCY_OPTIONS} onChange={set('frequency')} /></Field>
         <Field label="Rest"><FavSelect favKey="fitness_rest" value={ex.rest} options={REST_OPTIONS} onChange={set('rest')} /></Field>
       </div>
       <div className="mt-2">
