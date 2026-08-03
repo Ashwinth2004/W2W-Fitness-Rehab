@@ -679,8 +679,28 @@ function ManageAvailability() {
   const [msg, setMsg] = useState('')
   const [err, setErr] = useState('')
   const [blockedDays, setBlockedDays] = useState([])
+  const [blockedMonth, setBlockedMonth] = useState('')
 
   useEffect(() => watchBlockedDays(setBlockedDays), [])
+
+  // Past blocks are done and gone — only today-and-forward is worth showing
+  // here (the date itself is never touched, so re-opening an old date is
+  // still possible from the calendar; this list is just decluttered).
+  const upcomingBlockedDays = useMemo(
+    () => blockedDays.filter((d) => d.date >= todayISO()).sort((a, b) => a.date.localeCompare(b.date)),
+    [blockedDays],
+  )
+  // Distinct months present, in chronological order — the tabs below.
+  const blockedMonths = useMemo(() => {
+    const seen = new Set(); const list = []
+    upcomingBlockedDays.forEach((d) => { const ym = d.date.slice(0, 7); if (!seen.has(ym)) { seen.add(ym); list.push(ym) } })
+    return list
+  }, [upcomingBlockedDays])
+  // Default to the soonest upcoming month; snap back if the selected one runs dry.
+  useEffect(() => {
+    if (blockedMonths.length && !blockedMonths.includes(blockedMonth)) setBlockedMonth(blockedMonths[0])
+  }, [blockedMonths, blockedMonth])
+  const visibleBlockedDays = upcomingBlockedDays.filter((d) => d.date.slice(0, 7) === blockedMonth)
 
   const addDate = () => {
     if (!pending || dates.includes(pending)) return
@@ -759,12 +779,26 @@ function ManageAvailability() {
         <button type="button" disabled={busy} onClick={() => apply('block')} className="btn-primary">{busy ? <Loader2 size={18} className="animate-spin" /> : <Ban size={18} />} Mark unavailable</button>
       </div>
 
-      {/* Currently blocked */}
-      {blockedDays.length > 0 && (
+      {/* Currently blocked — today and future only; past blocks are hidden automatically */}
+      {upcomingBlockedDays.length > 0 && (
         <div className="border-t border-slate-100 pt-4">
           <p className="mb-2 text-sm font-semibold text-slate-700">Currently blocked</p>
+          {blockedMonths.length > 1 && (
+            <div className="mb-3 flex flex-wrap gap-1.5">
+              {blockedMonths.map((ym) => (
+                <button
+                  key={ym} type="button" onClick={() => setBlockedMonth(ym)}
+                  className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${
+                    blockedMonth === ym ? 'bg-brand-600 text-white shadow' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  }`}
+                >
+                  {fmtDate(`${ym}-01`, 'MMMM yyyy')}
+                </button>
+              ))}
+            </div>
+          )}
           <ul className="space-y-2">
-            {blockedDays.map((d) => {
+            {visibleBlockedDays.map((d) => {
               const isFullDay = SLOT_TIMES.every((t) => d.blocked.includes(t))
               return (
                 <li key={d.date} className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-slate-50 px-3 py-2 text-sm">
