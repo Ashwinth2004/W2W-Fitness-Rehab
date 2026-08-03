@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { TrendingUp, TrendingDown, Plus, Trash2, X, Save, Pencil, PieChart as PieIcon } from 'lucide-react'
+import { TrendingUp, TrendingDown, Plus, Trash2, X, Save, Pencil, PieChart as PieIcon, ChevronLeft, ChevronRight, CalendarClock, SlidersHorizontal } from 'lucide-react'
 import {
   PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, CartesianGrid,
 } from 'recharts'
@@ -42,8 +42,96 @@ const periodLabel = (f) => {
   return mn || f.year || 'All time'
 }
 
+const pad2 = (n) => String(n).padStart(2, '0')
+// Every entry is kept forever — nothing is ever archived or deleted. This
+// just decides what the page shows FIRST: the current month, so admin never
+// has to re-filter on every visit. Old months are one tap away (‹ Prev, or
+// the day/year picker below) and are always still there, in full.
+function currentFilter() {
+  const d = new Date()
+  return { day: '', month: pad2(d.getMonth() + 1), year: String(d.getFullYear()) }
+}
+function isCurrentMonthFilter(f) {
+  const c = currentFilter()
+  return !f.day && f.month === c.month && f.year === c.year
+}
+
+// Prominent prev/next month navigator — the primary way to move through
+// accounting history. Shared by all three tabs (Overview / Patient Charges /
+// Expenses) via the lifted filter state, so picking a month once applies
+// everywhere instead of having to re-filter per tab.
+function MonthSwitcher({ filter, setFilter }) {
+  const nowF = currentFilter()
+  const isAllTime = !filter.day && !filter.month && !filter.year
+  const isCurrent = isCurrentMonthFilter(filter)
+  const [showAdvanced, setShowAdvanced] = useState(false)
+
+  function shift(delta) {
+    const baseM = Number(filter.month || nowF.month)
+    const baseY = Number(filter.year || nowF.year)
+    const d = new Date(baseY, baseM - 1 + delta, 1)
+    setFilter({ day: '', month: pad2(d.getMonth() + 1), year: String(d.getFullYear()) })
+  }
+
+  const label = filter.day
+    ? fmtDate(filter.day)
+    : isAllTime
+      ? 'All time'
+      : filter.month && filter.year
+        ? `${MONTH_NAMES[Number(filter.month) - 1]} ${filter.year}`
+        : filter.year || 'All time'
+
+  return (
+    <div className="card space-y-3 p-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-1.5">
+          <button
+            type="button" onClick={() => shift(-1)} title="Previous month"
+            className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-slate-100 text-slate-600 transition hover:bg-slate-200"
+          >
+            <ChevronLeft size={20} />
+          </button>
+          <div className="flex min-w-[9rem] items-center justify-center gap-2 rounded-xl bg-brand-50 px-4 py-2 text-center sm:min-w-[11rem]">
+            <CalendarClock size={16} className="shrink-0 text-brand-600" />
+            <span className="text-sm font-extrabold text-brand-700 sm:text-base">{label}</span>
+          </div>
+          <button
+            type="button" onClick={() => shift(1)} title="Next month"
+            className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-slate-100 text-slate-600 transition hover:bg-slate-200"
+          >
+            <ChevronRight size={20} />
+          </button>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          {!isCurrent && (
+            <button type="button" onClick={() => setFilter(currentFilter())} className="btn-outline px-3 py-1.5 text-xs">This month</button>
+          )}
+          {!isAllTime && (
+            <button type="button" onClick={() => setFilter({ day: '', month: '', year: '' })} className="btn-ghost px-3 py-1.5 text-xs">All time</button>
+          )}
+          <button
+            type="button" onClick={() => setShowAdvanced((v) => !v)}
+            className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold text-slate-500 transition hover:bg-slate-100"
+          >
+            <SlidersHorizontal size={13} /> Specific day / year…
+          </button>
+        </div>
+      </div>
+      {showAdvanced && (
+        <div className="border-t border-slate-100 pt-3">
+          <AdminFilter filter={filter} setFilter={setFilter} />
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function Accounting() {
   const [tab, setTab] = useState('overview')
+  // Shared across all three tabs so picking a month applies everywhere —
+  // defaults to the current month on every visit (see currentFilter above).
+  const [filter, setFilter] = useState(currentFilter)
   return (
     <div className="space-y-5">
       <AdminPageHeader title="Accounting" />
@@ -64,16 +152,16 @@ export default function Accounting() {
           </button>
         ))}
       </div>
-      {tab === 'overview' ? <Overview /> : tab === 'income' ? <Income /> : <Expenses />}
+      <MonthSwitcher filter={filter} setFilter={setFilter} />
+      {tab === 'overview' ? <Overview filter={filter} /> : tab === 'income' ? <Income filter={filter} /> : <Expenses filter={filter} />}
     </div>
   )
 }
 
 // --- Overview: profit split (cash / bank) + charts -------------------------
-function Overview() {
+function Overview({ filter }) {
   const [income, setIncome] = useState([])
   const [expenses, setExpenses] = useState([])
-  const [filter, setFilter] = useState({ day: '', month: '' })
 
   useEffect(() => watchAccounting(setIncome), [])
   useEffect(() => watchExpenses(setExpenses), [])
@@ -104,8 +192,6 @@ function Overview() {
 
   return (
     <div className="space-y-4">
-      <div className="card p-4"><AdminFilter filter={filter} setFilter={setFilter} /></div>
-
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Stat label="Received" value={inr(received)} tone="emerald" />
         <Stat label="Expenses" value={inr(spent)} tone="red" />
@@ -167,10 +253,9 @@ function Stat({ label, value, tone = 'slate' }) {
 }
 
 // --- Patient charges (income) ----------------------------------------------
-function Income() {
+function Income({ filter }) {
   const [rows, setRows] = useState([])
   const [clients, setClients] = useState([])
-  const [filter, setFilter] = useState({ day: '', month: '' })
   const [open, setOpen] = useState(false)
   const [editRow, setEditRow] = useState(null)
   const [services, setServices] = useState([])
@@ -210,8 +295,7 @@ function Income() {
         <Stat label="Balance due" value={inr(due)} tone={due > 0 ? 'red' : 'emerald'} />
       </div>
 
-      <div className="card flex flex-wrap items-end justify-center gap-3 p-4 md:justify-between">
-        <AdminFilter filter={filter} setFilter={setFilter} />
+      <div className="card flex flex-wrap items-center justify-center gap-3 p-4 md:justify-end">
         <button onClick={() => { setEditRow(null); setOpen((v) => !v) }} className="btn-ghost px-3 py-1.5 text-sm">{open ? <X size={16} /> : <Plus size={16} />} {open ? 'Close' : 'Add charge'}</button>
       </div>
 
@@ -351,10 +435,9 @@ function IncomeForm({ clients, services, editing, onDone }) {
 }
 
 // --- Expenses ---------------------------------------------------------------
-function Expenses() {
+function Expenses({ filter }) {
   const [rows, setRows] = useState([])
   const [cats, setCats] = useState([])
-  const [filter, setFilter] = useState({ day: '', month: '' })
   const [f, setF] = useState({ date: todayISO(), name: '', amount: '', note: '', mode: 'Cash' })
   const [editId, setEditId] = useState(null)
   const { setDirty } = useUnsaved()
@@ -420,8 +503,6 @@ function Expenses() {
           {editId && <button type="button" onClick={reset} className="btn-ghost shrink-0">Cancel</button>}
         </div>
       </form>
-
-      <div className="card p-4"><AdminFilter filter={filter} setFilter={setFilter} /></div>
 
       <div className="card overflow-x-auto p-0">
         <table className="w-full text-sm">
