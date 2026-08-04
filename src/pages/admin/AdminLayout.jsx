@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react'
 import { NavLink, Outlet, useNavigate, useLocation, Link } from 'react-router-dom'
 import {
-  LayoutDashboard, Inbox, CalendarDays, Users, FileText, Newspaper,
+  LayoutDashboard, CalendarDays, Users, FileText, Newspaper,
   GraduationCap, LogOut, Menu, X, ExternalLink, Wallet, Stethoscope, Download, Dumbbell,
-  ChevronLeft, ChevronRight, StickyNote, Activity,
+  ChevronLeft, ChevronRight, StickyNote, Activity, Home,
 } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import { UnsavedProvider, useUnsaved } from '../../context/UnsavedContext'
@@ -13,12 +13,12 @@ import { watchEnquiries } from '../../lib/firestore'
 
 const nav = [
   { to: '/admin', label: 'Dashboard', icon: LayoutDashboard, end: true },
-  { to: '/admin/queries', label: 'Enquiries', icon: Inbox },
   { to: '/admin/appointments', label: 'Appointments', icon: CalendarDays },
   { to: '/admin/clients', label: 'Clients', icon: Users },
   { to: '/admin/treatment', label: 'Physio Treatment', icon: Stethoscope },
   { to: '/admin/rehab', label: 'Rehab & Exercises', icon: Dumbbell },
   { to: '/admin/fitness', label: 'Fitness', icon: Activity },
+  { to: '/admin/home-visits', label: 'Home Visits', icon: Home },
   // Signatures module hidden for now (client signature not needed currently).
   // Re-enable by restoring this nav item — the route & page still exist.
   // { to: '/admin/signatures', label: 'Signatures', icon: PenLine },
@@ -158,7 +158,7 @@ function AdminShell() {
           >
             <n.icon size={19} />
             {!mini && <span className="flex-1">{n.label}</span>}
-            {!mini && n.to === '/admin/queries' && newEnq > 0 && (
+            {!mini && n.to === '/admin' && newEnq > 0 && (
               <span className="grid h-5 min-w-[2.25rem] place-items-center rounded-full bg-red-500 px-1.5 text-[10px] font-bold uppercase tracking-wide text-white">
                 {newEnq} New
               </span>
