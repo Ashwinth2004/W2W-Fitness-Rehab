@@ -1,12 +1,16 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Inbox, CalendarDays, Users, CalendarClock, ArrowRight, CheckCheck, FileSpreadsheet, Loader2, Check } from 'lucide-react'
-import { watchEnquiries, watchAppointments, watchClients, setEnquiryStatus } from '../../lib/firestore'
-import { fmt12h, fmtDate, todayISO } from '../../lib/format'
+import {
+  Inbox, CalendarDays, Users, CalendarClock, CheckCheck, FileSpreadsheet, Loader2, Check,
+  Search, Trash2,
+} from 'lucide-react'
+import { watchEnquiries, watchAppointments, watchClients, setEnquiryStatus, deleteEnquiry } from '../../lib/firestore'
+import { fmt12h, fmtDate, fmtDateTime, todayISO, matchesDateFilter } from '../../lib/format'
 import { downloadExcelBackup } from '../../lib/backupExport'
 import { useAuth } from '../../context/AuthContext'
 import ContactActions from '../../components/ContactActions'
 import StatusBadge from '../../components/StatusBadge'
+import AdminFilter from '../../components/AdminFilter'
 import AdminPageHeader from '../../components/AdminPageHeader'
 
 export default function Dashboard() {
@@ -35,7 +39,7 @@ export default function Dashboard() {
     Promise.all(enquiries.filter((e) => e.status === 'new').map((e) => setEnquiryStatus(e.id, 'read')))
 
   const stats = [
-    { label: 'New Enquiries', value: newEnquiries, icon: Inbox, to: '/admin/queries', color: 'bg-amber-50 text-amber-600' },
+    { label: 'New Enquiries', value: newEnquiries, icon: Inbox, to: '#enquiries', color: 'bg-amber-50 text-amber-600' },
     { label: "Today's Appointments", value: todays.length, icon: CalendarDays, to: '/admin/appointments', color: 'bg-brand-50 text-brand-600' },
     { label: 'Upcoming', value: upcoming, icon: CalendarClock, to: '/admin/appointments', color: 'bg-violet-50 text-violet-600' },
     { label: 'Total Clients', value: clients.length, icon: Users, to: '/admin/clients', color: 'bg-emerald-50 text-emerald-600' },
@@ -60,67 +64,124 @@ export default function Dashboard() {
         ))}
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        {/* Today's appointments */}
-        <div className="card p-5">
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="font-bold text-slate-900">Today’s Schedule</h2>
-            <Link to="/admin/appointments" className="text-sm font-medium text-brand-600 hover:underline">View all</Link>
-          </div>
-          {todays.length === 0 ? (
-            <p className="py-8 text-center text-sm text-slate-400">No appointments today.</p>
-          ) : (
-            <ul className="divide-y divide-slate-100">
-              {todays.map((a) => (
-                <li key={a.id} className="flex items-center justify-between gap-3 py-3">
-                  <div className="min-w-0">
-                    <p className="truncate font-medium text-slate-800">{a.name}</p>
-                    <p className="text-xs text-slate-500">{fmt12h(a.time)} · {a.service}</p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <StatusBadge status={a.status} />
-                    <ContactActions phone={a.phone} size="sm" />
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
+      {/* Today's appointments */}
+      <div className="card p-5">
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="font-bold text-slate-900">Today’s Schedule</h2>
+          <Link to="/admin/appointments" className="text-sm font-medium text-brand-600 hover:underline">View all</Link>
         </div>
+        {todays.length === 0 ? (
+          <p className="py-8 text-center text-sm text-slate-400">No appointments today.</p>
+        ) : (
+          <ul className="divide-y divide-slate-100">
+            {todays.map((a) => (
+              <li key={a.id} className="flex items-center justify-between gap-3 py-3">
+                <div className="min-w-0">
+                  <p className="truncate font-medium text-slate-800">{a.name}</p>
+                  <p className="text-xs text-slate-500">{fmt12h(a.time)} · {a.service}</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <StatusBadge status={a.status} />
+                  <ContactActions phone={a.phone} size="sm" />
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
 
-        {/* Recent enquiries */}
-        <div className="card p-5">
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="font-bold text-slate-900">Recent Enquiries</h2>
-            <div className="flex items-center gap-3">
-              {newEnquiries > 0 && (
-                <button onClick={clearNewEnquiries} title="Mark all as read" className="inline-flex items-center gap-1 text-sm font-medium text-slate-400 hover:text-brand-600">
-                  <CheckCheck size={15} /> Clear
-                </button>
-              )}
-              <Link to="/admin/queries" className="text-sm font-medium text-brand-600 hover:underline">Inbox <ArrowRight size={14} className="inline" /></Link>
-            </div>
-          </div>
-          {enquiries.length === 0 ? (
-            <p className="py-8 text-center text-sm text-slate-400">No enquiries yet.</p>
-          ) : (
-            <ul className="divide-y divide-slate-100">
-              {enquiries.slice(0, 5).map((e) => (
-                <li key={e.id} className="flex items-center justify-between gap-3 py-3">
-                  <div className="min-w-0">
-                    <p className="truncate font-medium text-slate-800">
-                      {e.name} {e.status === 'new' && <span className="ml-1 inline-block h-2 w-2 rounded-full bg-amber-500" />}
-                    </p>
-                    <p className="truncate text-xs text-slate-500">{e.service} · {fmtDate(e.createdAt)}</p>
-                  </div>
-                  <ContactActions phone={e.phone} size="sm" />
-                </li>
-              ))}
-            </ul>
+      {/* Recent Enquiries — the full inbox lives here now (the standalone
+          Enquiries module was folded in to cut down the nav menu). */}
+      <EnquiriesInbox enquiries={enquiries} newEnquiries={newEnquiries} onClearNew={clearNewEnquiries} />
+
+      {role === 'full' && <BackupCard />}
+    </div>
+  )
+}
+
+// Full enquiries inbox — folded in from the old standalone Enquiries module
+// so there's one less item in the nav menu. Search, status filter, date
+// filter, and per-item mark-read/delete all live here now.
+function EnquiriesInbox({ enquiries, newEnquiries, onClearNew }) {
+  const [filter, setFilter] = useState('all')
+  const [search, setSearch] = useState('')
+  const [dateFilter, setDateFilter] = useState({ day: '', month: '' })
+
+  const filtered = enquiries
+    .filter((e) => (filter === 'all' ? true : filter === 'new' ? e.status === 'new' : e.status === 'read'))
+    .filter((e) => matchesDateFilter(e.createdAt, dateFilter))
+    .filter((e) =>
+      !search ? true : [e.name, e.phone, e.email, e.service, e.message].join(' ').toLowerCase().includes(search.toLowerCase())
+    )
+
+  return (
+    <div id="enquiries" className="card scroll-mt-20 space-y-4 p-5">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h2 className="font-bold text-slate-900">Recent Enquiries</h2>
+        <div className="flex flex-wrap items-center gap-2">
+          {newEnquiries > 0 && (
+            <button onClick={onClearNew} title="Mark all as read" className="inline-flex items-center gap-1 text-sm font-medium text-slate-400 hover:text-brand-600">
+              <CheckCheck size={15} /> Mark all read
+            </button>
           )}
+          {['all', 'new', 'read'].map((f) => (
+            <button
+              key={f} onClick={() => setFilter(f)}
+              className={`rounded-full px-3 py-1.5 text-xs font-medium capitalize transition ${
+                filter === f ? 'bg-brand-600 text-white' : 'bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50'
+              }`}
+            >
+              {f}
+            </button>
+          ))}
         </div>
       </div>
 
-      {role === 'full' && <BackupCard />}
+      <div className="relative">
+        <Search className="pointer-events-none absolute left-3 top-3 text-slate-400" size={18} />
+        <input className="input pl-10" placeholder="Search name, phone, service…" value={search} onChange={(e) => setSearch(e.target.value)} />
+      </div>
+
+      <AdminFilter filter={dateFilter} setFilter={setDateFilter} />
+
+      {filtered.length === 0 ? (
+        <div className="grid place-items-center py-12 text-center">
+          <Inbox className="text-slate-300" size={40} />
+          <p className="mt-3 text-sm text-slate-400">No enquiries here yet.</p>
+        </div>
+      ) : (
+        <div className="grid gap-3">
+          {filtered.map((e) => (
+            <div key={e.id} className={`rounded-2xl border p-4 ${e.status === 'new' ? 'border-red-200 bg-red-50/40' : 'border-slate-100'}`}>
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-bold text-slate-900">{e.name}</h3>
+                    <StatusBadge status={e.status} />
+                  </div>
+                  <p className="mt-0.5 text-sm text-slate-500">{e.service} · {fmtDateTime(e.createdAt)}</p>
+                  {e.email && <p className="text-sm text-slate-500">{e.email}</p>}
+                </div>
+                <ContactActions phone={e.phone} showNumber />
+              </div>
+              {e.message && <p className="mt-3 whitespace-pre-line rounded-xl bg-white p-3 text-sm text-slate-700">{e.message}</p>}
+              <div className="mt-3 flex justify-end gap-2">
+                {e.status === 'new' && (
+                  <button onClick={() => setEnquiryStatus(e.id, 'read')} className="btn-ghost px-3 py-1.5 text-sm">
+                    <Check size={16} /> Mark read
+                  </button>
+                )}
+                <button
+                  onClick={() => window.confirm('Delete this enquiry?') && deleteEnquiry(e.id)}
+                  className="btn-ghost px-3 py-1.5 text-sm text-red-500 hover:bg-red-50"
+                >
+                  <Trash2 size={16} /> Delete
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
