@@ -389,6 +389,10 @@ export function serviceWhatsappMessage(service) {
   return `Hi ${BUSINESS.name},\n\nI'm interested in your *${service}* service. Please share availability and details for booking.`
 }
 
+export function collaborationWhatsappMessage() {
+  return `Hi ${BUSINESS.name},\n\nWe'd like to explore having your team as a guest speaker / collaborating with us on a workshop. Could you share more details?`
+}
+
 export function telLink() {
   return `tel:${BUSINESS.phone}`
 }

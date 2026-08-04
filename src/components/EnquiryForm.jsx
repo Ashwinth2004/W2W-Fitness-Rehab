@@ -6,8 +6,11 @@ import { SERVICE_OPTIONS } from '../lib/constants'
 import { isValidMobile } from '../lib/validate'
 import PhoneField from './PhoneField'
 
-export default function EnquiryForm() {
-  const [form, setForm] = useState({ name: '', phone: '', email: '', service: SERVICE_OPTIONS[0], message: '' })
+// Pass `defaultService` + `lockService` to pre-tag and fix the "service"
+// field for a page about one specific thing (e.g. collaborations) — the
+// dropdown becomes a read-only chip instead of the full service list.
+export default function EnquiryForm({ defaultService, lockService = false }) {
+  const [form, setForm] = useState({ name: '', phone: '', email: '', service: defaultService || SERVICE_OPTIONS[0], message: '' })
   const [status, setStatus] = useState('idle')
   const [error, setError] = useState('')
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }))
@@ -63,9 +66,13 @@ export default function EnquiryForm() {
         </div>
         <div>
           <label className="label">Service of Interest</label>
-          <select className="input" value={form.service} onChange={set('service')}>
-            {SERVICE_OPTIONS.map((s) => <option key={s}>{s}</option>)}
-          </select>
+          {lockService ? (
+            <div className="input flex items-center bg-slate-50 text-slate-600">{form.service}</div>
+          ) : (
+            <select className="input" value={form.service} onChange={set('service')}>
+              {SERVICE_OPTIONS.map((s) => <option key={s}>{s}</option>)}
+            </select>
+          )}
         </div>
       </div>
       <div>

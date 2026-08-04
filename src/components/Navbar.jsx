@@ -9,6 +9,7 @@ const links = [
   { to: '/gallery', label: 'Gallery' },
   { to: '/testimonials', label: 'Testimonials' },
   { to: '/workshop', label: 'Workshop' },
+  { to: '/collaborations', label: 'Collaborations' },
   { to: '/blog', label: 'Blog' },
   { to: '/contact', label: 'Contact' },
 ]

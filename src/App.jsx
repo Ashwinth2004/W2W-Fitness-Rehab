@@ -20,6 +20,7 @@ import BlogPost from './pages/BlogPost'
 import Gallery from './pages/Gallery'
 import Testimonials from './pages/Testimonials'
 import Workshop from './pages/Workshop'
+import Collaborations from './pages/Collaborations'
 import Appointment from './pages/Appointment'
 import Privacy from './pages/Privacy'
 import NotFound from './pages/NotFound'
@@ -28,13 +29,13 @@ import NotFound from './pages/NotFound'
 const AdminLogin = lazy(() => import('./pages/admin/Login'))
 const AdminLayout = lazy(() => import('./pages/admin/AdminLayout'))
 const Dashboard = lazy(() => import('./pages/admin/Dashboard'))
-const Queries = lazy(() => import('./pages/admin/Queries'))
 const Appointments = lazy(() => import('./pages/admin/Appointments'))
 const Clients = lazy(() => import('./pages/admin/Clients'))
 const ClientDetail = lazy(() => import('./pages/admin/ClientDetail'))
 const Treatment = lazy(() => import('./pages/admin/Treatment'))
 const Rehab = lazy(() => import('./pages/admin/Rehab'))
 const Fitness = lazy(() => import('./pages/admin/Fitness'))
+const HomeVisits = lazy(() => import('./pages/admin/HomeVisits'))
 const Reports = lazy(() => import('./pages/admin/Reports'))
 const Accounting = lazy(() => import('./pages/admin/Accounting'))
 const Content = lazy(() => import('./pages/admin/Content'))
@@ -77,13 +78,13 @@ export default function App() {
               }
             >
               <Route index element={<Dashboard />} />
-              <Route path="queries" element={<Queries />} />
               <Route path="appointments" element={<Appointments />} />
               <Route path="clients" element={<Clients />} />
               <Route path="clients/:id" element={<ClientDetail />} />
               <Route path="treatment" element={<Treatment />} />
               <Route path="rehab" element={<Rehab />} />
               <Route path="fitness" element={<Fitness />} />
+              <Route path="home-visits" element={<HomeVisits />} />
               <Route path="signatures" element={<Signatures />} />
               <Route path="reports" element={<Reports />} />
               <Route path="accounting" element={<Accounting />} />
@@ -104,6 +105,7 @@ export default function App() {
               <Route path="/gallery" element={<Gallery />} />
               <Route path="/testimonials" element={<Testimonials />} />
               <Route path="/workshop" element={<Workshop />} />
+              <Route path="/collaborations" element={<Collaborations />} />
               <Route path="/appointment" element={<Appointment />} />
               <Route path="/privacy" element={<Privacy />} />
               <Route path="*" element={<NotFound />} />
