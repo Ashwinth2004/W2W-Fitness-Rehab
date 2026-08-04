@@ -357,6 +357,10 @@ export function watchClientNotes(clientId, cb) {
   return onSnapshot(q, (snap) => cb(snap.docs.map((d) => ({ id: d.id, ...d.data() }))))
 }
 
+export async function updateClientNote(clientId, noteId, data) {
+  return updateDoc(doc(db, 'clients', clientId, 'notes', noteId), data)
+}
+
 export async function deleteClientNote(clientId, noteId) {
   return deleteDoc(doc(db, 'clients', clientId, 'notes', noteId))
 }

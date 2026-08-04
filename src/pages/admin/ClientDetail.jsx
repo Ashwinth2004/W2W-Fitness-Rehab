@@ -6,7 +6,7 @@ import {
   CalendarClock, Activity, ChevronRight, PlayCircle, LayoutGrid, ArrowRight, Dumbbell,
 } from 'lucide-react'
 import {
-  getClient, updateClient, deleteClient, watchClientNotes, addClientNote, deleteClientNote,
+  getClient, updateClient, deleteClient, watchClientNotes, addClientNote, updateClientNote, deleteClientNote,
   watchTreatments, deleteTreatment, updateTreatment, getClientNotesOnce, addAccountingEntry,
   deleteAccountingForTreatment, getRehabPlansOnce, watchRehabPlans, watchFitnessPlans,
 } from '../../lib/firestore'
@@ -298,12 +298,25 @@ function SessionItem({ clientId, t, defaultOpen }) {
 function NotesSection({ clientId, notes }) {
   const [form, setForm] = useState({ date: todayISO(), text: '' })
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }))
+  const [editingId, setEditingId] = useState(null)
+  const [editDate, setEditDate] = useState('')
+  const [editText, setEditText] = useState('')
 
   async function add(e) {
     e.preventDefault()
     if (!form.text.trim()) return
     await addClientNote(clientId, { date: form.date || todayISO(), text: form.text.trim() })
     setForm({ date: todayISO(), text: '' })
+  }
+
+  function startEdit(n) {
+    setEditingId(n.id); setEditDate(n.date || todayISO()); setEditText(n.text || '')
+  }
+  function cancelEdit() { setEditingId(null) }
+  async function saveEdit(id) {
+    if (!editText.trim()) return
+    await updateClientNote(clientId, id, { date: editDate || todayISO(), text: editText.trim() })
+    setEditingId(null)
   }
 
   return (
@@ -321,11 +334,27 @@ function NotesSection({ clientId, notes }) {
         <ul className="space-y-3">
           {notes.map((n) => (
             <li key={n.id} className="rounded-xl border border-slate-100 p-4">
-              <div className="flex items-center justify-between">
-                <p className="text-sm font-semibold text-brand-700">{fmtDate(n.date)}</p>
-                <button onClick={() => deleteClientNote(clientId, n.id)} className="text-slate-300 hover:text-red-500"><Trash2 size={15} /></button>
-              </div>
-              <p className="mt-1 whitespace-pre-line text-sm text-slate-700">{n.text}</p>
+              {editingId === n.id ? (
+                <div className="space-y-2">
+                  <div className="w-40"><DateField value={editDate} onChange={setEditDate} max={todayISO()} /></div>
+                  <textarea autoFocus className="input min-h-[70px]" value={editText} onChange={(e) => setEditText(e.target.value)} />
+                  <div className="flex justify-end gap-2">
+                    <button type="button" onClick={cancelEdit} className="btn-ghost px-3 py-1.5 text-xs"><X size={14} /> Cancel</button>
+                    <button type="button" onClick={() => saveEdit(n.id)} className="btn-primary px-3 py-1.5 text-xs"><Save size={14} /> Save</button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-sm font-semibold text-brand-700">{fmtDate(n.date)}</p>
+                    <div className="flex shrink-0 items-center gap-2">
+                      <button onClick={() => startEdit(n)} title="Edit note" className="text-slate-300 hover:text-brand-600"><Pencil size={15} /></button>
+                      <button onClick={() => deleteClientNote(clientId, n.id)} title="Delete note" className="text-slate-300 hover:text-red-500"><Trash2 size={15} /></button>
+                    </div>
+                  </div>
+                  <p className="mt-1 whitespace-pre-line text-sm text-slate-700">{n.text}</p>
+                </>
+              )}
             </li>
           ))}
         </ul>
