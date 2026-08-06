@@ -20,9 +20,9 @@ const ROOT_COLLECTIONS = [
   'rehabTemplates', 'fitnessTemplates',
 ]
 
-// Subcollections to read under each client document. `treatments`, `rehabPlans`
-// and `fitnessPlans` are current; `notes`/`progress` cover any legacy session data.
-const CLIENT_SUBCOLLECTIONS = ['treatments', 'rehabPlans', 'fitnessPlans', 'notes', 'progress']
+// Subcollections to read under each client document. `treatments`, `rehabPlans`,
+// `fitnessPlans` and `homeVisits` are current; `notes`/`progress` cover any legacy session data.
+const CLIENT_SUBCOLLECTIONS = ['treatments', 'rehabPlans', 'fitnessPlans', 'homeVisits', 'notes', 'progress']
 
 // Mirror of scripts/lib/serialize.mjs `encode`, for the browser SDK types.
 function encode(value) {
@@ -116,6 +116,7 @@ const SHEET_LABELS = {
   __treatments: 'Treatments (Sessions)',
   __rehabPlans: 'Rehab & Exercise Plans',
   __fitnessPlans: 'Fitness Plans',
+  __homeVisits: 'Home Visits',
   appointments: 'Appointments',
   accounting: 'Income (Patient Charges)',
   rehabTemplates: 'Rehab Exercise Templates',
@@ -135,7 +136,7 @@ const SHEET_LABELS = {
   reels: 'Reels',
 }
 const SHEET_ORDER = [
-  'clients', '__treatments', '__rehabPlans', '__fitnessPlans', 'rehabTemplates', 'fitnessTemplates',
+  'clients', '__treatments', '__rehabPlans', '__fitnessPlans', '__homeVisits', 'rehabTemplates', 'fitnessTemplates',
   'appointments', 'accounting', 'expenses', 'expenseCategories',
   'workshops', 'workshopRegistrations', 'workshopStats', 'workshopRegEmails', 'enquiries',
   'therapists', 'availability', 'counters', 'testimonials', 'posts', 'reels',
@@ -203,10 +204,11 @@ export function buildWorkbook(XLSX, snapshot) {
   const byPath = {}
   for (const col of snapshot.collections) byPath[col.path] = col
 
-  // Pull treatments, rehab plans and fitness plans out of clients into their own flat sheets.
+  // Pull treatments, rehab plans, fitness plans and home visits out of clients into their own flat sheets.
   const treatments = []
   const rehabPlans = []
   const fitnessPlans = []
+  const homeVisits = []
   for (const c of byPath.clients?.documents || []) {
     const clientName = c.data?.name || ''
     for (const sub of c.collections || []) {
@@ -218,6 +220,9 @@ export function buildWorkbook(XLSX, snapshot) {
       }
       if (sub.path === 'fitnessPlans') for (const p of sub.documents) {
         fitnessPlans.push({ id: p.id, data: p.data, _cid: c.id, _cname: clientName })
+      }
+      if (sub.path === 'homeVisits') for (const v of sub.documents) {
+        homeVisits.push({ id: v.id, data: v.data, _cid: c.id, _cname: clientName })
       }
     }
   }
@@ -258,6 +263,15 @@ export function buildWorkbook(XLSX, snapshot) {
           { header: 'Client ID', get: (d) => d._cid },
           { header: 'Client Name', get: (d) => d._cname },
         ]), fitnessPlans.length)
+      }
+      return
+    }
+    if (key === '__homeVisits') {
+      if (homeVisits.length) {
+        addSheet(SHEET_LABELS.__homeVisits, sheetFromDocs(XLSX, homeVisits, [
+          { header: 'Client ID', get: (d) => d._cid },
+          { header: 'Client Name', get: (d) => d._cname },
+        ]), homeVisits.length)
       }
       return
     }

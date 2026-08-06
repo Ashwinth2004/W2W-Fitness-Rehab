@@ -112,6 +112,7 @@ const PROGRAM_OPTIONS = [
   { value: 'W2W Treatment', label: 'W2W Physio' },
   { value: 'W2W Fitness & Rehab', label: 'W2W Rehab' },
   { value: 'W2W Fitness', label: 'W2W Fitness' },
+  { value: 'W2W Home Visit', label: 'W2W Home Visit' },
 ]
 function Programs({ value, onChange }) {
   const arr = Array.isArray(value) ? value : []

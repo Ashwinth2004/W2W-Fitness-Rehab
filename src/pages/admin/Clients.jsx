@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { Users, Plus, Search, X, BadgeCheck, Stethoscope, Dumbbell, Activity } from 'lucide-react'
+import { Users, Plus, Search, X, BadgeCheck, Stethoscope, Dumbbell, Activity, Home } from 'lucide-react'
 import { watchClients, findClientByClientId } from '../../lib/firestore'
 import { fmtDate, matchesDateFilter } from '../../lib/format'
 import ContactActions from '../../components/ContactActions'
@@ -9,6 +9,7 @@ import ClientForm from '../../components/ClientForm'
 import AdminPageHeader from '../../components/AdminPageHeader'
 import RehabBadge from '../../components/RehabBadge'
 import FitnessBadge from '../../components/FitnessBadge'
+import HomeVisitBadge from '../../components/HomeVisitBadge'
 import PatientAvatar from '../../components/PatientAvatar'
 
 // A client can be enrolled in any combination of programs — a client on
@@ -16,11 +17,13 @@ import PatientAvatar from '../../components/PatientAvatar'
 const isPhysioClient = (c) => Array.isArray(c?.programs) && c.programs.includes('W2W Treatment')
 const isRehabClient = (c) => Array.isArray(c?.programs) && c.programs.includes('W2W Fitness & Rehab')
 const isFitnessClient = (c) => Array.isArray(c?.programs) && c.programs.includes('W2W Fitness')
+const isHomeVisitClient = (c) => Array.isArray(c?.programs) && c.programs.includes('W2W Home Visit')
 const PROGRAM_FILTERS = [
   { key: 'all', label: 'All', icon: Users },
   { key: 'physio', label: 'Physio', icon: Stethoscope },
   { key: 'rehab', label: 'Rehab & Exercises', icon: Dumbbell },
   { key: 'fitness', label: 'Fitness', icon: Activity },
+  { key: 'homevisit', label: 'Home Visit', icon: Home },
 ]
 
 export default function Clients() {
@@ -38,6 +41,7 @@ export default function Clients() {
   const programPool = programFilter === 'physio' ? clients.filter(isPhysioClient)
     : programFilter === 'rehab' ? clients.filter(isRehabClient)
     : programFilter === 'fitness' ? clients.filter(isFitnessClient)
+    : programFilter === 'homevisit' ? clients.filter(isHomeVisitClient)
     : clients
 
   const filtered = programPool
@@ -85,11 +89,12 @@ export default function Clients() {
 
       <div className="card space-y-2 p-4">
         <p className="text-xs font-bold uppercase tracking-wide text-slate-400">Filter by program</p>
-        <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-5">
           {PROGRAM_FILTERS.map((f) => {
             const count = f.key === 'physio' ? clients.filter(isPhysioClient).length
               : f.key === 'rehab' ? clients.filter(isRehabClient).length
               : f.key === 'fitness' ? clients.filter(isFitnessClient).length
+              : f.key === 'homevisit' ? clients.filter(isHomeVisitClient).length
               : clients.length
             const active = programFilter === f.key
             return (
@@ -132,7 +137,7 @@ export default function Clients() {
                   <PatientAvatar client={c} />
                   <div className="min-w-0">
                     <p className="truncate font-semibold text-slate-900">{c.name}</p>
-                    <p className="flex items-center gap-1 text-xs font-medium text-brand-600"><BadgeCheck size={13} /> {c.clientId}<RehabBadge client={c} /><FitnessBadge client={c} /></p>
+                    <p className="flex items-center gap-1 text-xs font-medium text-brand-600"><BadgeCheck size={13} /> {c.clientId}<RehabBadge client={c} /><FitnessBadge client={c} /><HomeVisitBadge client={c} /></p>
                   </div>
                 </div>
               </div>

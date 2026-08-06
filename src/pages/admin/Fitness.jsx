@@ -40,6 +40,7 @@ import FitnessClusterTrack from '../../components/FitnessClusterTrack'
 import ContactActions from '../../components/ContactActions'
 import RehabBadge from '../../components/RehabBadge'
 import FitnessBadge from '../../components/FitnessBadge'
+import HomeVisitBadge from '../../components/HomeVisitBadge'
 import AdminPageHeader from '../../components/AdminPageHeader'
 import { useUnsaved } from '../../context/UnsavedContext'
 
@@ -217,7 +218,7 @@ function FitnessClientPicker({ clients, onPick, onNew, onTemplates, note }) {
                   <PatientAvatar client={c} />
                   <div className="min-w-0">
                     <p className="truncate font-semibold text-slate-900">{c.name}</p>
-                    <p className="flex items-center gap-1 text-xs font-medium text-brand-600"><BadgeCheck size={13} /> {c.clientId}<RehabBadge client={c} /><FitnessBadge client={c} /></p>
+                    <p className="flex items-center gap-1 text-xs font-medium text-brand-600"><BadgeCheck size={13} /> {c.clientId}<RehabBadge client={c} /><FitnessBadge client={c} /><HomeVisitBadge client={c} /></p>
                   </div>
                 </div>
               </div>
@@ -1573,7 +1574,7 @@ function FitnessPlanner({ client, clients = [], editId = '', onChangeClient, nav
           <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-brand-50 p-4">
             <div>
               <p className="text-lg font-bold text-slate-900">{client.name}</p>
-              <p className="flex items-center text-sm text-slate-500">{client.clientId}<RehabBadge client={client} /><FitnessBadge client={client} /> · {client.phone}</p>
+              <p className="flex items-center text-sm text-slate-500">{client.clientId}<RehabBadge client={client} /><FitnessBadge client={client} /><HomeVisitBadge client={client} /> · {client.phone}</p>
               {Array.isArray(client.fitnessGoals) && client.fitnessGoals.length > 0 && (
                 <div className="mt-1.5 flex flex-wrap gap-1">
                   {client.fitnessGoals.map((g) => (

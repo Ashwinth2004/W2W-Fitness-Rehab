@@ -97,8 +97,87 @@ export const CLINICAL_SECTIONS = [
   ] },
 ]
 
+// Home Visit assessment — captured by the physiotherapist during an in-home
+// session (Home Visits module). Same shape/field types as CLINICAL_SECTIONS
+// (kept as its own array, not derived, matching how BASIC/CLINICAL are each
+// defined independently) plus the extra items on the W2W home-visit intake
+// form that a clinic session doesn't need: vitals, external aids/ADL/cognitive
+// screening, drug & social history, history of fall, posture analysis, hand
+// grip, muscle power, reflexes, sensory assessment and the standard geriatric/
+// functional test battery (TUG, chair-stand, walk test, gait, balance).
+export const HOME_VISIT_SECTIONS = [
+  { title: 'Vitals', fields: [
+    { k: 'vitalsBP', label: 'BP (mmHg)' },
+    { k: 'vitalsHR', label: 'HR (bpm)', num: true, maxLen: 3 },
+    { k: 'vitalsRR', label: 'RR (breaths / min)', num: true, maxLen: 3 },
+    { k: 'vitalsTemp', label: 'Temperature' },
+  ] },
+  { title: 'Home Visit Screening', ghost: true, fields: [
+    { k: 'externalAids', label: 'Use of external aids (if any)' },
+    { k: 'adlDependency', label: 'ADL dependency' },
+    { k: 'cognitiveAnalysis', label: 'Cognitive analysis', area: true, full: true },
+  ] },
+  { title: 'History', ghost: true, cols1: true, fields: [
+    { k: 'pastHistory', label: 'Past Medical History (major illness, injury or surgery)', area: true },
+    { k: 'complaint', label: 'Current chief complaints', area: true },
+    { k: 'drugHistory', label: 'Drug history', area: true },
+    { k: 'socialHistory', label: 'Social history', area: true },
+    { k: 'historyOfFall', label: 'H/o fall', type: 'posneg', note: true },
+    { k: 'postureAnalysis', label: 'Posture analysis', area: true },
+  ] },
+  { title: 'Pain Assessment', ghost: true, fields: [
+    { k: 'painDuration', label: 'Duration', type: 'duration' },
+    { k: 'painType', label: 'Nature / type of pain', type: 'multi', options: PAIN_TYPE_OPTIONS, other: true, full: true },
+    { k: 'painADL', label: 'Impact of pain on ADL', type: 'chips', options: ADL_IMPACT_OPTIONS, full: true },
+    { k: 'painAggravating', label: 'Pain aggravating factor' },
+    { k: 'painRelieving', label: 'Pain relieving factor' },
+    { k: 'vas', label: 'VAS — pain score (0–10)', num: true, maxLen: 2 },
+  ] },
+  { title: 'Objective Assessment', ghost: true, fields: [
+    { k: 'built', label: 'Built', type: 'chips', options: BUILT_OPTIONS, full: true },
+    { k: 'deformities', label: 'Deformities / Edema / Muscular Atrophy / Wasting' },
+    { k: 'gait', label: 'Gait' },
+    { k: 'objectiveNotes', label: 'Notes', area: true, full: true },
+  ] },
+  { title: 'On Palpation', ghost: true, fields: [
+    { k: 'tenderness', label: 'Tenderness' },
+    { k: 'swelling', label: 'Swelling', type: 'posneg' },
+    { k: 'spasm', label: 'Spasm', type: 'posneg', note: true },
+    { k: 'crepitus', label: 'Crepitus / Abnormal sounds', type: 'posneg', note: true, full: true },
+  ] },
+  { title: 'On Examination', ghost: true, fields: [
+    { k: 'rom', label: 'ROM — by joint', type: 'rom', full: true },
+    { k: 'endFeel', label: 'End Feel' },
+    { k: 'handGrip', label: 'Hand grip' },
+    { k: 'girth', label: 'Girth measurements', type: 'girth', full: true },
+    { k: 'limbLength', label: 'Limb length', type: 'limb', full: true },
+    { k: 'musclePower', label: 'Muscle power' },
+    { k: 'reflexes', label: 'Reflexes' },
+    { k: 'sensoryAssessment', label: 'Sensory assessment' },
+    { k: 'specialTests', label: 'Special tests & functional testing', type: 'list', full: true },
+  ] },
+  { title: 'Functional Assessment', ghost: true, fields: [
+    { k: 'tug', label: 'TUG (Timed Up & Go)' },
+    { k: 'chairStandTest', label: '30 sec chair stand test' },
+    { k: 'walkTest', label: '6 or 2 min walk test' },
+    { k: 'gaitAnalysisHV', label: 'Gait analysis' },
+    { k: 'balanceTest', label: 'Balance test (4 stage balance test)' },
+    { k: 'functionalUpper', label: 'Upper body', type: 'multi', options: FUNCTIONAL_UPPER, addable: true, full: true },
+    { k: 'functionalLower', label: 'Lower body', type: 'multi', options: FUNCTIONAL_LOWER, addable: true, full: true },
+    { k: 'movementQuality', label: 'Movement quality', type: 'chips', options: MOVEMENT_QUALITY, full: true },
+  ] },
+  { title: 'Assessment & Plan', ghost: true, cols1: true, fields: [
+    { k: 'opinion', label: 'Opinion about the patient & condition', area: true },
+    { k: 'treatmentOptions', label: 'Treatment options (with evidence)', area: true },
+    { k: 'expectedRecovery', label: 'Expected duration of recovery & outcomes', area: true },
+    { k: 'treatmentPlan', label: 'Treatment plan', type: 'list', full: true },
+    { k: 'followUp', label: 'Follow up', type: 'list', full: true },
+  ] },
+]
+
 export const BASIC_KEYS = BASIC_SECTIONS.flatMap((s) => s.fields.map((f) => f.k))
 export const CLINICAL_KEYS = CLINICAL_SECTIONS.flatMap((s) => s.fields.map((f) => f.k))
+export const HOME_VISIT_KEYS = HOME_VISIT_SECTIONS.flatMap((s) => s.fields.map((f) => f.k))
 
 // Format any assessment value (string / array / structured object) into a
 // human-readable string (possibly multi-line) for read-only views, the PDF

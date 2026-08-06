@@ -219,7 +219,13 @@ export default function RehabClusterTrack({ client, plan, plans = [], onClose })
     setReportBusy(true); setReportMenuOpen(false)
     try {
       const dayNow = days.find((d) => d.day === activeDay)
-      const source = scope === 'day' ? [{ ...plan, days: [dayNow] }] : (plans.length ? plans : [plan])
+      // `plans` (the sibling list from the parent) can lag behind the edits
+      // just made in this tracker — the live listener that feeds it may not
+      // have echoed back yet. Always splice this plan's freshest local
+      // `days` in so "Full history" never reports stale progress.
+      const source = scope === 'day'
+        ? [{ ...plan, days: [dayNow] }]
+        : (plans.length ? plans.map((p) => (p.id === plan.id ? { ...p, days } : p)) : [{ ...plan, days }])
       await generateRehabReport(client, { plans: source, action: 'download' })
     } catch (_) { /* best-effort */ }
     setReportBusy(false)

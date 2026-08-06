@@ -725,6 +725,17 @@ export async function deleteAccountingForFitnessPlan(planId) {
   return deleteDoc(doc(db, 'accounting', `f_${planId}`))
 }
 
+// Same mirroring for a Home Visit session's charge (doc id `h_<visitId>`).
+export async function setAccountingForHomeVisit(visitId, data) {
+  return setDoc(doc(db, 'accounting', `h_${visitId}`), {
+    ...data, type: 'income', homeVisitId: visitId, source: 'homevisit', updatedAt: serverTimestamp(),
+  }, { merge: true })
+}
+
+export async function deleteAccountingForHomeVisit(visitId) {
+  return deleteDoc(doc(db, 'accounting', `h_${visitId}`))
+}
+
 // Same mirroring for a charge entered straight on an Appointment (doc id
 // `a_<appointmentId>`), so a walk-in/consult billed from the Appointments
 // list lands in Accounting without needing a full Treatment record.
@@ -906,6 +917,39 @@ export async function updateTreatment(clientId, id, data) {
 
 export async function deleteTreatment(clientId, id) {
   return deleteDoc(doc(db, 'clients', clientId, 'treatments', id))
+}
+
+// ---------- Home Visits (per-visit clinical assessments, done at the -------
+// patient's residence) — stored under clients/{id}/homeVisits, same shape and
+// pattern as Treatments above, kept in its own subcollection so the two never mix.
+export async function addHomeVisit(clientId, data) {
+  const ref = await addDoc(collection(db, 'clients', clientId, 'homeVisits'), {
+    ...data,
+    createdAt: serverTimestamp(),
+  })
+  // Remember the latest handling therapist on the client (default for next time).
+  if (data.therapist) {
+    try { await updateDoc(doc(db, 'clients', clientId), { therapist: data.therapist, updatedAt: serverTimestamp() }) } catch (_) {}
+  }
+  return ref.id
+}
+
+export function watchHomeVisits(clientId, cb) {
+  const q = query(collection(db, 'clients', clientId, 'homeVisits'), orderBy('date', 'desc'))
+  return onSnapshot(q, (snap) => cb(snap.docs.map((d) => ({ id: d.id, ...d.data() }))))
+}
+
+export async function getHomeVisitsOnce(clientId) {
+  const snap = await getDocs(query(collection(db, 'clients', clientId, 'homeVisits'), orderBy('date', 'desc')))
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+}
+
+export async function updateHomeVisit(clientId, id, data) {
+  return updateDoc(doc(db, 'clients', clientId, 'homeVisits', id), data)
+}
+
+export async function deleteHomeVisit(clientId, id) {
+  return deleteDoc(doc(db, 'clients', clientId, 'homeVisits', id))
 }
 
 // ---------- Rehab exercise plans (Rehab & Exercises module) ----------------

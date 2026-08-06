@@ -1,6 +1,7 @@
 // ============================================================================
 //  Branded PDF reports (jsPDF + autotable) — W2W letterhead on every page.
 //    - generateClientReport(client, { notes, progress, therapist, bill, action })
+//    - generateHomeVisitReport(client, { notes, progress, therapist, bill, action })
 //    - generateMonthlyReport({ rangeLabel, appointments, clients, action })
 //    - generateExpensesReport({ rangeLabel, expenses, action })
 //    - generateIncomeReport({ rangeLabel, entries, action })
@@ -418,6 +419,197 @@ export async function generateClientReport(client, opts = {}) {
   footerAll(doc)
   const filename = `W2W_Report_${client.clientId || 'client'}_${client.name?.replace(/\s+/g, '_') || 'report'}.pdf`
   return finalize(doc, filename, action, `${client.name || 'Patient'} — physiotherapy assessment report from W2W Fitness & Rehab.`)
+}
+
+// ---------------------------------------------------------------------------
+//  Home Visit assessment report — matches the W2W home-visit intake form:
+//  vitals, home-visit screening (external aids / ADL / cognitive), history
+//  (incl. drug/social/fall), pain & objective assessment, examination
+//  (incl. hand grip / muscle power / reflexes / sensory) and the geriatric/
+//  functional test battery (TUG, chair-stand, walk test, gait, balance) —
+//  before falling into the same session/progress/billing/declaration layout
+//  as the physio report, but with home-visit-specific consent wording.
+// ---------------------------------------------------------------------------
+export async function generateHomeVisitReport(client, opts = {}) {
+  const { notes = [], progress = [], therapist = '', bill = null, action = 'download', sessions = null, signature = null } = opts
+  const logo = await loadLogo()
+  const doc = new jsPDF({ unit: 'mm', format: 'a4' })
+  let y = header(doc, logo, 'Home Visit Assessment Report',
+    `Date: ${fmtDate(client.assessmentDate || new Date())}`)
+
+  // Patient details box
+  y += 4
+  doc.setFillColor(238, 249, 251)
+  doc.roundedRect(M, y, CW, 32, 2, 2, 'F')
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(12); doc.setTextColor(...DARK)
+  doc.text(client.name || '—', M + 6, y + 8)
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5); doc.setTextColor(80)
+  const col1 = [`Reg. No: ${client.clientId || '—'}`, `Age / Gender: ${client.age || '—'} / ${client.gender || '—'}`, `Phone: ${client.phone || '—'}`]
+  const col2 = [`Occupation: ${client.occupation || '—'}`, `Hand dominance: ${client.handDominance || '—'}`, `Referred by: ${client.referredBy || '—'}`]
+  const col3 = [`Height: ${client.height || '—'} cm`, `Weight: ${client.weight || '—'} kg`, `Email: ${client.email || '—'}`]
+  col1.forEach((t, i) => fitText(doc, t, M + 6, y + 15 + i * 5, 60, 8.5))
+  col2.forEach((t, i) => fitText(doc, t, M + 70, y + 15 + i * 5, 61, 8.5))
+  col3.forEach((t, i) => fitText(doc, t, M + 135, y + 15 + i * 5, PW - 2 * M - 135, 8.5))
+  y += 38
+  if (client.address) { doc.setFontSize(9); doc.setTextColor(90); y = field(doc, y, 'Visit Address', client.address) }
+
+  y = group(doc, y, 'Activity Levels', [
+    ['Walking / steps per day', client.walking], ['Exercise routines', client.exercise],
+    ['Desktop work or others', client.deskWork], ['Sleep (hours/day)', client.sleep],
+    ['Hydration (water/day)', client.hydration], ['Notes', client.activityNotes],
+  ], ['Notes'])
+  y = group(doc, y, 'History', [
+    ['Present Medical History', client.presentHistory], ['Other notes', client.otherNotes],
+  ], ['Other notes'])
+
+  const renderClinical = (src) => {
+    y = group(doc, y, 'Vitals', [
+      ['BP', src.vitalsBP], ['HR', src.vitalsHR], ['RR', src.vitalsRR], ['Temperature', src.vitalsTemp],
+    ])
+    y = group(doc, y, 'Home Visit Screening', [
+      ['Use of external aids', src.externalAids], ['ADL dependency', src.adlDependency],
+      ['Cognitive analysis', src.cognitiveAnalysis],
+    ], ['Cognitive analysis'])
+    y = group(doc, y, 'History', [
+      ['Past Medical History', src.pastHistory], ['Current chief complaints', src.complaint],
+      ['Drug history', src.drugHistory], ['Social history', src.socialHistory],
+      ['H/o fall', src.historyOfFall], ['Posture analysis', src.postureAnalysis],
+    ], ['Past Medical History', 'Current chief complaints', 'Drug history', 'Social history', 'Posture analysis'])
+    y = group(doc, y, 'Pain Assessment', [
+      ['Duration', src.painDuration],
+      ['Nature / type', src.painType], ['Impact on ADL', src.painADL],
+      ['Aggravating factor', src.painAggravating], ['Relieving factor', src.painRelieving],
+      ['VAS — pain score (0-10)', src.vas],
+    ])
+    y = group(doc, y, 'Objective Assessment', [
+      ['Built', src.built], ['Deformities / Edema / Wasting', src.deformities],
+      ['Gait', src.gait], ['Notes', src.objectiveNotes],
+    ], ['Notes'])
+    y = group(doc, y, 'On Palpation', [
+      ['Tenderness', src.tenderness], ['Swelling', src.swelling], ['Spasm', src.spasm],
+      ['Crepitus / Abnormal sounds', src.crepitus],
+    ])
+    y = group(doc, y, 'On Examination', [
+      ['ROM', src.rom], ['End feel', src.endFeel], ['Hand grip', src.handGrip],
+      ['Girth measurements', src.girth], ['Limb length', src.limbLength],
+      ['Muscle power', src.musclePower], ['Reflexes', src.reflexes], ['Sensory assessment', src.sensoryAssessment],
+      ['Special tests & functional testing', src.specialTests],
+    ], ['ROM', 'Girth measurements', 'Limb length', 'Special tests & functional testing'])
+    y = group(doc, y, 'Functional Assessment', [
+      ['TUG (Timed Up & Go)', src.tug], ['30 sec chair stand test', src.chairStandTest],
+      ['6 or 2 min walk test', src.walkTest], ['Gait analysis', src.gaitAnalysisHV],
+      ['Balance test (4 stage)', src.balanceTest],
+      ['Upper body', src.functionalUpper], ['Lower body', src.functionalLower],
+      ['Movement quality', src.movementQuality],
+    ], ['Upper body', 'Lower body'])
+    y = group(doc, y, 'Assessment & Plan', [
+      ['Opinion about the condition', src.opinion], ['Treatment options (with evidence)', src.treatmentOptions],
+      ['Expected duration of recovery & outcomes', src.expectedRecovery],
+      ['Treatment plan', src.treatmentPlan], ['Follow up', src.followUp],
+    ], ['Opinion about the condition', 'Treatment options (with evidence)', 'Expected duration of recovery & outcomes', 'Treatment plan', 'Follow up'])
+    if (src.note) y = group(doc, y, 'Session Note', [['Note', src.note]], ['Note'])
+  }
+
+  if (Array.isArray(client.painAreas) && client.painAreas.length) {
+    const chart = await renderPainChart(client.painAreas)
+    if (chart) {
+      const w = 110, h = w * (PAIN_H / PAIN_W)
+      y = ensure(doc, y, h + 18)
+      y = sectionHeader(doc, y, 'Pain Areas (marked by patient)')
+      doc.addImage(chart, 'JPEG', (PW - w) / 2, y, w, h)
+      y += h + 4
+    }
+  }
+
+  if (sessions && sessions.length) {
+    sessions.forEach((s) => {
+      y = ensure(doc, y, 16)
+      doc.setFillColor(...DARK)
+      doc.rect(M, y - 4, CW, 8, 'F')
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(11); doc.setTextColor(255)
+      doc.text(`Home Visit — ${fmtDate(s.date)}${s.therapist ? `   ·   ${s.therapist}` : ''}`, M + 2, y + 1.5)
+      y += 11
+      renderClinical(s)
+    })
+  } else {
+    renderClinical(client)
+  }
+
+  if (progress.length) {
+    y = ensure(doc, y, 24)
+    y = sectionHeader(doc, y, 'Progress Tracking')
+    autoTable(doc, {
+      startY: y,
+      head: [['Date', 'Pain (0-10)', 'ROM / Notes', 'Weight (kg)']],
+      body: progress.map((p) => [fmtDate(p.date), p.pain ?? '—', p.rom || p.note || '—', p.weight ?? '—']),
+      theme: 'striped', headStyles: { fillColor: BRAND, fontSize: 9 }, bodyStyles: { fontSize: 9 }, margin: { left: M, right: M },
+    })
+    y = doc.lastAutoTable.finalY + 6
+  }
+
+  if (notes.length) {
+    y = ensure(doc, y, 20)
+    y = sectionHeader(doc, y, 'Visit Notes & Report Entries')
+    doc.setFontSize(9.5)
+    notes.forEach((n) => {
+      y = ensure(doc, y, 8)
+      doc.setFont('helvetica', 'bold'); doc.setTextColor(...BRAND)
+      doc.text(fmtDate(n.date), M + 2, y)
+      doc.setFont('helvetica', 'normal'); doc.setTextColor(70)
+      const lines = doc.splitTextToSize(n.text || '', CW - 32)
+      doc.text(lines, M + 28, y)
+      y += Math.max(lines.length * 4.6, 5) + 3
+    })
+  }
+
+  if (bill && (Number(bill.amount) || Number(bill.paid))) {
+    y = ensure(doc, y, 36)
+    y = sectionHeader(doc, y, 'Billing')
+    autoTable(doc, {
+      startY: y,
+      body: [
+        ['Amount charged', inr(bill.amount)],
+        ['Amount paid', inr(bill.paid)],
+        ['Balance due', inr(bill.balance)],
+        ['Mode of payment', bill.mode || '—'],
+      ],
+      theme: 'grid', styles: { fontSize: 9.5, textColor: DARK },
+      columnStyles: { 0: { fontStyle: 'bold', cellWidth: 60 }, 1: { halign: 'right' } },
+      margin: { left: M, right: M },
+    })
+    y = doc.lastAutoTable.finalY + 6
+  }
+
+  // Declaration + signatures — home-visit wording (adds the address/access &
+  // safe-space acknowledgement the clinic-based report doesn't need).
+  y = ensure(doc, y, 46)
+  y = sectionHeader(doc, y, 'Declaration')
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5); doc.setTextColor(70)
+  const decl = 'Physiotherapy involves many distinct types of physical evaluation and treatment by qualified physical therapists at Way to Wellness. During your treatment it may be necessary to expose and touch the area in need of treatment. If you do not feel comfortable with any part of the treatment, you can tell immediately. Every effort is made to preserve modesty and keep you comfortable. As this is a home-visit session conducted at the patient’s residence, the address and access details provided were confirmed accurate and a safe, private space was made available for the session. Hereby, the procedure of treatment was explained and the patient is given the freedom to decline treatment at any time.'
+  const dl = doc.splitTextToSize(decl, CW - 4)
+  y = ensure(doc, y, dl.length * 4.2 + 22)
+  doc.text(dl, M + 2, y); y += dl.length * 4.2 + 16
+  doc.setDrawColor(150); doc.setLineWidth(0.3)
+  doc.line(M + 2, y, M + 70, y)
+  doc.line(PW - M - 70, y, PW - M, y)
+  const [patientSig, consultSig] = await Promise.all([
+    loadImageData(signature),
+    loadImageData(signatureFor(therapist)),
+  ])
+  drawSignature(doc, patientSig, M + 2, y, 66, 15)
+  drawSignature(doc, consultSig, PW - M - 70, y, 64, 13)
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.setTextColor(...DARK)
+  doc.text("Patient's signature", M + 2, y + 5)
+  doc.text('Consultant Physiotherapist', PW - M - 70, y + 5)
+  if (therapist) {
+    doc.setFont('helvetica', 'normal'); doc.setTextColor(80); doc.text(therapist, PW - M - 70, y + 10)
+    const quals = qualificationFor(therapist)
+    if (quals) { doc.setFontSize(7.5); doc.setTextColor(110); doc.text(quals, PW - M - 70, y + 14) }
+  }
+
+  footerAll(doc)
+  const filename = `W2W_HomeVisitReport_${client.clientId || 'client'}_${client.name?.replace(/\s+/g, '_') || 'report'}.pdf`
+  return finalize(doc, filename, action, `${client.name || 'Patient'} — home visit assessment report from W2W Fitness & Rehab.`)
 }
 
 // ---------------------------------------------------------------------------

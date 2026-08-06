@@ -3,12 +3,13 @@ import { Link, useParams, useNavigate } from 'react-router-dom'
 import {
   ArrowLeft, BadgeCheck, FileDown, Pencil, Trash2, Plus, Save, X, Loader2,
   NotebookPen, Stethoscope, User, Calendar, Send, IndianRupee, MapPin,
-  CalendarClock, Activity, ChevronRight, PlayCircle, LayoutGrid, ArrowRight, Dumbbell,
+  CalendarClock, Activity, ChevronRight, PlayCircle, LayoutGrid, ArrowRight, Dumbbell, Home,
 } from 'lucide-react'
 import {
   getClient, updateClient, deleteClient, watchClientNotes, addClientNote, updateClientNote, deleteClientNote,
   watchTreatments, deleteTreatment, updateTreatment, getClientNotesOnce, addAccountingEntry,
-  deleteAccountingForTreatment, getRehabPlansOnce, watchRehabPlans, watchFitnessPlans,
+  deleteAccountingForTreatment, getRehabPlansOnce, watchRehabPlans, watchFitnessPlans, getFitnessPlansOnce,
+  watchHomeVisits, deleteHomeVisit, updateHomeVisit, getHomeVisitsOnce, deleteAccountingForHomeVisit,
 } from '../../lib/firestore'
 import RehabClusterTrack from '../../components/RehabClusterTrack'
 import FitnessClusterTrack from '../../components/FitnessClusterTrack'
@@ -22,8 +23,9 @@ import TherapistSelect from '../../components/TherapistSelect'
 import BodyPainSelector from '../../components/BodyPainSelector'
 import RehabBadge from '../../components/RehabBadge'
 import FitnessBadge from '../../components/FitnessBadge'
+import HomeVisitBadge from '../../components/HomeVisitBadge'
 import PatientAvatar from '../../components/PatientAvatar'
-import { generateClientReport, generateRehabReport } from '../../lib/pdf'
+import { generateClientReport, generateRehabReport, generateFitnessReport, generateHomeVisitReport } from '../../lib/pdf'
 
 const SESSION_GROUPS = [
   ['History', [['pastHistory', 'Past medical history'], ['complaint', 'Chief complaint'], ['mechanism', 'Mechanism of injury'], ['radiology', 'Radiological report']]],
@@ -32,6 +34,17 @@ const SESSION_GROUPS = [
   ['On palpation', [['tenderness', 'Tenderness'], ['swelling', 'Swelling'], ['spasm', 'Spasm'], ['crepitus', 'Crepitus']]],
   ['On examination', [['rom', 'ROM'], ['endFeel', 'End feel'], ['girth', 'Girth'], ['limbLength', 'Limb length'], ['specialTests', 'Special tests']]],
   ['Functional', [['functionalUpper', 'Upper body'], ['functionalLower', 'Lower body'], ['movementQuality', 'Movement quality']]],
+  ['Assessment & plan', [['opinion', 'Opinion'], ['treatmentOptions', 'Treatment options'], ['expectedRecovery', 'Expected recovery'], ['treatmentPlan', 'Treatment plan'], ['followUp', 'Follow up']]],
+]
+const HOME_VISIT_GROUPS = [
+  ['Vitals', [['vitalsBP', 'BP'], ['vitalsHR', 'HR'], ['vitalsRR', 'RR'], ['vitalsTemp', 'Temp']]],
+  ['Home visit screening', [['externalAids', 'External aids'], ['adlDependency', 'ADL dependency'], ['cognitiveAnalysis', 'Cognitive analysis']]],
+  ['History', [['pastHistory', 'Past medical history'], ['complaint', 'Chief complaint'], ['drugHistory', 'Drug history'], ['socialHistory', 'Social history'], ['historyOfFall', 'H/o fall'], ['postureAnalysis', 'Posture analysis']]],
+  ['Pain assessment', [['painDuration', 'Duration'], ['painType', 'Type'], ['painADL', 'Impact on ADL'], ['painAggravating', 'Aggravating'], ['painRelieving', 'Relieving'], ['vas', 'VAS (0–10)']]],
+  ['Objective', [['built', 'Built'], ['deformities', 'Deformities / Edema'], ['gait', 'Gait'], ['objectiveNotes', 'Notes']]],
+  ['On palpation', [['tenderness', 'Tenderness'], ['swelling', 'Swelling'], ['spasm', 'Spasm'], ['crepitus', 'Crepitus']]],
+  ['On examination', [['rom', 'ROM'], ['endFeel', 'End feel'], ['handGrip', 'Hand grip'], ['girth', 'Girth'], ['limbLength', 'Limb length'], ['musclePower', 'Muscle power'], ['reflexes', 'Reflexes'], ['sensoryAssessment', 'Sensory assessment'], ['specialTests', 'Special tests']]],
+  ['Functional assessment', [['tug', 'TUG'], ['chairStandTest', '30 sec chair stand'], ['walkTest', 'Walk test'], ['gaitAnalysisHV', 'Gait analysis'], ['balanceTest', 'Balance test'], ['functionalUpper', 'Upper body'], ['functionalLower', 'Lower body'], ['movementQuality', 'Movement quality']]],
   ['Assessment & plan', [['opinion', 'Opinion'], ['treatmentOptions', 'Treatment options'], ['expectedRecovery', 'Expected recovery'], ['treatmentPlan', 'Treatment plan'], ['followUp', 'Follow up']]],
 ]
 const ACTIVITY = [['walking', 'Walking / steps'], ['exercise', 'Exercise'], ['deskWork', 'Desk work'], ['sleep', 'Sleep'], ['hydration', 'Hydration'], ['activityNotes', 'Notes']]
@@ -43,6 +56,7 @@ export default function ClientDetail() {
   const [client, setClient] = useState(undefined)
   const [notes, setNotes] = useState([])
   const [treatments, setTreatments] = useState([])
+  const [homeVisits, setHomeVisits] = useState([])
   const [editing, setEditing] = useState(false)
   const [reporting, setReporting] = useState(false)
 
@@ -50,7 +64,8 @@ export default function ClientDetail() {
     getClient(id).then(setClient)
     const u1 = watchClientNotes(id, setNotes)
     const u2 = watchTreatments(id, setTreatments)
-    return () => { u1(); u2() }
+    const u3 = watchHomeVisits(id, setHomeVisits)
+    return () => { u1(); u2(); u3() }
   }, [id])
 
   if (client === undefined) return <div className="grid place-items-center py-20 text-slate-400"><Loader2 className="animate-spin" /></div>
@@ -83,7 +98,7 @@ export default function ClientDetail() {
             <PatientAvatar client={client} size="lg" />
             <div>
               <h1 className="text-2xl font-bold text-slate-900">{client.name}</h1>
-              <p className="flex items-center gap-1.5 text-sm font-medium text-brand-600"><BadgeCheck size={15} /> {client.clientId}<RehabBadge client={client} /><FitnessBadge client={client} /></p>
+              <p className="flex items-center gap-1.5 text-sm font-medium text-brand-600"><BadgeCheck size={15} /> {client.clientId}<RehabBadge client={client} /><FitnessBadge client={client} /><HomeVisitBadge client={client} /></p>
               <div className="mt-2"><ContactActions phone={client.phone} showNumber /></div>
             </div>
           </div>
@@ -91,6 +106,7 @@ export default function ClientDetail() {
             <Link to={`/admin/treatment?client=${id}`} className="btn-outline"><Stethoscope size={16} /> New Physio Treatment</Link>
             <Link to={`/admin/rehab?client=${id}`} className="btn-outline"><Activity size={16} /> Rehab &amp; Exercises</Link>
             <Link to={`/admin/fitness?client=${id}`} className="btn-outline"><Dumbbell size={16} /> Fitness</Link>
+            <Link to={`/admin/home-visits?client=${id}`} className="btn-outline"><Home size={16} /> Home Visit</Link>
             <button onClick={() => setReporting(true)} className="btn-primary"><FileDown size={18} /> Generate Report</button>
             <button onClick={() => setEditing(true)} className="btn-ghost"><Pencil size={16} /> Update Registration</button>
             <button onClick={handleDelete} className="btn-ghost text-red-500 hover:bg-red-50"><Trash2 size={16} /></button>
@@ -165,11 +181,14 @@ export default function ClientDetail() {
       {/* Treatment sessions (per visit) */}
       <TreatmentSessions clientId={id} treatments={treatments} />
 
+      {/* Home visit sessions (per visit) */}
+      <HomeVisitSessions clientId={id} visits={homeVisits} />
+
       {/* Notes */}
       <NotesSection clientId={id} notes={notes} />
 
       {editing && <EditClientModal client={client} onClose={() => setEditing(false)} onSaved={async () => { setClient(await getClient(id)); setEditing(false) }} />}
-      {reporting && <ReportModal client={client} treatments={treatments} onClose={() => setReporting(false)} />}
+      {reporting && <ReportModal client={client} treatments={treatments} homeVisits={homeVisits} onClose={() => setReporting(false)} />}
     </div>
   )
 }
@@ -288,6 +307,108 @@ function SessionItem({ clientId, t, defaultOpen }) {
         <div className="mt-3 flex justify-end gap-4">
           <Link to={`/admin/treatment?client=${clientId}&session=${t.id}`} className="inline-flex items-center gap-1 text-xs font-medium text-brand-600 hover:text-brand-700"><Pencil size={14} /> Edit session</Link>
           <button onClick={() => { if (window.confirm('Delete this treatment session?')) { deleteTreatment(clientId, t.id); deleteAccountingForTreatment(t.id).catch(() => {}) } }} className="inline-flex items-center gap-1 text-xs text-red-500 hover:text-red-700"><Trash2 size={14} /> Delete session</button>
+        </div>
+      </div>
+    </details>
+  )
+}
+
+// ---- Home visit sessions (per-visit clinical records) ---------------------
+function HomeVisitSessions({ clientId, visits }) {
+  return (
+    <div className="card p-5">
+      <div className="mb-4 flex items-center justify-between">
+        <h2 className="flex items-center gap-2 font-bold text-slate-900"><Home size={18} className="text-brand-600" /> Home Visit Sessions {visits.length > 0 && <span className="text-sm font-medium text-slate-400">({visits.length})</span>}</h2>
+        <Link to={`/admin/home-visits?client=${clientId}`} className="btn-ghost px-3 py-1.5 text-sm"><Plus size={16} /> New visit</Link>
+      </div>
+      {visits.length === 0 ? (
+        <p className="py-8 text-center text-sm text-slate-400">No home visits yet. Record one from the Home Visits module.</p>
+      ) : (
+        <div className="space-y-3">
+          {visits.map((v, i) => <HomeVisitSessionItem key={v.id} clientId={clientId} v={v} defaultOpen={i === 0} />)}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// One home visit session — collapsible, with an editable per-visit note.
+function HomeVisitSessionItem({ clientId, v, defaultOpen }) {
+  const [editingNote, setEditingNote] = useState(false)
+  const [noteText, setNoteText] = useState(v.note || '')
+  const [savingNote, setSavingNote] = useState(false)
+  const groups = HOME_VISIT_GROUPS
+    .map(([title, pairs]) => [title, pairs.filter(([k]) => formatAssessmentValue(v[k]) !== '')])
+    .filter(([, p]) => p.length)
+
+  async function saveNote() {
+    setSavingNote(true)
+    try { await updateHomeVisit(clientId, v.id, { note: noteText.trim() }); setEditingNote(false) } finally { setSavingNote(false) }
+  }
+
+  return (
+    <details open={defaultOpen} className="rounded-2xl border border-slate-100 [&[open]_.chev]:rotate-90">
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-2 p-4">
+        <span className="flex flex-wrap items-center gap-x-3 text-sm">
+          <ChevronRight size={16} className="chev shrink-0 text-slate-400 transition-transform" />
+          <span className="font-semibold text-brand-700">{fmtDate(v.date)}</span>
+          {v.therapist && <span className="text-slate-500">{v.therapist}</span>}
+          {v.nextSession && <span className="inline-flex items-center gap-1 text-slate-500"><CalendarClock size={13} /> Next: {fmtDate(v.nextSession)}</span>}
+          {v.note && <span className="inline-flex items-center gap-1 text-xs text-amber-600"><NotebookPen size={12} /> note</span>}
+        </span>
+        <span className="text-xs text-slate-400">view</span>
+      </summary>
+
+      <div className="border-t border-slate-100 p-4 pt-3">
+        {groups.length > 0 && (
+          <div className="grid gap-x-8 gap-y-4 md:grid-cols-2">
+            {groups.map(([title, pairs]) => (
+              <div key={title}>
+                <p className="mb-1.5 text-xs font-bold uppercase tracking-wide text-brand-600">{title}</p>
+                <dl className="space-y-1">
+                  {pairs.map(([k, label]) => (
+                    <div key={k} className="flex gap-2 text-sm"><dt className="shrink-0 text-slate-400">{label}:</dt><dd className="whitespace-pre-line text-slate-700">{formatAssessmentValue(v[k])}</dd></div>
+                  ))}
+                </dl>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Billing for this visit */}
+        {v.bill && (Number(v.bill.amount) || Number(v.bill.paid)) ? (
+          <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 rounded-xl bg-brand-50/60 px-3 py-2 text-sm">
+            <span className="font-semibold text-brand-700">Billing</span>
+            {v.bill.service && <span className="text-slate-600">{v.bill.service}</span>}
+            <span className="text-slate-600">Charged Rs. {Number(v.bill.amount || 0).toLocaleString('en-IN')}</span>
+            <span className="text-emerald-600">Paid Rs. {Number(v.bill.paid || 0).toLocaleString('en-IN')}</span>
+            <span className={Number(v.bill.balance) > 0 ? 'text-red-600' : 'text-slate-500'}>Due Rs. {Number(v.bill.balance || 0).toLocaleString('en-IN')}</span>
+            {v.bill.mode && <span className="text-slate-500">· {v.bill.mode}</span>}
+          </div>
+        ) : null}
+
+        {/* Per-visit note */}
+        <div className="mt-3 rounded-xl bg-slate-50 p-3">
+          <p className="mb-1 text-xs font-bold uppercase tracking-wide text-slate-500">Visit note</p>
+          {editingNote ? (
+            <div>
+              <textarea className="input min-h-[60px]" value={noteText} onChange={(e) => setNoteText(e.target.value)} placeholder="Add a note for this visit…" autoFocus />
+              <div className="mt-2 flex gap-2">
+                <button onClick={saveNote} disabled={savingNote} className="btn-primary px-3 py-1.5 text-xs">{savingNote ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />} Save note</button>
+                <button onClick={() => { setNoteText(v.note || ''); setEditingNote(false) }} className="btn-ghost px-3 py-1.5 text-xs">Cancel</button>
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-start justify-between gap-2">
+              <p className="whitespace-pre-line text-sm text-slate-700">{v.note || <span className="text-slate-400">No note yet.</span>}</p>
+              <button onClick={() => { setNoteText(v.note || ''); setEditingNote(true) }} className="shrink-0 text-xs font-semibold text-brand-600 hover:underline">{v.note ? 'Edit' : '+ Add note'}</button>
+            </div>
+          )}
+        </div>
+
+        <div className="mt-3 flex justify-end gap-4">
+          <Link to={`/admin/home-visits?client=${clientId}&visit=${v.id}`} className="inline-flex items-center gap-1 text-xs font-medium text-brand-600 hover:text-brand-700"><Pencil size={14} /> Edit visit</Link>
+          <button onClick={() => { if (window.confirm('Delete this home visit?')) { deleteHomeVisit(clientId, v.id); deleteAccountingForHomeVisit(v.id).catch(() => {}) } }} className="inline-flex items-center gap-1 text-xs text-red-500 hover:text-red-700"><Trash2 size={14} /> Delete visit</button>
         </div>
       </div>
     </details>
@@ -439,17 +560,30 @@ function ActiveSessions({ client }) {
 // ---- Report + billing modal ----------------------------------------------
 const PAY_MODES = ['Cash', 'UPI', 'Card', 'Bank transfer', 'Other']
 
-function ReportModal({ client, treatments, onClose }) {
+function ReportModal({ client, treatments, homeVisits = [], onClose }) {
   // Legacy clients (registered before program-tagging existed) default to
   // Physio, matching the app's original behavior.
   const hasPrograms = Array.isArray(client.programs) && client.programs.length > 0
   const isPhysio = !hasPrograms || client.programs.includes('W2W Treatment')
   const isRehab = hasPrograms && client.programs.includes('W2W Fitness & Rehab')
-  const isBoth = isPhysio && isRehab
+  const isFitness = hasPrograms && client.programs.includes('W2W Fitness')
+  const isHomeVisit = hasPrograms && client.programs.includes('W2W Home Visit')
+  const available = [isPhysio && 'physio', isRehab && 'rehab', isFitness && 'fitness', isHomeVisit && 'homevisit'].filter(Boolean)
+  const isBoth = available.length > 1
 
-  const [scope, setScope] = useState(isBoth ? 'physio' : isRehab ? 'rehab' : 'physio')
-  const includesPhysio = scope === 'physio' || scope === 'both'
-  const includesRehab = scope === 'rehab' || scope === 'both'
+  // Multi-select scope — a client can be tagged for any combination of the
+  // four programs, so each report type toggles independently rather than
+  // being a single radio choice.
+  const [scopeSet, setScopeSet] = useState(() => new Set(available.length ? available : ['physio']))
+  const toggleScope = (s) => setScopeSet((prev) => {
+    const next = new Set(prev)
+    if (next.has(s)) { if (next.size > 1) next.delete(s) } else next.add(s)
+    return next
+  })
+  const includesPhysio = scopeSet.has('physio')
+  const includesRehab = scopeSet.has('rehab')
+  const includesFitness = scopeSet.has('fitness')
+  const includesHomeVisit = scopeSet.has('homevisit')
 
   const [selectedIds, setSelectedIds] = useState(() => treatments.map((t) => t.id)) // all by default
   const [rehabPlans, setRehabPlans] = useState([])
@@ -467,6 +601,22 @@ function ReportModal({ client, treatments, onClose }) {
   const allPlansSelected = rehabPlans.length > 0 && selectedPlanIds.length === rehabPlans.length
   const togglePlan = (id) => setSelectedPlanIds((ids) => (ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id]))
   const toggleAllPlans = () => setSelectedPlanIds(allPlansSelected ? [] : rehabPlans.map((p) => p.id))
+
+  const [fitnessPlans, setFitnessPlans] = useState([])
+  const [selectedFitnessPlanIds, setSelectedFitnessPlanIds] = useState([])
+  useEffect(() => {
+    if (!includesFitness) return
+    let live = true
+    getFitnessPlansOnce(client.id).then((plans) => {
+      if (!live) return
+      setFitnessPlans(plans)
+      setSelectedFitnessPlanIds(plans.map((p) => p.id)) // all by default
+    })
+    return () => { live = false }
+  }, [includesFitness, client.id])
+  const allFitnessPlansSelected = fitnessPlans.length > 0 && selectedFitnessPlanIds.length === fitnessPlans.length
+  const toggleFitnessPlan = (id) => setSelectedFitnessPlanIds((ids) => (ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id]))
+  const toggleAllFitnessPlans = () => setSelectedFitnessPlanIds(allFitnessPlansSelected ? [] : fitnessPlans.map((p) => p.id))
   const [therapist, setTherapist] = useState(client.therapist || 'Sakthi Saravanan')
   const [chargeDate, setChargeDate] = useState(todayISO())
   // Pre-fill billing from the sessions' own charges (entered in the Treatment form).
@@ -487,6 +637,11 @@ function ReportModal({ client, treatments, onClose }) {
   const allSelected = treatments.length > 0 && selectedIds.length === treatments.length
   const toggleSession = (id) => setSelectedIds((ids) => (ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id]))
   const toggleAll = () => setSelectedIds(allSelected ? [] : treatments.map((t) => t.id))
+
+  const [selectedVisitIds, setSelectedVisitIds] = useState(() => homeVisits.map((v) => v.id)) // all by default
+  const allVisitsSelected = homeVisits.length > 0 && selectedVisitIds.length === homeVisits.length
+  const toggleVisit = (id) => setSelectedVisitIds((ids) => (ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id]))
+  const toggleAllVisits = () => setSelectedVisitIds(allVisitsSelected ? [] : homeVisits.map((v) => v.id))
 
   const balance = Math.max(0, (Number(amount) || 0) - (Number(paid) || 0))
   const money = (set) => (e) => set(onlyDigits(e.target.value).slice(0, 7))
@@ -515,8 +670,25 @@ function ReportModal({ client, treatments, onClose }) {
         }
       }
       if (includesRehab) {
-        const plans = rehabPlans.filter((p) => selectedPlanIds.includes(p.id))
+        // Re-fetch rather than trust the plans fetched when the modal opened —
+        // Track Progress edits made just before opening this modal need to be
+        // reflected, not whatever was current a moment ago.
+        const freshPlans = await getRehabPlansOnce(client.id)
+        const plans = freshPlans.filter((p) => selectedPlanIds.includes(p.id))
         results.push(await generateRehabReport(client, { plans, action }))
+      }
+      if (includesFitness) {
+        const freshPlans = await getFitnessPlansOnce(client.id)
+        const plans = freshPlans.filter((p) => selectedFitnessPlanIds.includes(p.id))
+        results.push(await generateFitnessReport(client, { plans, action }))
+      }
+      if (includesHomeVisit) {
+        const freshVisits = await getHomeVisitsOnce(client.id)
+        const sessions = freshVisits
+          .filter((v) => selectedVisitIds.includes(v.id))
+          .sort((a, b) => (a.date || '').localeCompare(b.date || ''))
+        const baseClient = { ...client, assessmentDate: sessions[0]?.date || todayISO() }
+        results.push(await generateHomeVisitReport(baseClient, { notes: [], progress: [], therapist, bill: null, action, sessions, signature: null }))
       }
       if (results.includes('shared')) setMsg(results.length > 1 ? 'Reports shared.' : 'Report shared.')
       else if (results.includes('downloaded')) setMsg(results.length > 1 ? 'Reports downloaded.' : 'Report downloaded.')
@@ -538,14 +710,16 @@ function ReportModal({ client, treatments, onClose }) {
           <button onClick={onClose} className="rounded-full p-1.5 text-slate-400 hover:bg-slate-100"><X size={22} /></button>
         </div>
 
-        {/* Report scope — only relevant when the patient is registered for both */}
+        {/* Report scope — only relevant when the patient is registered for more than one program. Each toggles independently; picking several generates one file per report. */}
         {isBoth && (
           <div>
-            <label className="label text-xs">Which report?</label>
+            <label className="label text-xs">Which report(s)? (tap to toggle, combine as needed)</label>
             <div className="flex flex-wrap gap-2">
-              {[['physio', 'Physio Treatment'], ['rehab', 'Rehab & Exercises'], ['both', 'Both (2 files)']].map(([v, l]) => (
-                <button key={v} type="button" onClick={() => setScope(v)} className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${scope === v ? 'bg-brand-600 text-white shadow' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>{l}</button>
-              ))}
+              {[['physio', 'Physio Treatment'], ['rehab', 'Rehab & Exercises'], ['fitness', 'Fitness Program'], ['homevisit', 'Home Visit']]
+                .filter(([v]) => available.includes(v))
+                .map(([v, l]) => (
+                  <button key={v} type="button" onClick={() => toggleScope(v)} className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${scopeSet.has(v) ? 'bg-brand-600 text-white shadow' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>{l}</button>
+                ))}
             </div>
           </div>
         )}
@@ -612,8 +786,69 @@ function ReportModal({ client, treatments, onClose }) {
           </div>
         )}
 
+        {includesFitness && (
+          <div>
+            <div className="flex items-center justify-between">
+              <label className="label text-xs">Fitness plans to include</label>
+              {fitnessPlans.length > 0 && (
+                <button type="button" onClick={toggleAllFitnessPlans} className="text-xs font-semibold text-brand-600 hover:underline">
+                  {allFitnessPlansSelected ? 'Clear all' : 'Select all'}
+                </button>
+              )}
+            </div>
+            {fitnessPlans.length === 0 ? (
+              <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700">No fitness plans yet — this report will include basic details only.</p>
+            ) : (
+              <div className="max-h-44 space-y-1 overflow-y-auto rounded-xl border border-slate-200 p-2">
+                {fitnessPlans.map((p, i) => {
+                  const totalDays = p.totalDays || (p.days || []).length
+                  const doneCount = (p.days || []).filter((d) => d.completed).length
+                  return (
+                    <label key={p.id} className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-sm hover:bg-slate-50">
+                      <input type="checkbox" checked={selectedFitnessPlanIds.includes(p.id)} onChange={() => toggleFitnessPlan(p.id)} className="h-4 w-4 rounded border-slate-300 text-brand-600" />
+                      <span className="font-medium text-slate-700">{fmtDate(p.startDate)} · {totalDays} day{totalDays > 1 ? 's' : ''}</span>
+                      {p.bill?.service && <span className="text-xs text-slate-400">· {p.bill.service}</span>}
+                      <span className="text-xs text-emerald-600">· {doneCount}/{p.days?.length || totalDays} done</span>
+                      {i === 0 && <span className="text-[11px] font-semibold text-brand-500">latest</span>}
+                    </label>
+                  )
+                })}
+              </div>
+            )}
+            <p className="mt-1 text-xs text-slate-400">Tick one, several, or all plans — they're combined into a single report.</p>
+          </div>
+        )}
+
+        {includesHomeVisit && (
+          <div>
+            <div className="flex items-center justify-between">
+              <label className="label text-xs">Home visits to include</label>
+              {homeVisits.length > 0 && (
+                <button type="button" onClick={toggleAllVisits} className="text-xs font-semibold text-brand-600 hover:underline">
+                  {allVisitsSelected ? 'Clear all' : 'Select all'}
+                </button>
+              )}
+            </div>
+            {homeVisits.length === 0 ? (
+              <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700">No home visits yet — this report will include basic details only.</p>
+            ) : (
+              <div className="max-h-44 space-y-1 overflow-y-auto rounded-xl border border-slate-200 p-2">
+                {homeVisits.map((v, i) => (
+                  <label key={v.id} className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-sm hover:bg-slate-50">
+                    <input type="checkbox" checked={selectedVisitIds.includes(v.id)} onChange={() => toggleVisit(v.id)} className="h-4 w-4 rounded border-slate-300 text-brand-600" />
+                    <span className="font-medium text-slate-700">{fmtDate(v.date)}</span>
+                    {v.therapist && <span className="text-xs text-slate-400">· {v.therapist}</span>}
+                    {i === 0 && <span className="text-[11px] font-semibold text-brand-500">latest</span>}
+                  </label>
+                ))}
+              </div>
+            )}
+            <p className="mt-1 text-xs text-slate-400">Tick one, several, or all visits — they're combined into a single report.</p>
+          </div>
+        )}
+
         {/* Therapist */}
-        {includesPhysio && (
+        {(includesPhysio || includesHomeVisit) && (
           <div>
             <label className="label text-xs">Treatment given by (Physiotherapist)</label>
             <TherapistSelect value={therapist} onChange={setTherapist} />

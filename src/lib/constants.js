@@ -167,10 +167,25 @@ export const CONSENT_DECLARATION_FITNESS =
   + 'responsibility for the information I have provided and willingly agree to proceed with the '
   + 'fitness program.'
 
+// Same declaration again, worded for patients on the Home Visit program —
+// physiotherapy assessment & treatment delivered at the patient's own
+// residence rather than at the clinic, so it adds the address/access and
+// home-environment acknowledgements the clinic-based wording doesn't need.
+export const CONSENT_DECLARATION_HOMEVISIT =
+  'I voluntarily consent to a physiotherapy assessment and home-visit treatment by a qualified physiotherapist '
+  + 'from W2W Fitness & Rehab at my residence / the address provided. I confirm that this is my own decision, '
+  + 'and that the nature and purpose of the home-visit assessment and treatment have been explained to me. '
+  + 'During treatment it may be necessary to expose and touch the area in need of treatment — every effort is '
+  + 'made to preserve modesty and keep me comfortable, and I am free to ask questions or decline any part of '
+  + 'the treatment at any time. I confirm that the address and access details I have provided are accurate and '
+  + 'that a safe, private space will be made available for the session. I take responsibility for the '
+  + 'information I have provided and willingly agree to proceed with home-visit physiotherapy care.'
+
 // Picks the right wording for a client/registration, in order of priority:
-// physio (most comprehensive) > rehab-only > fitness-only > default physio.
+// home visit (most specific) > physio > rehab-only > fitness-only > default physio.
 export function consentDeclarationFor(programs) {
   const list = Array.isArray(programs) ? programs : []
+  if (list.includes('W2W Home Visit')) return CONSENT_DECLARATION_HOMEVISIT
   if (list.includes('W2W Treatment')) return CONSENT_DECLARATION
   if (list.includes('W2W Fitness & Rehab')) return CONSENT_DECLARATION_REHAB
   if (list.includes('W2W Fitness')) return CONSENT_DECLARATION_FITNESS
@@ -245,7 +260,7 @@ export const SLOT_TIMES = [
 // Each appointment slot is 30 minutes long.
 export const SLOT_MINUTES = 30
 
-export const SERVICE_OPTIONS = [...SERVICES.map((s) => s.title), 'Rehab']
+export const SERVICE_OPTIONS = [...SERVICES.map((s) => s.title), 'Rehab', 'Home Visit']
 
 // Services that can be booked as an appointment (website + admin).
 export const BOOKABLE_SERVICES = ['Physiotherapy', 'Rehab']
