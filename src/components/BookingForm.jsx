@@ -98,7 +98,7 @@ export default function BookingForm({ preset = {}, onDone }) {
           <strong>{formatSlot(form.time)}</strong>.
         </p>
         <p className="mx-auto mt-4 max-w-sm rounded-xl bg-amber-50 px-4 py-2.5 text-sm font-semibold text-amber-800">
-          Kindly arrive 15 minutes prior to your appointment.
+          Kindly reach on time for your appointment.
         </p>
         <p className="mt-4 text-sm text-slate-500">
           Questions? WhatsApp us at{' '}

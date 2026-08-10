@@ -31,7 +31,7 @@ const apptWhatsApp = (a) =>
   `Hi ${a.name}, greetings from W2W Fitness & Rehab!\n\n` +
   `Thank you for booking with us. Your ${a.service || 'appointment'} is *confirmed* for ` +
   `${fmtDate(a.date)} at ${fmt12h(a.time)}.\n\n` +
-  `Kindly arrive 15 minutes prior to your appointment. To reschedule, just reply to this message.\n\n— Team W2W (Way to Wellness)`
+  `Kindly reach on time for your appointment. To reschedule, just reply to this message.\n\n— Team W2W (Way to Wellness)`
 
 export default function Appointments() {
   const [items, setItems] = useState([])

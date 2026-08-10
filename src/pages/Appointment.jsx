@@ -60,7 +60,7 @@ export default function Appointment() {
               </ul>
             </div>
             <div className="rounded-2xl bg-amber-50 p-5 text-sm font-medium text-amber-800">
-              Kindly arrive 15 minutes prior to your appointment.
+              Kindly reach on time for your appointment.
             </div>
           </aside>
         </div>
