@@ -162,18 +162,27 @@ function footerAll(doc) {
   }
 }
 
-// Save (download) or share the finished doc. Returns a promise.
+// Save (download), share, or both. Returns a promise.
+//   'download' — save only
+//   'share'    — share sheet only (falls back to save if sharing isn't available)
+//   'both'     — always saves AND attempts to share, so the file is never
+//                left undownloaded just because the share sheet was cancelled
+//                or unsupported (used by the Invoice "Download & Send" button).
 async function finalize(doc, filename, action = 'download', shareText) {
-  if (action === 'share') {
+  if (action === 'share' || action === 'both') {
     try {
       const blob = doc.output('blob')
       const file = new File([blob], filename, { type: 'application/pdf' })
       if (typeof navigator !== 'undefined' && navigator.canShare && navigator.canShare({ files: [file] })) {
+        if (action === 'both') doc.save(filename)
         await navigator.share({ files: [file], title: filename, text: shareText || filename })
-        return 'shared'
+        return action === 'both' ? 'downloaded-and-shared' : 'shared'
       }
     } catch (err) {
-      if (err?.name === 'AbortError') return 'cancelled' // user dismissed the share sheet
+      if (err?.name === 'AbortError') {
+        if (action === 'both') { doc.save(filename); return 'downloaded' } // still download even if the share sheet was cancelled
+        return 'cancelled'
+      }
       // otherwise fall through to a normal download
     }
   }
@@ -1075,9 +1084,11 @@ function amountInWordsINR(n) {
 }
 
 // ---------------------------------------------------------------------------
-//  Tax Invoice — client (or a manually-entered name/contact), line items,
-//  totals, received/balance, terms & conditions, and the authorized
-//  signatory block (Sakthi Saravanan's signature + the official W2W seal).
+//  Treatment Invoice — client (or a manually-entered name/contact), line
+//  items, totals, received/balance, the authorized signatory block (Sakthi
+//  Saravanan's signature + the official W2W seal, centered in the right
+//  corner) and Terms & Conditions as the very last block before the footer.
+//  A4, standard margins (same M/CW as every other report in this file).
 //  `invoice`: { invoiceNo, date, clientName, clientPhone, items: [{name,
 //  qty, price, amount}], received, terms }
 // ---------------------------------------------------------------------------
@@ -1085,7 +1096,7 @@ export async function generateInvoice(invoice, opts = {}) {
   const { action = 'download' } = opts
   const logo = await loadLogo()
   const doc = new jsPDF({ unit: 'mm', format: 'a4' })
-  let y = header(doc, logo, 'Tax Invoice')
+  let y = header(doc, logo, 'TREATMENT INVOICE')
 
   // Bill To / Invoice Details box
   y += 2
@@ -1096,7 +1107,7 @@ export async function generateInvoice(invoice, opts = {}) {
   doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.setTextColor(...DARK)
   doc.text('Bill To', M + 3, y + 6)
   doc.text('Invoice Details', M + CW / 2 + 3, y + 6)
-  doc.setFont('helvetica', 'normal'); doc.setFontSize(9.5); doc.setTextColor(60)
+  doc.setFontSize(9.5); doc.setTextColor(50) // bold throughout — the client/invoice facts are the first things read
   fitText(doc, invoice.clientName || '—', M + 3, y + 13, CW / 2 - 6, 9.5)
   fitText(doc, `Contact: ${invoice.clientPhone || '—'}`, M + 3, y + 19, CW / 2 - 6, 9.5)
   fitText(doc, `Invoice No: ${invoice.invoiceNo || '—'}`, M + CW / 2 + 3, y + 13, CW / 2 - 6, 9.5)
@@ -1109,7 +1120,7 @@ export async function generateInvoice(invoice, opts = {}) {
     startY: y,
     head: [['#', 'Item Name', 'Qty', 'Price/Unit', 'Amount']],
     body: items.map((it, i) => [String(i + 1), it.name || '—', String(it.qty || 1), inr(it.price), inr(it.amount)]),
-    theme: 'grid', headStyles: { fillColor: BRAND, fontSize: 9.5 }, bodyStyles: { fontSize: 9.5 },
+    theme: 'grid', headStyles: { fillColor: BRAND, fontSize: 9.5 }, bodyStyles: { fontSize: 9.5, fontStyle: 'bold', textColor: DARK },
     columnStyles: { 0: { cellWidth: 10, halign: 'center' }, 2: { cellWidth: 18, halign: 'center' }, 3: { cellWidth: 32, halign: 'right' }, 4: { cellWidth: 32, halign: 'right' } },
     margin: { left: M, right: M },
   })
@@ -1130,8 +1141,8 @@ export async function generateInvoice(invoice, opts = {}) {
       ['Received', inr(received)],
       ['Balance', inr(balance)],
     ],
-    theme: 'grid', styles: { fontSize: 9.5, textColor: DARK },
-    columnStyles: { 0: { fontStyle: 'bold', cellWidth: totW / 2 }, 1: { halign: 'right', cellWidth: totW / 2 } },
+    theme: 'grid', styles: { fontSize: 9.5, fontStyle: 'bold', textColor: DARK },
+    columnStyles: { 0: { cellWidth: totW / 2 }, 1: { halign: 'right', cellWidth: totW / 2 } },
     margin: { left: PW - M - totW, right: M },
     tableWidth: totW,
   })
@@ -1139,38 +1150,58 @@ export async function generateInvoice(invoice, opts = {}) {
 
   doc.setFont('helvetica', 'bold'); doc.setFontSize(8.5); doc.setTextColor(...DARK)
   doc.text('Invoice Amount In Words:', M, y + 4)
-  doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5); doc.setTextColor(70)
+  doc.setFontSize(8.5); doc.setTextColor(60)
   const words = doc.splitTextToSize(amountInWordsINR(subtotal), CW - totW - 10)
   doc.text(words, M, y + 9)
-  y = Math.max(totalsY, y + 9 + words.length * 4.2) + 8
+  y = Math.max(totalsY, y + 9 + words.length * 4.2) + 10
 
-  // Terms & Conditions
-  if (invoice.terms) {
-    y = sectionHeader(doc, y, 'Terms and Conditions')
-    doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5); doc.setTextColor(70)
-    const termLines = doc.splitTextToSize(invoice.terms, CW - 4)
-    y = ensure(doc, y, termLines.length * 4.2 + 4)
-    doc.text(termLines, M + 2, y)
-    y += termLines.length * 4.2 + 8
-  }
+  // Authorized signatory block — centered column anchored to the right
+  // corner: business name, signature (centered above the line), the line
+  // itself, "Authorized Signatory" and the physiotherapist's name +
+  // qualification, all centered under each other. The official seal sits
+  // just left of this column, 45% larger than a "normal" report signature
+  // stamp (20mm → 29mm) since it's the headline mark on an invoice.
+  y = ensure(doc, y, 48)
+  const colW = 76
+  const colX = PW - M - colW
+  const cx = colX + colW / 2
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(10); doc.setTextColor(...DARK)
+  doc.text('Way to Wellness Fitness & Rehab', cx, y, { align: 'center' })
 
-  // Signature + official seal
-  y = ensure(doc, y, 34)
-  doc.setDrawColor(150); doc.setLineWidth(0.3)
-  doc.line(PW - M - 70, y + 18, PW - M, y + 18)
+  const lineY = y + 23
   const [sig, seal] = await Promise.all([
     loadImageData(signatureFor('Sakthi Saravanan')),
     loadImageData('/w2w-official-seal.png'),
   ])
   if (seal) {
-    const sw = 20, sh = 20
-    try { doc.addImage(seal.dataUrl, seal.fmt, PW - M - 92, y - 2, sw, sh) } catch { /* ignore bad image */ }
+    const sw = 29, sh = 29 // +45% over the standard 20mm report stamp
+    try { doc.addImage(seal.dataUrl, seal.fmt, colX - 24, y - 3, sw, sh) } catch { /* ignore bad image */ }
   }
-  drawSignature(doc, sig, PW - M - 70, y + 18, 66, 15)
+  if (sig) {
+    let w = 15 * sig.ratio, h = 15
+    if (w > 60) { w = 60; h = 60 / sig.ratio }
+    try { doc.addImage(sig.dataUrl, sig.fmt, cx - w / 2, lineY - h - 1, w, h) } catch { /* ignore bad image */ }
+  }
+  doc.setDrawColor(150); doc.setLineWidth(0.3)
+  doc.line(cx - 30, lineY, cx + 30, lineY)
   doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.setTextColor(...DARK)
-  doc.text('For Way to Wellness Fitness & Rehab', PW - M - 70, y - 4)
-  doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5); doc.setTextColor(90)
-  doc.text('Authorized Signatory', PW - M - 70, y + 23)
+  doc.text('Authorized Signatory', cx, lineY + 5, { align: 'center' })
+  doc.setFontSize(8.5); doc.setTextColor(80)
+  doc.text('Sakthi Saravanan', cx, lineY + 10, { align: 'center' })
+  const quals = qualificationFor('Sakthi Saravanan')
+  if (quals) { doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5); doc.setTextColor(110); doc.text(quals, cx, lineY + 14, { align: 'center' }) }
+  y = lineY + 20
+
+  // Terms & Conditions — the very last content block before the footer.
+  if (invoice.terms) {
+    y = ensure(doc, y, 24)
+    y = sectionHeader(doc, y, 'Terms and Conditions')
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(8.5); doc.setTextColor(70)
+    const termLines = doc.splitTextToSize(invoice.terms, CW - 4)
+    y = ensure(doc, y, termLines.length * 4.2 + 4)
+    doc.text(termLines, M + 2, y)
+    y += termLines.length * 4.2 + 4
+  }
 
   footerAll(doc)
   const filename = `W2W_Invoice_${invoice.invoiceNo || 'draft'}_${(invoice.clientName || 'client').replace(/\s+/g, '_')}.pdf`

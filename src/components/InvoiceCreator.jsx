@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import {
-  Search, Plus, Trash2, Star, FileDown, Send, Loader2, IndianRupee, Receipt, X, CheckCircle2,
+  Search, Plus, Trash2, Star, FileDown, Send, Loader2, IndianRupee, Receipt, X, CheckCircle2, Save,
 } from 'lucide-react'
 import {
   watchClients, watchServiceCharges, watchInvoiceServices, addInvoiceService,
@@ -9,25 +10,38 @@ import {
 import { generateInvoice } from '../lib/pdf'
 import { todayISO, fmtDate } from '../lib/format'
 import { onlyDigits, isValidMobile } from '../lib/validate'
+import { useFavorites } from '../lib/useFavorites'
 import DateField from './DateField'
 
 const rs = (n) => 'Rs. ' + Number(n || 0).toLocaleString('en-IN')
+const TERMS_KEY = 'w2w_invoice_terms_default'
 
-const DEFAULT_TERMS =
+const FALLBACK_TERMS =
   '1. Amount once paid is non-refundable.\n'
   + '2. Please retain this invoice for your records — it may be required for insurance or reimbursement claims.\n'
   + '3. For any billing queries, please contact us within 7 days of the invoice date.'
 
+function loadDefaultTerms() {
+  try { return localStorage.getItem(TERMS_KEY) || FALLBACK_TERMS } catch { return FALLBACK_TERMS }
+}
+
 const blankItem = () => ({ name: '', qty: '1', price: '', amount: 0 })
 
-// One line item — a free-typed name with a combined-services suggestions
-// list underneath (clinic services from Accounting, read-only reuse here,
-// plus this module's own invoice-only favorites). Picking a suggestion
-// auto-fills the price; typing a brand-new name+price offers "Save as
-// favorite", which writes ONLY to the invoice-only list — it deliberately
-// never touches the shared serviceCharges collection.
-function ItemRow({ item, onChange, onRemove, suggestions, onSaveFavorite }) {
+// One line item's name/price picker — a free-typed name with a portal-rendered
+// suggestions dropdown (never clipped by the table's scroll container, unlike
+// an absolutely-positioned one would be) combining clinic services (from
+// Accounting, reused read-only) with this module's own invoice-only
+// favorites. Favoriting is local (per-browser), so starring an item here
+// never writes back to the shared serviceCharges collection. Typing a
+// brand-new name + price offers "Save this service", which adds it ONLY to
+// the invoice-only list.
+function ItemPicker({ item, onChange, suggestions, favorites, onSaveService }) {
   const [open, setOpen] = useState(false)
+  const [pos, setPos] = useState(null)
+  const [saving, setSaving] = useState(false)
+  const btnRef = useRef(null)
+  const popRef = useRef(null)
+
   const set = (k) => (v) => {
     const next = { ...item, [k]: v }
     const qty = Number(next.qty) || 0
@@ -35,43 +49,114 @@ function ItemRow({ item, onChange, onRemove, suggestions, onSaveFavorite }) {
     next.amount = qty * price
     onChange(next)
   }
-  const isKnown = suggestions.some((s) => s.name.toLowerCase() === item.name.trim().toLowerCase())
-  const matches = item.name.trim()
-    ? suggestions.filter((s) => s.name.toLowerCase().includes(item.name.trim().toLowerCase())).slice(0, 6)
-    : suggestions.slice(0, 6)
 
+  useLayoutEffect(() => {
+    if (!open) return
+    const place = () => {
+      const b = btnRef.current
+      if (!b) return
+      const r = b.getBoundingClientRect()
+      const popH = popRef.current?.offsetHeight || 260
+      const gap = 4
+      let top = r.bottom + gap
+      if (top + popH > window.innerHeight - 8 && r.top - gap - popH > 8) top = r.top - gap - popH
+      setPos({ top, left: r.left, width: Math.max(r.width, 260) })
+    }
+    place()
+    window.addEventListener('resize', place)
+    window.addEventListener('scroll', place, true)
+    return () => { window.removeEventListener('resize', place); window.removeEventListener('scroll', place, true) }
+  }, [open])
+
+  useEffect(() => {
+    if (!open) return
+    const onDoc = (e) => {
+      if (btnRef.current?.contains(e.target)) return
+      if (popRef.current?.contains(e.target)) return
+      setOpen(false)
+    }
+    document.addEventListener('mousedown', onDoc)
+    return () => document.removeEventListener('mousedown', onDoc)
+  }, [open])
+
+  const q = item.name.trim().toLowerCase()
+  const isKnown = suggestions.some((s) => s.name.toLowerCase() === q)
+  const matched = q ? suggestions.filter((s) => s.name.toLowerCase().includes(q)) : suggestions
+  const sorted = favorites.sortWithFavs(matched, (s) => s.name)
+
+  function pick(s) {
+    const next = { ...item, name: s.name, price: String(s.amount) }
+    next.amount = (Number(next.qty) || 0) * s.amount
+    onChange(next)
+    setOpen(false)
+  }
+
+  async function saveService() {
+    const amt = Number(item.price) || 0
+    if (!item.name.trim() || !amt) return
+    setSaving(true)
+    try { await onSaveService(item.name.trim(), amt) } finally { setSaving(false) }
+  }
+
+  const popover = (
+    <div
+      ref={popRef}
+      style={{ position: 'fixed', top: pos?.top ?? -9999, left: pos?.left ?? -9999, width: pos?.width ?? 260 }}
+      className="z-[200] overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl"
+    >
+      <ul className="max-h-56 overflow-y-auto py-1 text-sm">
+        {sorted.length === 0 && <li className="px-3 py-2 text-slate-400">No matching services.</li>}
+        {sorted.map((s) => (
+          <li key={`${s.source}:${s.name}`} className="flex items-center gap-0.5 pr-1">
+            <button
+              type="button" title={favorites.isFav(s.name) ? 'Unfavorite' : 'Mark as favorite'}
+              onClick={(e) => { e.stopPropagation(); favorites.toggle(s.name) }}
+              className="grid h-7 w-7 shrink-0 place-items-center rounded text-slate-300 hover:bg-amber-50 hover:text-amber-400"
+            >
+              <Star size={13} className={favorites.isFav(s.name) ? 'fill-amber-400 text-amber-400' : ''} />
+            </button>
+            <button type="button" onClick={() => pick(s)} className="flex min-w-0 flex-1 items-center justify-between gap-2 px-1 py-1.5 text-left hover:bg-brand-50">
+              <span className="min-w-0 truncate">{s.name}</span>
+              <span className="shrink-0 text-xs text-slate-400">{rs(s.amount)}</span>
+            </button>
+          </li>
+        ))}
+      </ul>
+      {!isKnown && item.name.trim() && (
+        <div className="border-t border-slate-100 p-2">
+          <button type="button" onClick={saveService} disabled={saving || !Number(item.price)} className="btn-outline w-full px-2.5 py-1.5 text-xs disabled:opacity-40">
+            {saving ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />} Save this service (for Invoices only)
+          </button>
+          {!Number(item.price) && <p className="mt-1 text-center text-[10px] text-slate-400">Enter a price first</p>}
+        </div>
+      )}
+    </div>
+  )
+
+  return (
+    <div className="relative">
+      <input
+        ref={btnRef} className="input h-9 text-sm" value={item.name} placeholder="Item / service name"
+        onChange={(e) => set('name')(e.target.value)}
+        onFocus={() => setOpen(true)}
+      />
+      {open && typeof document !== 'undefined' && createPortal(popover, document.body)}
+    </div>
+  )
+}
+
+function ItemRow({ item, onChange, onRemove, suggestions, favorites, onSaveService }) {
+  const set = (k) => (v) => {
+    const next = { ...item, [k]: v }
+    const qty = Number(next.qty) || 0
+    const price = Number(next.price) || 0
+    next.amount = qty * price
+    onChange(next)
+  }
   return (
     <tr className="border-b border-slate-100 align-top">
       <td className="py-2 pr-2">
-        <div className="relative">
-          <input
-            className="input h-9 text-sm" value={item.name} placeholder="Item / service name"
-            onChange={(e) => set('name')(e.target.value)}
-            onFocus={() => setOpen(true)}
-            onBlur={() => setTimeout(() => setOpen(false), 150)}
-          />
-          {open && matches.length > 0 && (
-            <ul className="absolute z-20 mt-1 max-h-48 w-56 overflow-y-auto rounded-xl border border-slate-200 bg-white py-1 text-sm shadow-xl">
-              {matches.map((s) => (
-                <li key={s.source + s.name}>
-                  <button
-                    type="button"
-                    onMouseDown={(e) => { e.preventDefault(); const next = { ...item, name: s.name, price: String(s.amount) }; next.amount = (Number(next.qty) || 0) * s.amount; onChange(next); setOpen(false) }}
-                    className="flex w-full items-center justify-between gap-2 px-3 py-1.5 text-left hover:bg-brand-50"
-                  >
-                    <span className="truncate">{s.name}</span>
-                    <span className="shrink-0 text-xs text-slate-400">{rs(s.amount)}</span>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-        {item.name.trim() && !isKnown && (
-          <button type="button" onClick={() => onSaveFavorite(item.name.trim(), item.price)} className="mt-1 flex items-center gap-1 text-[11px] font-semibold text-brand-600 hover:underline">
-            <Star size={11} /> Save as favorite
-          </button>
-        )}
+        <ItemPicker item={item} onChange={onChange} suggestions={suggestions} favorites={favorites} onSaveService={onSaveService} />
       </td>
       <td className="w-16 py-2 pr-2"><input className="input h-9 text-center text-sm" inputMode="numeric" value={item.qty} onChange={(e) => set('qty')(onlyDigits(e.target.value).slice(0, 3) || '1')} /></td>
       <td className="w-28 py-2 pr-2"><input className="input h-9 text-sm" inputMode="numeric" value={item.price} placeholder="0" onChange={(e) => set('price')(onlyDigits(e.target.value).slice(0, 8))} /></td>
@@ -88,6 +173,7 @@ export default function InvoiceCreator() {
   const [serviceCharges, setServiceCharges] = useState([])
   const [invoiceServices, setInvoiceServices] = useState([])
   const [recent, setRecent] = useState([])
+  const favorites = useFavorites('invoice_items')
 
   const [lookup, setLookup] = useState('')
   const [pickedClient, setPickedClient] = useState(null)
@@ -96,10 +182,11 @@ export default function InvoiceCreator() {
   const [date, setDate] = useState(todayISO())
   const [items, setItems] = useState([blankItem()])
   const [received, setReceived] = useState('')
-  const [terms, setTerms] = useState(DEFAULT_TERMS)
+  const [terms, setTerms] = useState(loadDefaultTerms)
   const [busy, setBusy] = useState('')
   const [msg, setMsg] = useState('')
   const [error, setError] = useState('')
+  const [termsSaved, setTermsSaved] = useState(false)
 
   useEffect(() => watchClients(setClients), [])
   useEffect(() => watchServiceCharges(setServiceCharges), [])
@@ -138,17 +225,25 @@ export default function InvoiceCreator() {
   function updateItem(i, next) { setItems((arr) => arr.map((it, idx) => (idx === i ? next : it))) }
   function removeItem(i) { setItems((arr) => (arr.length > 1 ? arr.filter((_, idx) => idx !== i) : arr)) }
   function addItem() { setItems((arr) => [...arr, blankItem()]) }
-  async function saveFavorite(name, price) {
+  async function saveService(name, price) {
     try { await addInvoiceService(name, price) } catch (_) { /* rules may need publishing */ }
   }
 
   const subtotal = items.reduce((s, it) => s + (Number(it.amount) || 0), 0)
   const receivedNum = Math.max(0, Number(received) || 0)
   const balance = Math.max(0, subtotal - receivedNum)
+  const isFullyReceived = subtotal > 0 && receivedNum === subtotal
+  const isUnpaid = receivedNum === 0
+
+  function saveTermsAsDefault() {
+    try { localStorage.setItem(TERMS_KEY, terms) } catch { /* ignore */ }
+    setTermsSaved(true)
+    setTimeout(() => setTermsSaved(false), 2000)
+  }
 
   function resetForm() {
     setPickedClient(null); setClientName(''); setClientPhone(''); setDate(todayISO())
-    setItems([blankItem()]); setReceived(''); setTerms(DEFAULT_TERMS); setMsg(''); setError('')
+    setItems([blankItem()]); setReceived(''); setTerms(loadDefaultTerms()); setMsg(''); setError('')
   }
 
   async function go(action) {
@@ -167,7 +262,7 @@ export default function InvoiceCreator() {
         subtotal, received: receivedNum, balance, terms,
       })
       const res = await generateInvoice({ invoiceNo, date, clientName: name, clientPhone: phone, items: validItems, received: receivedNum, terms }, { action })
-      setMsg(res === 'shared' ? `Invoice ${invoiceNo} shared.` : res === 'downloaded' ? `Invoice ${invoiceNo} downloaded.` : `Invoice ${invoiceNo} saved.`)
+      setMsg(res === 'downloaded-and-shared' ? `Invoice ${invoiceNo} downloaded and shared.` : res === 'shared' ? `Invoice ${invoiceNo} shared.` : res === 'downloaded' ? `Invoice ${invoiceNo} downloaded.` : `Invoice ${invoiceNo} saved.`)
     } catch (err) {
       console.error('invoice failed:', err)
       setError('Could not create the invoice. Please try again.')
@@ -190,7 +285,7 @@ export default function InvoiceCreator() {
           <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-brand-50 text-brand-600"><Receipt size={22} /></div>
           <div>
             <h2 className="font-bold text-slate-900">Create Invoice</h2>
-            <p className="text-sm text-slate-500">Pick an existing client or enter details manually, add items, and generate a branded Tax Invoice PDF.</p>
+            <p className="text-sm text-slate-500">Pick an existing client or enter details manually, add items, and generate a branded Treatment Invoice PDF.</p>
           </div>
         </div>
 
@@ -247,7 +342,7 @@ export default function InvoiceCreator() {
               </thead>
               <tbody>
                 {items.map((it, i) => (
-                  <ItemRow key={i} item={it} onChange={(next) => updateItem(i, next)} onRemove={() => removeItem(i)} suggestions={suggestions} onSaveFavorite={saveFavorite} />
+                  <ItemRow key={i} item={it} onChange={(next) => updateItem(i, next)} onRemove={() => removeItem(i)} suggestions={suggestions} favorites={favorites} onSaveService={saveService} />
                 ))}
               </tbody>
             </table>
@@ -267,21 +362,38 @@ export default function InvoiceCreator() {
             <div><label className="label text-xs">Balance due</label><p className={`input flex items-center bg-slate-50 font-semibold ${balance > 0 ? 'text-red-600' : 'text-emerald-600'}`}>{rs(balance)}</p></div>
           </div>
           <div className="mt-3 flex flex-wrap gap-2">
-            <button type="button" onClick={() => setReceived(String(subtotal))} className="rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-100">Mark fully received (before/after treatment)</button>
-            <button type="button" onClick={() => setReceived('')} className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-200">Mark as balance / unpaid</button>
+            <button
+              type="button" onClick={() => setReceived(String(subtotal))}
+              className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${isFullyReceived ? 'bg-emerald-600 text-white shadow' : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'}`}
+            >
+              Mark fully received (before/after treatment)
+            </button>
+            <button
+              type="button" onClick={() => setReceived('')}
+              className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${isUnpaid ? 'bg-emerald-600 text-white shadow' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+            >
+              Mark as balance / unpaid
+            </button>
           </div>
         </div>
 
         {/* Terms */}
         <div>
-          <label className="label text-xs">Terms and Conditions</label>
+          <div className="flex items-center justify-between">
+            <label className="label text-xs">Terms and Conditions</label>
+            {terms !== loadDefaultTerms() && (
+              <button type="button" onClick={saveTermsAsDefault} className="flex items-center gap-1 text-xs font-semibold text-brand-600 hover:underline">
+                {termsSaved ? <CheckCircle2 size={13} /> : <Save size={13} />} {termsSaved ? 'Saved as default' : 'Save as default'}
+              </button>
+            )}
+          </div>
           <textarea className="input min-h-[80px]" value={terms} onChange={(e) => setTerms(e.target.value)} />
         </div>
 
         {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}
         <div className="flex flex-wrap justify-end gap-2">
           <button type="button" onClick={resetForm} className="btn-ghost">Clear</button>
-          <button type="button" onClick={() => go('share')} disabled={!!busy} className="btn-outline">{busy === 'share' ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />} Send</button>
+          <button type="button" onClick={() => go('both')} disabled={!!busy} className="btn-outline">{busy === 'both' ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />} Download &amp; Send</button>
           <button type="button" onClick={() => go('download')} disabled={!!busy} className="btn-primary">{busy === 'download' ? <Loader2 size={18} className="animate-spin" /> : <FileDown size={18} />} Create &amp; Download</button>
         </div>
         {msg && <p className="flex items-center justify-end gap-1.5 text-right text-sm text-emerald-600"><CheckCircle2 size={15} /> {msg}</p>}
