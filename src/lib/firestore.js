@@ -654,6 +654,30 @@ export async function deleteTherapist(id) {
   return deleteDoc(doc(db, 'therapists', id))
 }
 
+// Freelance home-visit physiotherapist names — a separate roster from
+// /therapists so freelancer names never leak into the clinic's Treatment/
+// Rehab/Fitness therapist picker, and vice versa. Same shape/pattern.
+export function watchHomeVisitTherapists(cb) {
+  const q = query(collection(db, 'homeVisitTherapists'), orderBy('name'))
+  return onSnapshot(
+    q,
+    (snap) => cb(snap.docs.map((d) => ({ id: d.id, ...d.data() }))),
+    () => cb([])
+  )
+}
+
+export async function createHomeVisitTherapist(name) {
+  return addDoc(collection(db, 'homeVisitTherapists'), { name: name.trim(), createdAt: serverTimestamp() })
+}
+
+export async function updateHomeVisitTherapist(id, name) {
+  return updateDoc(doc(db, 'homeVisitTherapists', id), { name: name.trim() })
+}
+
+export async function deleteHomeVisitTherapist(id) {
+  return deleteDoc(doc(db, 'homeVisitTherapists', id))
+}
+
 // ---------- Accounting: patient charges (income) ---------------------------
 // One entry per billed report: { date, clientId, clientName, service,
 // therapist, amount, paid, balance, mode, note }. `date` is 'yyyy-MM-dd'.
@@ -862,6 +886,57 @@ export async function ensureRehabPackagesSeeded() {
     }
     if (typeof localStorage !== 'undefined') localStorage.setItem('w2w_rehabpkg_seeded_v1', '1')
   } catch { /* rules may need publishing / offline — admin can add packages manually */ }
+}
+
+// ---------- Invoices (Report & Invoices module) -----------------------------
+// Kept entirely separate from Accounting/serviceCharges by design — invoice
+// line items and their prices must never mix with the clinic's own treatment
+// billing or service list.
+async function nextInvoiceNumber() {
+  const ref = doc(db, 'counters', 'invoices')
+  let seq = 1
+  await runTransaction(db, async (tx) => {
+    const snap = await tx.get(ref)
+    seq = (snap.exists() ? snap.data().seq || 0 : 0) + 1
+    tx.set(ref, { seq }, { merge: true })
+  })
+  return `INV-${String(seq).padStart(4, '0')}`
+}
+
+export async function createInvoice(data) {
+  const invoiceNo = await nextInvoiceNumber()
+  const ref = await addDoc(collection(db, 'invoices'), { ...data, invoiceNo, createdAt: serverTimestamp() })
+  return { id: ref.id, invoiceNo }
+}
+
+export function watchInvoices(cb) {
+  const q = query(collection(db, 'invoices'), orderBy('createdAt', 'desc'))
+  return onSnapshot(q, (snap) => cb(snap.docs.map((d) => ({ id: d.id, ...d.data() }))), () => cb([]))
+}
+
+export async function updateInvoice(id, data) {
+  return updateDoc(doc(db, 'invoices', id), data)
+}
+
+export async function deleteInvoice(id) {
+  return deleteDoc(doc(db, 'invoices', id))
+}
+
+// Invoice-only service/item list — its own collection so a name+price added
+// here never appears in the Accounting/Treatment/Rehab/Fitness service
+// pickers. Clinic services (serviceCharges) are still readable for reuse in
+// the invoice item picker, just never written to from here.
+export function watchInvoiceServices(cb) {
+  const q = query(collection(db, 'invoiceServices'), orderBy('name'))
+  return onSnapshot(q, (snap) => cb(snap.docs.map((d) => ({ id: d.id, ...d.data() }))), () => cb([]))
+}
+
+export async function addInvoiceService(name, amount) {
+  return addDoc(collection(db, 'invoiceServices'), { name: String(name).trim(), amount: Number(amount) || 0, createdAt: serverTimestamp() })
+}
+
+export async function deleteInvoiceService(id) {
+  return deleteDoc(doc(db, 'invoiceServices', id))
 }
 
 // ---------- Patient signatures ---------------------------------------------

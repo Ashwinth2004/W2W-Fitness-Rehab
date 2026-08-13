@@ -13,6 +13,20 @@ service cloud.firestore {
       return isFullAdmin() || (request.auth != null
         && request.auth.uid == 'jB0005vbkwOQiqNQBrm2Ikk6u3B3');
     }
+    // Outside freelance home-visit physiotherapist login (homevisit@w2w.in).
+    // Deliberately NOT part of isAdmin() — this account only gets the narrow
+    // grants below (its own clients, home-visit records, its own therapist-
+    // name list), never the clinic's treatments/rehab/fitness/accounting data.
+    function isHomeVisitOnly() {
+      return request.auth != null && request.auth.uid == 'PutvvFLabSY6n4SFJbmu01b4THv2';
+    }
+    // A client this freelance account may touch — must be tagged for the
+    // Home Visit program (a client can carry other program tags too and
+    // still be visible here, but a NEW client this account creates must be
+    // Home-Visit-only, enforced separately on clients/{id} below).
+    function isHomeVisitClient(clientId) {
+      return 'W2W Home Visit' in get(/databases/$(database)/documents/clients/$(clientId)).data.programs;
+    }
 
     // ---- Validation helpers (for public, unauthenticated writes) -----------
     function data() { return request.resource.data; }
@@ -69,18 +83,55 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
-    // Running counter for unique client IDs — admin only.
+    // Running counter for unique client IDs — admin only, plus the home-visit
+    // login (it needs the same counter to auto-generate Reg. Nos).
     match /counters/{id} {
-      allow read, write: if isAdmin();
+      allow read, write: if isAdmin() || isHomeVisitOnly();
     }
 
-    // Client/patient CRM and all sub-data — admin only.
+    // Client/patient CRM and all sub-data — admin only, EXCEPT the home-visit
+    // login gets a narrow slice: it may only read/create/update clients
+    // tagged for Home Visit (never delete), and within those, only the
+    // homeVisits and notes subcollections — treatments/rehabPlans/fitnessPlans
+    // and everything else stay admin-only even for a client it can otherwise see.
     match /clients/{id} {
-      allow read, write: if isAdmin();
+      allow read: if isAdmin() || (isHomeVisitOnly() && 'W2W Home Visit' in resource.data.programs);
+      allow create: if isAdmin() || (
+        isHomeVisitOnly()
+        && request.resource.data.programs is list
+        && request.resource.data.programs == ['W2W Home Visit']
+      );
+      allow update: if isAdmin() || (
+        isHomeVisitOnly()
+        && 'W2W Home Visit' in resource.data.programs
+        && 'W2W Home Visit' in request.resource.data.programs
+      );
+      allow delete: if isAdmin();
+
+      match /homeVisits/{visitId} {
+        allow read, write: if isAdmin() || (isHomeVisitOnly() && isHomeVisitClient(id));
+      }
+      match /notes/{noteId} {
+        allow read, write: if isAdmin() || (isHomeVisitOnly() && isHomeVisitClient(id));
+      }
       match /{sub=**} {
         allow read, write: if isAdmin();
       }
     }
+
+    // Freelance home-visit therapist names — its own list, kept separate from
+    // /therapists so freelancer names never surface in the clinic's Treatment/
+    // Rehab/Fitness therapist picker (and vice versa). Any clinic admin can
+    // still manage it; the home-visit login can too, but nothing wider.
+    match /homeVisitTherapists/{id} { allow read, write: if isAdmin() || isHomeVisitOnly(); }
+
+    // Invoices (Report & Invoices module) — financial documents, same
+    // sensitivity tier as Accounting → full admin only.
+    match /invoices/{id} { allow read, write: if isFullAdmin(); }
+    // Invoice-only item/service list — kept separate from serviceCharges so
+    // names/prices added here never surface in Accounting's or any other
+    // module's service picker → full admin only (same as invoices).
+    match /invoiceServices/{id} { allow read, write: if isFullAdmin(); }
 
     // Testimonials, blog & reels: public read; managed in the Blogs/content
     // module → full admin only.

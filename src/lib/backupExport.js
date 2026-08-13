@@ -15,9 +15,9 @@ import { db } from '../firebase'
 const ROOT_COLLECTIONS = [
   'enquiries', 'availability', 'slotBlocks', 'appointments', 'counters', 'clients',
   'testimonials', 'posts', 'reels', 'workshops', 'workshopStats',
-  'workshopRegistrations', 'workshopRegEmails', 'therapists',
+  'workshopRegistrations', 'workshopRegEmails', 'therapists', 'homeVisitTherapists',
   'accounting', 'expenses', 'expenseCategories', 'serviceCharges', 'bankAccounts', 'signatures',
-  'rehabTemplates', 'fitnessTemplates',
+  'rehabTemplates', 'fitnessTemplates', 'invoices', 'invoiceServices',
 ]
 
 // Subcollections to read under each client document. `treatments`, `rehabPlans`,
@@ -129,6 +129,9 @@ const SHEET_LABELS = {
   workshopRegEmails: 'Workshop Reg Emails',
   enquiries: 'Enquiries',
   therapists: 'Therapists',
+  homeVisitTherapists: 'Home Visit Physiotherapists',
+  invoices: 'Invoices',
+  invoiceServices: 'Invoice Items (Favorites)',
   availability: 'Booked Slots',
   counters: 'Counters',
   testimonials: 'Testimonials',
@@ -137,9 +140,9 @@ const SHEET_LABELS = {
 }
 const SHEET_ORDER = [
   'clients', '__treatments', '__rehabPlans', '__fitnessPlans', '__homeVisits', 'rehabTemplates', 'fitnessTemplates',
-  'appointments', 'accounting', 'expenses', 'expenseCategories',
+  'appointments', 'accounting', 'expenses', 'expenseCategories', 'invoices', 'invoiceServices',
   'workshops', 'workshopRegistrations', 'workshopStats', 'workshopRegEmails', 'enquiries',
-  'therapists', 'availability', 'counters', 'testimonials', 'posts', 'reels',
+  'therapists', 'homeVisitTherapists', 'availability', 'counters', 'testimonials', 'posts', 'reels',
 ]
 
 // "createdAt" -> "Created At", "workshopTitle" -> "Workshop Title"

@@ -1045,3 +1045,134 @@ export async function generateWorkshopReport({ rangeLabel = '', registrations = 
   footerAll(doc)
   return finalize(doc, `W2W_Workshops_${rangeLabel.replace(/\s+/g, '_')}.pdf`, action)
 }
+
+// ---------------------------------------------------------------------------
+//  Amount-in-words (Indian numbering — Crore/Lakh/Thousand), for the invoice.
+// ---------------------------------------------------------------------------
+const NUM_ONES = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten',
+  'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen']
+const NUM_TENS = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety']
+function twoDigitWords(n) {
+  if (n < 20) return NUM_ONES[n]
+  return NUM_TENS[Math.floor(n / 10)] + (n % 10 ? ' ' + NUM_ONES[n % 10] : '')
+}
+function threeDigitWords(n) {
+  const h = Math.floor(n / 100), r = n % 100
+  return (h ? `${NUM_ONES[h]} Hundred${r ? ' ' : ''}` : '') + (r ? twoDigitWords(r) : '')
+}
+function amountInWordsINR(n) {
+  n = Math.round(Number(n) || 0)
+  if (n === 0) return 'Zero Rupees only'
+  const crore = Math.floor(n / 1e7); n %= 1e7
+  const lakh = Math.floor(n / 1e5); n %= 1e5
+  const thousand = Math.floor(n / 1e3); n %= 1e3
+  const parts = []
+  if (crore) parts.push(`${threeDigitWords(crore)} Crore`)
+  if (lakh) parts.push(`${threeDigitWords(lakh)} Lakh`)
+  if (thousand) parts.push(`${threeDigitWords(thousand)} Thousand`)
+  if (n) parts.push(threeDigitWords(n))
+  return `${parts.join(' ')} Rupees only`
+}
+
+// ---------------------------------------------------------------------------
+//  Tax Invoice — client (or a manually-entered name/contact), line items,
+//  totals, received/balance, terms & conditions, and the authorized
+//  signatory block (Sakthi Saravanan's signature + the official W2W seal).
+//  `invoice`: { invoiceNo, date, clientName, clientPhone, items: [{name,
+//  qty, price, amount}], received, terms }
+// ---------------------------------------------------------------------------
+export async function generateInvoice(invoice, opts = {}) {
+  const { action = 'download' } = opts
+  const logo = await loadLogo()
+  const doc = new jsPDF({ unit: 'mm', format: 'a4' })
+  let y = header(doc, logo, 'Tax Invoice')
+
+  // Bill To / Invoice Details box
+  y += 2
+  const boxH = 24
+  doc.setDrawColor(210); doc.setLineWidth(0.3)
+  doc.rect(M, y, CW, boxH)
+  doc.line(M + CW / 2, y, M + CW / 2, y + boxH)
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.setTextColor(...DARK)
+  doc.text('Bill To', M + 3, y + 6)
+  doc.text('Invoice Details', M + CW / 2 + 3, y + 6)
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(9.5); doc.setTextColor(60)
+  fitText(doc, invoice.clientName || '—', M + 3, y + 13, CW / 2 - 6, 9.5)
+  fitText(doc, `Contact: ${invoice.clientPhone || '—'}`, M + 3, y + 19, CW / 2 - 6, 9.5)
+  fitText(doc, `Invoice No: ${invoice.invoiceNo || '—'}`, M + CW / 2 + 3, y + 13, CW / 2 - 6, 9.5)
+  fitText(doc, `Date: ${fmtDate(invoice.date)}`, M + CW / 2 + 3, y + 19, CW / 2 - 6, 9.5)
+  y += boxH + 6
+
+  // Line items
+  const items = invoice.items || []
+  autoTable(doc, {
+    startY: y,
+    head: [['#', 'Item Name', 'Qty', 'Price/Unit', 'Amount']],
+    body: items.map((it, i) => [String(i + 1), it.name || '—', String(it.qty || 1), inr(it.price), inr(it.amount)]),
+    theme: 'grid', headStyles: { fillColor: BRAND, fontSize: 9.5 }, bodyStyles: { fontSize: 9.5 },
+    columnStyles: { 0: { cellWidth: 10, halign: 'center' }, 2: { cellWidth: 18, halign: 'center' }, 3: { cellWidth: 32, halign: 'right' }, 4: { cellWidth: 32, halign: 'right' } },
+    margin: { left: M, right: M },
+  })
+  y = doc.lastAutoTable.finalY + 6
+
+  const subtotal = items.reduce((s, it) => s + (Number(it.amount) || 0), 0)
+  const received = Math.max(0, Number(invoice.received) || 0)
+  const balance = Math.max(0, subtotal - received)
+
+  // Totals — right-aligned narrow table
+  y = ensure(doc, y, 32)
+  const totW = 76
+  autoTable(doc, {
+    startY: y,
+    body: [
+      ['Sub Total', inr(subtotal)],
+      ['Total', inr(subtotal)],
+      ['Received', inr(received)],
+      ['Balance', inr(balance)],
+    ],
+    theme: 'grid', styles: { fontSize: 9.5, textColor: DARK },
+    columnStyles: { 0: { fontStyle: 'bold', cellWidth: totW / 2 }, 1: { halign: 'right', cellWidth: totW / 2 } },
+    margin: { left: PW - M - totW, right: M },
+    tableWidth: totW,
+  })
+  const totalsY = doc.lastAutoTable.finalY
+
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(8.5); doc.setTextColor(...DARK)
+  doc.text('Invoice Amount In Words:', M, y + 4)
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5); doc.setTextColor(70)
+  const words = doc.splitTextToSize(amountInWordsINR(subtotal), CW - totW - 10)
+  doc.text(words, M, y + 9)
+  y = Math.max(totalsY, y + 9 + words.length * 4.2) + 8
+
+  // Terms & Conditions
+  if (invoice.terms) {
+    y = sectionHeader(doc, y, 'Terms and Conditions')
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5); doc.setTextColor(70)
+    const termLines = doc.splitTextToSize(invoice.terms, CW - 4)
+    y = ensure(doc, y, termLines.length * 4.2 + 4)
+    doc.text(termLines, M + 2, y)
+    y += termLines.length * 4.2 + 8
+  }
+
+  // Signature + official seal
+  y = ensure(doc, y, 34)
+  doc.setDrawColor(150); doc.setLineWidth(0.3)
+  doc.line(PW - M - 70, y + 18, PW - M, y + 18)
+  const [sig, seal] = await Promise.all([
+    loadImageData(signatureFor('Sakthi Saravanan')),
+    loadImageData('/w2w-official-seal.png'),
+  ])
+  if (seal) {
+    const sw = 20, sh = 20
+    try { doc.addImage(seal.dataUrl, seal.fmt, PW - M - 92, y - 2, sw, sh) } catch { /* ignore bad image */ }
+  }
+  drawSignature(doc, sig, PW - M - 70, y + 18, 66, 15)
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.setTextColor(...DARK)
+  doc.text('For Way to Wellness Fitness & Rehab', PW - M - 70, y - 4)
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5); doc.setTextColor(90)
+  doc.text('Authorized Signatory', PW - M - 70, y + 23)
+
+  footerAll(doc)
+  const filename = `W2W_Invoice_${invoice.invoiceNo || 'draft'}_${(invoice.clientName || 'client').replace(/\s+/g, '_')}.pdf`
+  return finalize(doc, filename, action, `Invoice ${invoice.invoiceNo || ''} from W2W Fitness & Rehab.`)
+}

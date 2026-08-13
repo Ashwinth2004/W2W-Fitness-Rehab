@@ -3,7 +3,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import {
   Dumbbell, Search, Loader2, Save, ArrowRight, Plus, CheckCircle2, Circle, BadgeCheck, X, Copy, Pencil, Trash2,
   IndianRupee, Star, PlayCircle, ListChecks, MapPin, Layers, Wand2, Check, Lightbulb, TrendingUp, LayoutTemplate,
-  LayoutGrid,
+  LayoutGrid, GripVertical, ChevronUp, ChevronDown,
 } from 'lucide-react'
 import {
   watchClients, addRehabPlan, updateRehabPlan, watchRehabPlans, deleteRehabPlan,
@@ -164,6 +164,10 @@ function RehabApp() {
 }
 
 const isRehabClient = (c) => Array.isArray(c?.programs) && c.programs.includes('W2W Fitness & Rehab')
+// A client registered for Home Visit ONLY (no other program) is a freelancer
+// patient — kept out of the Physio/Rehab/Fitness pickers entirely, matching
+// the Home Visits module's own data segregation (Clients module still shows them).
+const isHomeVisitOnlyClient = (c) => Array.isArray(c?.programs) && c.programs.length === 1 && c.programs[0] === 'W2W Home Visit'
 
 function RehabClientPicker({ clients, onPick, onNew, onTemplates, note }) {
   const [q, setQ] = useState('')
@@ -171,8 +175,9 @@ function RehabClientPicker({ clients, onPick, onNew, onTemplates, note }) {
   // client here too was cluttered and easy to mis-pick. "Show all clients"
   // below reveals everyone when a Treatment-only patient needs a plan too.
   const [showAll, setShowAll] = useState(false)
-  const rehabClients = clients.filter(isRehabClient)
-  const pool = showAll ? clients : rehabClients
+  const visibleClients = clients.filter((c) => !isHomeVisitOnlyClient(c))
+  const rehabClients = visibleClients.filter(isRehabClient)
+  const pool = showAll ? visibleClients : rehabClients
   const filtered = q
     ? pool.filter((c) => [c.name, c.phone, c.clientId, c.email].filter(Boolean).join(' ').toLowerCase().includes(q.toLowerCase()))
     : pool
@@ -1128,6 +1133,31 @@ function ExerciseCard({ ex, onChange, onRemove, hideDone }) {
   )
 }
 
+// Drag handle + up/down buttons wrapped around one exercise card, so it can
+// be reordered within its section (main exercises vs stretches) either by
+// dragging (desktop mouse) or by tapping the arrows (works everywhere,
+// including touch — native HTML5 drag has no touch support). The reordered
+// array is what gets saved, copied to other days/patients and turned into
+// templates, so the order sticks everywhere the plan is reused.
+function ReorderableRow({ children, canMoveUp, canMoveDown, onMoveUp, onMoveDown, onDragStart, onDragOver, onDrop, dragging }) {
+  return (
+    <div
+      draggable
+      onDragStart={onDragStart}
+      onDragOver={onDragOver}
+      onDrop={onDrop}
+      className={`flex items-stretch gap-1 transition ${dragging ? 'opacity-40' : ''}`}
+    >
+      <div className="flex shrink-0 flex-col items-center justify-center gap-0.5">
+        <button type="button" onClick={onMoveUp} disabled={!canMoveUp} title="Move up" className="grid h-6 w-6 place-items-center rounded text-slate-300 hover:bg-slate-100 hover:text-brand-600 disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-slate-300"><ChevronUp size={14} /></button>
+        <span className="grid h-6 w-6 cursor-grab place-items-center text-slate-300 active:cursor-grabbing" title="Drag to reorder"><GripVertical size={14} /></span>
+        <button type="button" onClick={onMoveDown} disabled={!canMoveDown} title="Move down" className="grid h-6 w-6 place-items-center rounded text-slate-300 hover:bg-slate-100 hover:text-brand-600 disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-slate-300"><ChevronDown size={14} /></button>
+      </div>
+      <div className="min-w-0 flex-1">{children}</div>
+    </div>
+  )
+}
+
 // One day's editor: date, home-program flag, session-completed flag, and the
 // exercise list — always anchored BELOW the Add Exercise widget (stretches
 // grouped in their own sub-section, matching the clinic's paper sheets).
@@ -1141,6 +1171,7 @@ function DayEditor({ day, allDays, onCopyFromDay, onOpenCrossPatientCopy, onAppl
   const [templateName, setTemplateName] = useState('')
   const [renamingId, setRenamingId] = useState(null)
   const [renameVal, setRenameVal] = useState('')
+  const [dragFrom, setDragFrom] = useState(null)
 
   useEffect(() => watchRehabTemplates(setTemplates), [])
 
@@ -1156,6 +1187,36 @@ function DayEditor({ day, allDays, onCopyFromDay, onOpenCrossPatientCopy, onAppl
   }
   function addExercises(newOnes) {
     onChangeDay({ ...day, exercises: [...exercises, ...newOnes] })
+  }
+
+  // Reorder within a section (main exercises vs stretches never mix) — moves
+  // the exercise at `fromIdx` to sit where `toIdx` currently is, preserving
+  // every other exercise's relative position (including the OTHER section's,
+  // even when its items are interleaved in the underlying array).
+  function reorderExercises(fromIdx, toIdx) {
+    if (fromIdx === toIdx || fromIdx == null || toIdx == null) return
+    const isStretch = exercises[fromIdx]?.type === 'Stretching'
+    const sectionIdx = []
+    exercises.forEach((e, i) => { if ((e.type === 'Stretching') === isStretch) sectionIdx.push(i) })
+    const fromPos = sectionIdx.indexOf(fromIdx)
+    const toPos = sectionIdx.indexOf(toIdx)
+    if (fromPos === -1 || toPos === -1) return
+    const order = [...sectionIdx]
+    const [moved] = order.splice(fromPos, 1)
+    order.splice(toPos, 0, moved)
+    const next = [...exercises]
+    sectionIdx.forEach((slot, k) => { next[slot] = exercises[order[k]] })
+    onChangeDay({ ...day, exercises: next })
+  }
+  // Up/down buttons — one step within the section, always reliable on touch.
+  function moveExercise(idx, direction) {
+    const isStretch = exercises[idx]?.type === 'Stretching'
+    const sectionIdx = []
+    exercises.forEach((e, i) => { if ((e.type === 'Stretching') === isStretch) sectionIdx.push(i) })
+    const pos = sectionIdx.indexOf(idx)
+    const targetPos = pos + direction
+    if (targetPos < 0 || targetPos >= sectionIdx.length) return
+    reorderExercises(idx, sectionIdx[targetPos])
   }
 
   function copyFromPicked() {
@@ -1266,9 +1327,21 @@ function DayEditor({ day, allDays, onCopyFromDay, onOpenCrossPatientCopy, onAppl
 
       {main.length > 0 && (
         <div className="space-y-2">
-          {main.map((ex) => {
+          {main.map((ex, visualIdx) => {
             const idx = exercises.indexOf(ex)
-            return <ExerciseCard key={idx} ex={ex} onChange={(u) => updateExercise(idx, u)} onRemove={() => removeExercise(idx)} />
+            return (
+              <ReorderableRow
+                key={idx}
+                dragging={dragFrom === idx}
+                canMoveUp={visualIdx > 0} canMoveDown={visualIdx < main.length - 1}
+                onMoveUp={() => moveExercise(idx, -1)} onMoveDown={() => moveExercise(idx, 1)}
+                onDragStart={() => setDragFrom(idx)}
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={(e) => { e.preventDefault(); reorderExercises(dragFrom, idx); setDragFrom(null) }}
+              >
+                <ExerciseCard ex={ex} onChange={(u) => updateExercise(idx, u)} onRemove={() => removeExercise(idx)} />
+              </ReorderableRow>
+            )
           })}
         </div>
       )}
@@ -1277,9 +1350,21 @@ function DayEditor({ day, allDays, onCopyFromDay, onOpenCrossPatientCopy, onAppl
         <div className="border-t-2 border-dashed border-slate-200 pt-3">
           <p className="mb-2 text-sm font-bold text-brand-700">Stretches</p>
           <div className="space-y-2">
-            {stretches.map((ex) => {
+            {stretches.map((ex, visualIdx) => {
               const idx = exercises.indexOf(ex)
-              return <ExerciseCard key={idx} ex={ex} onChange={(u) => updateExercise(idx, u)} onRemove={() => removeExercise(idx)} />
+              return (
+                <ReorderableRow
+                  key={idx}
+                  dragging={dragFrom === idx}
+                  canMoveUp={visualIdx > 0} canMoveDown={visualIdx < stretches.length - 1}
+                  onMoveUp={() => moveExercise(idx, -1)} onMoveDown={() => moveExercise(idx, 1)}
+                  onDragStart={() => setDragFrom(idx)}
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={(e) => { e.preventDefault(); reorderExercises(dragFrom, idx); setDragFrom(null) }}
+                >
+                  <ExerciseCard ex={ex} onChange={(u) => updateExercise(idx, u)} onRemove={() => removeExercise(idx)} />
+                </ReorderableRow>
+              )
             })}
           </div>
         </div>

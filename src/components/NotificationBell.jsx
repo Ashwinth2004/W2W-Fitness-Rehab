@@ -28,7 +28,10 @@ export default function NotificationBell() {
     }
   }, [])
 
-  useEffect(() => watchAppointments(setAppts), [])
+  useEffect(() => {
+    if (role === 'homevisit') return undefined // no appointments access for this role
+    return watchAppointments(setAppts)
+  }, [role])
   useEffect(() => {
     if (role !== 'full') return undefined // limited admins can't read workshop regs
     return watchWorkshopRegistrations(setRegs)
@@ -40,6 +43,11 @@ export default function NotificationBell() {
     document.addEventListener('mousedown', onDoc)
     return () => document.removeEventListener('mousedown', onDoc)
   }, [open])
+
+  // Nothing relevant to notify this role about — appointments and workshop
+  // registrations are both outside the Home Visits module. Placed after
+  // every hook above so hook order/count never changes between renders.
+  if (role === 'homevisit') return null
 
   const newAppts = appts.filter((a) => tsMs(a.createdAt) > readTs).sort((a, b) => tsMs(b.createdAt) - tsMs(a.createdAt))
   const newRegs = regs.filter((r) => tsMs(r.createdAt) > readTs).sort((a, b) => tsMs(b.createdAt) - tsMs(a.createdAt))

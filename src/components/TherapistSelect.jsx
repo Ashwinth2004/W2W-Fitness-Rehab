@@ -1,13 +1,21 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { ChevronDown, Pencil, Trash2, Check, X, UserPlus } from 'lucide-react'
-import { watchTherapists, createTherapist, updateTherapist, deleteTherapist } from '../lib/firestore'
+import {
+  watchTherapists, createTherapist, updateTherapist, deleteTherapist,
+  watchHomeVisitTherapists, createHomeVisitTherapist, updateHomeVisitTherapist, deleteHomeVisitTherapist,
+} from '../lib/firestore'
 import { FOUNDERS } from '../lib/constants'
 
 // Therapist picker: select from founders + saved therapists, add new ones, and
 // edit/delete the saved ones inline. Keyboard: ↑/↓ to move, Enter to select,
 // Esc to close. Renders the menu in a portal so it's never clipped by a modal.
-export default function TherapistSelect({ value, onChange, placeholder = '— Select therapist —', id, invalid }) {
+//
+// `source="homeVisit"` swaps the backing list to the separate freelance
+// home-visit therapist roster (homeVisitTherapists) and drops the founders —
+// that roster must never mix with the clinic's own /therapists list.
+export default function TherapistSelect({ value, onChange, placeholder = '— Select therapist —', id, invalid, source = 'therapists' }) {
+  const isHomeVisit = source === 'homeVisit'
   const [therapists, setTherapists] = useState([])
   const [open, setOpen] = useState(false)
   const [pos, setPos] = useState(null)
@@ -18,9 +26,9 @@ export default function TherapistSelect({ value, onChange, placeholder = '— Se
   const btnRef = useRef(null)
   const popRef = useRef(null)
 
-  useEffect(() => watchTherapists(setTherapists), [])
+  useEffect(() => (isHomeVisit ? watchHomeVisitTherapists(setTherapists) : watchTherapists(setTherapists)), [isHomeVisit])
 
-  const founders = FOUNDERS.map((f) => f.name)
+  const founders = isHomeVisit ? [] : FOUNDERS.map((f) => f.name)
   const options = [...founders, ...therapists.map((t) => t.name)]
 
   useLayoutEffect(() => {
@@ -65,17 +73,18 @@ export default function TherapistSelect({ value, onChange, placeholder = '— Se
 
   async function add() {
     const n = adding.trim(); if (!n) return
-    await createTherapist(n); onChange(n); setAdding('')
+    if (isHomeVisit) await createHomeVisitTherapist(n); else await createTherapist(n)
+    onChange(n); setAdding('')
   }
   async function saveEdit(t) {
     const n = editName.trim(); if (!n) return
-    await updateTherapist(t.id, n)
+    if (isHomeVisit) await updateHomeVisitTherapist(t.id, n); else await updateTherapist(t.id, n)
     if (value === t.name) onChange(n)
     setEditId(null)
   }
   async function remove(t) {
     if (!window.confirm(`Delete therapist "${t.name}"?`)) return
-    await deleteTherapist(t.id)
+    if (isHomeVisit) await deleteHomeVisitTherapist(t.id); else await deleteTherapist(t.id)
     if (value === t.name) onChange('')
   }
 

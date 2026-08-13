@@ -2,9 +2,10 @@ import { useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { Lock, User, Loader2, AlertCircle, ArrowLeft } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
+import { landingPathFor, roleForEmail } from '../../lib/roles'
 
 export default function AdminLogin() {
-  const { login, isAdmin, loading } = useAuth()
+  const { login, isAdmin, role, loading } = useAuth()
   const navigate = useNavigate()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -12,16 +13,16 @@ export default function AdminLogin() {
   const [error, setError] = useState('')
 
   useEffect(() => {
-    if (!loading && isAdmin) navigate('/admin', { replace: true })
-  }, [loading, isAdmin, navigate])
+    if (!loading && isAdmin) navigate(landingPathFor(role), { replace: true })
+  }, [loading, isAdmin, role, navigate])
 
   async function handleSubmit(e) {
     e.preventDefault()
     setError('')
     setBusy(true)
     try {
-      await login(email.trim(), password)
-      navigate('/admin', { replace: true })
+      const cred = await login(email.trim(), password)
+      navigate(landingPathFor(roleForEmail(cred.user.email)), { replace: true })
     } catch (err) {
       setError(mapError(err.code))
       setBusy(false)

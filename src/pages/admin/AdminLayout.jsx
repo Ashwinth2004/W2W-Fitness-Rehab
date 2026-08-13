@@ -8,7 +8,7 @@ import {
 import { useAuth } from '../../context/AuthContext'
 import { UnsavedProvider, useUnsaved } from '../../context/UnsavedContext'
 import GlobalDictation from '../../components/GlobalDictation'
-import { canAccessPath } from '../../lib/roles'
+import { canAccessPath, landingPathFor } from '../../lib/roles'
 import { watchEnquiries } from '../../lib/firestore'
 
 const nav = [
@@ -23,7 +23,7 @@ const nav = [
   // Re-enable by restoring this nav item — the route & page still exist.
   // { to: '/admin/signatures', label: 'Signatures', icon: PenLine },
   { to: '/admin/workshops', label: 'W2W Workshop', icon: GraduationCap },
-  { to: '/admin/reports', label: 'Reports', icon: FileText },
+  { to: '/admin/reports', label: 'Report and Invoices', icon: FileText },
   { to: '/admin/accounting', label: 'Accounting', icon: Wallet },
   { to: '/admin/content', label: 'Blogs', icon: Newspaper },
   { to: '/admin/notes', label: 'Notes & Goals', icon: StickyNote },
@@ -80,7 +80,13 @@ function AdminShell() {
   }, [collapsed])
 
   // Live count of unread enquiries → red "NEW" badge on the Enquiries item.
-  useEffect(() => watchEnquiries((list) => setNewEnq(list.filter((e) => e.status === 'new').length)), [])
+  // Skipped for the 'homevisit' role — it has no Dashboard access and no
+  // Firestore read access to enquiries, so watching would just log a
+  // permission-denied error on every load.
+  useEffect(() => {
+    if (role === 'homevisit') return
+    return watchEnquiries((list) => setNewEnq(list.filter((e) => e.status === 'new').length))
+  }, [role])
 
   // Make the app installable ONLY inside the admin area: the manifest + PWA meta
   // tags exist only while this layout is mounted (a signed-in admin on /admin),
@@ -104,7 +110,7 @@ function AdminShell() {
   // Limited admins only see/open the first five modules.
   const visibleNav = nav.filter((n) => canAccessPath(role, n.to))
   useEffect(() => {
-    if (!canAccessPath(role, location.pathname)) navigate('/admin', { replace: true })
+    if (!canAccessPath(role, location.pathname)) navigate(landingPathFor(role), { replace: true })
   }, [role, location.pathname, navigate])
 
   async function handleLogout() {

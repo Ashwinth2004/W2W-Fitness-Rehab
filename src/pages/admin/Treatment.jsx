@@ -59,6 +59,10 @@ export default function Treatment() {
 const isPhysioClient = (c) => Array.isArray(c?.programs) && c.programs.includes('W2W Treatment')
 const isRehabClient = (c) => Array.isArray(c?.programs) && c.programs.includes('W2W Fitness & Rehab')
 const isFitnessClient = (c) => Array.isArray(c?.programs) && c.programs.includes('W2W Fitness')
+// A client registered for Home Visit ONLY (no other program) is a freelancer
+// patient — kept out of the Physio/Rehab/Fitness pickers entirely, matching
+// the Home Visits module's own data segregation (Clients module still shows them).
+const isHomeVisitOnlyClient = (c) => Array.isArray(c?.programs) && c.programs.length === 1 && c.programs[0] === 'W2W Home Visit'
 const PROGRAM_FILTERS = [
   { key: 'all', label: 'All', icon: Users },
   { key: 'physio', label: 'Physio', icon: Stethoscope },
@@ -69,11 +73,12 @@ const PROGRAM_FILTERS = [
 function ClientPicker({ clients, onPick, onNew, note }) {
   const [q, setQ] = useState('')
   const [programFilter, setProgramFilter] = useState('all')
+  const visibleClients = clients.filter((c) => !isHomeVisitOnlyClient(c))
 
-  const pool = programFilter === 'physio' ? clients.filter(isPhysioClient)
-    : programFilter === 'rehab' ? clients.filter(isRehabClient)
-    : programFilter === 'fitness' ? clients.filter(isFitnessClient)
-    : clients
+  const pool = programFilter === 'physio' ? visibleClients.filter(isPhysioClient)
+    : programFilter === 'rehab' ? visibleClients.filter(isRehabClient)
+    : programFilter === 'fitness' ? visibleClients.filter(isFitnessClient)
+    : visibleClients
 
   const filtered = q
     ? pool.filter((c) => [c.name, c.phone, c.clientId, c.email].filter(Boolean).join(' ').toLowerCase().includes(q.toLowerCase()))
@@ -95,10 +100,10 @@ function ClientPicker({ clients, onPick, onNew, note }) {
           <p className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-400">Filter by program</p>
           <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-4">
             {PROGRAM_FILTERS.map((f) => {
-              const count = f.key === 'physio' ? clients.filter(isPhysioClient).length
-                : f.key === 'rehab' ? clients.filter(isRehabClient).length
-                : f.key === 'fitness' ? clients.filter(isFitnessClient).length
-                : clients.length
+              const count = f.key === 'physio' ? visibleClients.filter(isPhysioClient).length
+                : f.key === 'rehab' ? visibleClients.filter(isRehabClient).length
+                : f.key === 'fitness' ? visibleClients.filter(isFitnessClient).length
+                : visibleClients.length
               const active = programFilter === f.key
               return (
                 <button

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Plus, Loader2, Search, X, ArrowRight, Pencil } from 'lucide-react'
+import { Plus, Loader2, Search, X, ArrowRight, Pencil, Lock } from 'lucide-react'
 import { createClient, updateClient } from '../lib/firestore'
 import { isValidMobile } from '../lib/validate'
 import { todayISO } from '../lib/format'
@@ -31,12 +31,20 @@ const blankForm = (programs = ['W2W Treatment']) => ({ ...Object.fromEntries(BAS
 // `variant="fitness"` swaps the Pain areas chart for a Fitness goals picker —
 // used only by the Fitness module's registration flow. Every other module
 // keeps the pain-areas chart, unchanged.
-export default function ClientForm({ clients = [], onCreated, onClose, defaultPrograms, editClient, variant = 'clinical' }) {
+//
+// `lockProgram` (e.g. 'W2W Home Visit') forces "Registered for" to that one
+// program only — the picker is replaced with a static badge and every save
+// (new or edit) hard-overwrites `programs` to `[lockProgram]`, so a client
+// created or edited through a restricted login can never pick up another
+// program tag from this form. Used by the Home Visits module for the
+// freelancer login, which must only ever produce Home-Visit-only clients.
+export default function ClientForm({ clients = [], onCreated, onClose, defaultPrograms, editClient, variant = 'clinical', lockProgram = '' }) {
   const isFitness = variant === 'fitness'
   const [form, setForm] = useState(() => {
-    if (!editClient) return blankForm(defaultPrograms)
+    if (!editClient) return blankForm(lockProgram ? [lockProgram] : defaultPrograms)
     const next = blankForm()
     BASIC_KEYS.forEach((k) => { next[k] = editClient[k] ?? '' })
+    if (lockProgram) next.programs = [lockProgram]
     return next
   })
   const [regDate, setRegDate] = useState(todayISO())
@@ -111,11 +119,12 @@ export default function ClientForm({ clients = [], onCreated, onClose, defaultPr
   // for a different patient" to fall back to — Cancel just closes the popup.
   function clearReturning() {
     if (editClient) { onClose(); return }
-    setExisting(null); setEditing(false); setForm(blankForm(defaultPrograms)); setPainAreas([]); setFitnessGoals([])
+    setExisting(null); setEditing(false); setForm(blankForm(lockProgram ? [lockProgram] : defaultPrograms)); setPainAreas([]); setFitnessGoals([])
   }
   function startEdit() {
     const next = blankForm()
     BASIC_KEYS.forEach((k) => { next[k] = existing[k] ?? '' })
+    if (lockProgram) next.programs = [lockProgram]
     setForm(next); setEditing(true)
     setPainAreas(Array.isArray(existing.painAreas) ? existing.painAreas : [])
     setFitnessGoals(Array.isArray(existing.fitnessGoals) ? existing.fitnessGoals : [])
@@ -132,6 +141,7 @@ export default function ClientForm({ clients = [], onCreated, onClose, defaultPr
     if (!agreed) { setError('Please tick the Declaration & Consent at the top before saving.'); window.scrollTo({ top: 0, behavior: 'smooth' }); return }
     const data = {}
     BASIC_KEYS.forEach((k) => { const v = form[k]; data[k] = typeof v === 'string' ? v.trim() : v })
+    if (lockProgram) data.programs = [lockProgram]
     data.registeredOn = regDate || todayISO()
     if (isFitness) data.fitnessGoals = fitnessGoals
     else data.painAreas = painAreas
@@ -234,7 +244,18 @@ export default function ClientForm({ clients = [], onCreated, onClose, defaultPr
         <fieldset key={s.title} className="rounded-2xl border border-slate-100 p-4">
           <legend className="px-2 text-sm font-bold text-brand-700">{s.title}</legend>
           <div className={`grid gap-3 ${s.cols1 ? '' : 'sm:grid-cols-2'}`}>
-            {s.fields.map((f) => <AssessmentField key={f.k} f={f} value={form[f.k]} onChange={set(f.k)} invalid={invalidKey === f.k} />)}
+            {s.fields.map((f) => (
+              f.k === 'programs' && lockProgram ? (
+                <div key={f.k} className={f.full ? 'sm:col-span-2' : ''}>
+                  <label className="mb-1.5 block text-xs font-medium text-slate-700">{f.label}</label>
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-3.5 py-2 text-sm font-medium text-slate-600">
+                    <Lock size={13} /> {lockProgram}
+                  </span>
+                </div>
+              ) : (
+                <AssessmentField key={f.k} f={f} value={form[f.k]} onChange={set(f.k)} invalid={invalidKey === f.k} />
+              )
+            ))}
           </div>
         </fieldset>
       ))}
