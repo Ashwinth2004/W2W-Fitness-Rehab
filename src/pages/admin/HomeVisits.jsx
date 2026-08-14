@@ -6,7 +6,7 @@ import {
 } from 'lucide-react'
 import {
   watchClients, watchHomeVisits, addHomeVisit, updateHomeVisit, watchServiceCharges,
-  setAccountingForHomeVisit, deleteAccountingForHomeVisit, getClientNotesOnce, updateClient,
+  setAccountingForHomeVisit, deleteAccountingForHomeVisit, getClientNotesOnce, getHomeVisitsOnce, updateClient,
 } from '../../lib/firestore'
 import { useAuth } from '../../context/AuthContext'
 import { HOME_VISIT_SECTIONS, HOME_VISIT_KEYS, formatAssessmentValue } from '../../lib/assessmentSchema'
@@ -90,16 +90,17 @@ export default function HomeVisits() {
 
 const isHomeVisitClient = (c) => Array.isArray(c?.programs) && c.programs.includes('W2W Home Visit')
 
-function HomeVisitClientPicker({ clients, role, onPick, onNew, note }) {
+function HomeVisitClientPicker({ clients, onPick, onNew, note }) {
   const [q, setQ] = useState('')
   // Default to Home-Visit-registered patients only — a Treatment-only client
-  // shouldn't clutter this list. "Show all clients" reveals everyone when a
-  // clinic patient needs a home visit added for the first time — hidden for
-  // the freelancer login, which can only ever see Home Visit patients anyway.
+  // shouldn't clutter this list. "Show all clients" reveals everyone — every
+  // login (including the freelancer's) can see any registered patient, so a
+  // client added by front desk without the Home Visit tag can still be found
+  // and given their first home visit here.
   const [showAll, setShowAll] = useState(false)
   const [therapistFilter, setTherapistFilter] = useState('')
   const hvClients = clients.filter(isHomeVisitClient)
-  const pool = role === 'homevisit' ? hvClients : (showAll ? clients : hvClients)
+  const pool = showAll ? clients : hvClients
   // Which freelance/handling physiotherapist has been assigned each patient —
   // `client.therapist` is kept current as the latest visit's therapist
   // (see addHomeVisit), so no extra reads are needed to filter by it.
@@ -142,7 +143,7 @@ function HomeVisitClientPicker({ clients, role, onPick, onNew, note }) {
             ))}
           </div>
         )}
-        {role !== 'homevisit' && hvClients.length > 0 && (
+        {hvClients.length > 0 && (
           <button type="button" onClick={() => setShowAll((v) => !v)} className="text-xs font-semibold text-brand-600 hover:underline">
             {showAll ? 'Show only Home Visit patients' : 'Show all clients'}
           </button>
@@ -284,13 +285,14 @@ function HomeVisitForm({ client, editId = '', role, onChangeClient, navigate }) 
   const set = (k) => (val) => { setForm((f) => ({ ...f, [k]: val })); setDirty(true) }
   const touch = () => setDirty(true)
 
-  async function save(e) {
-    e.preventDefault(); setError('')
+  // Shared save logic — returns true/false so both the Save button and the
+  // report buttons (which must save first) can react to success/failure.
+  async function doSave() {
     if (!therapist) {
       setTherapistInvalid(true)
       setError('Please choose who is handling this patient.')
       requestAnimationFrame(() => document.getElementById('hv-therapist')?.scrollIntoView({ behavior: 'smooth', block: 'center' }))
-      return
+      return false
     }
     setBusy(true)
     try {
@@ -335,19 +337,39 @@ function HomeVisitForm({ client, editId = '', role, onChangeClient, navigate }) 
       } catch (_) { /* best-effort */ }
 
       setDirty(false)
-      setSaved(true)
+      setBusy(false)
+      return true
     } catch (err) {
       console.error('save home visit failed:', err)
       setError('Could not save the home visit. Please try again.')
+      setBusy(false)
+      return false
     }
-    setBusy(false)
+  }
+
+  async function save(e) {
+    e.preventDefault(); setError('')
+    if (await doSave()) setSaved(true)
+  }
+
+  // Send report / Download report from the main form save the visit first
+  // (same as Save visit), then generate the report — every button here
+  // except Cancel is expected to persist whatever's on screen.
+  async function saveThenReport(action) {
+    setError('')
+    if (!(await doSave())) return
+    await sendOrDownloadReport(action)
+    setSaved(true)
   }
 
   async function sendOrDownloadReport(action) {
     setReportBusy(action); setReportMsg('')
     try {
-      const notes = await getClientNotesOnce(client.id)
-      const sessions = [...visits].sort((a, b) => (a.date || '').localeCompare(b.date || ''))
+      // Re-fetch rather than trust the `visits` state — a save just made
+      // (e.g. from saveThenReport) may not have reached this live listener
+      // yet, and the report must always reflect what was just saved.
+      const [notes, freshVisits] = await Promise.all([getClientNotesOnce(client.id), getHomeVisitsOnce(client.id)])
+      const sessions = [...freshVisits].sort((a, b) => (a.date || '').localeCompare(b.date || ''))
       const baseClient = { ...client, assessmentDate: sessions[0]?.date || todayISO() }
       const reportBill = billBalance >= 0 && (Number(bill.amount) > 0 || Number(bill.paid) > 0)
         ? { amount: Number(bill.amount) || 0, paid: Number(bill.paid) || 0, balance: billBalance, mode: bill.mode }
@@ -474,8 +496,8 @@ function HomeVisitForm({ client, editId = '', role, onChangeClient, navigate }) 
 
       {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}
       <div className="flex flex-wrap justify-end gap-2">
-        <button type="button" onClick={() => sendOrDownloadReport('share')} disabled={!!reportBusy} className="btn-outline">{reportBusy === 'share' ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />} Send report</button>
-        <button type="button" onClick={() => sendOrDownloadReport('download')} disabled={!!reportBusy} className="btn-outline">{reportBusy === 'download' ? <Loader2 size={16} className="animate-spin" /> : <FileDown size={16} />} Download report</button>
+        <button type="button" onClick={() => saveThenReport('share')} disabled={!!reportBusy || busy} className="btn-outline">{reportBusy === 'share' ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />} Send report</button>
+        <button type="button" onClick={() => saveThenReport('download')} disabled={!!reportBusy || busy} className="btn-outline">{reportBusy === 'download' ? <Loader2 size={16} className="animate-spin" /> : <FileDown size={16} />} Download report</button>
         <button type="button" onClick={() => guard(() => navigate(role === 'homevisit' ? '/admin/home-visits' : '/admin/clients'))} className="btn-ghost">Cancel</button>
         <button type="submit" disabled={busy} className="btn-primary">{busy ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />} {editId ? 'Update visit' : 'Save visit'}</button>
       </div>

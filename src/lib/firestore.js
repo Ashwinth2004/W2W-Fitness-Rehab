@@ -903,9 +903,19 @@ async function nextInvoiceNumber() {
   return `INV-${String(seq).padStart(4, '0')}`
 }
 
+// Only the most recent RECENT_INVOICES_KEPT invoices are kept — anything
+// older is pruned right after a new one is created (oldest-first), so the
+// list never grows without bound.
+const RECENT_INVOICES_KEPT = 10
+
 export async function createInvoice(data) {
   const invoiceNo = await nextInvoiceNumber()
   const ref = await addDoc(collection(db, 'invoices'), { ...data, invoiceNo, createdAt: serverTimestamp() })
+  try {
+    const snap = await getDocs(query(collection(db, 'invoices'), orderBy('createdAt', 'desc')))
+    const stale = snap.docs.slice(RECENT_INVOICES_KEPT)
+    await Promise.all(stale.map((d) => deleteDoc(d.ref)))
+  } catch (_) { /* best-effort pruning — never blocks creating the invoice */ }
   return { id: ref.id, invoiceNo }
 }
 
@@ -933,6 +943,10 @@ export function watchInvoiceServices(cb) {
 
 export async function addInvoiceService(name, amount) {
   return addDoc(collection(db, 'invoiceServices'), { name: String(name).trim(), amount: Number(amount) || 0, createdAt: serverTimestamp() })
+}
+
+export async function updateInvoiceService(id, name, amount) {
+  return updateDoc(doc(db, 'invoiceServices', id), { name: String(name).trim(), amount: Number(amount) || 0 })
 }
 
 export async function deleteInvoiceService(id) {

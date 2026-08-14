@@ -1090,7 +1090,7 @@ function amountInWordsINR(n) {
 //  corner) and Terms & Conditions as the very last block before the footer.
 //  A4, standard margins (same M/CW as every other report in this file).
 //  `invoice`: { invoiceNo, date, clientName, clientPhone, items: [{name,
-//  qty, price, amount}], received, terms }
+//  qty, charges}], received, terms }
 // ---------------------------------------------------------------------------
 export async function generateInvoice(invoice, opts = {}) {
   const { action = 'download' } = opts
@@ -1118,15 +1118,15 @@ export async function generateInvoice(invoice, opts = {}) {
   const items = invoice.items || []
   autoTable(doc, {
     startY: y,
-    head: [['#', 'Item Name', 'Qty', 'Price/Unit', 'Amount']],
-    body: items.map((it, i) => [String(i + 1), it.name || '—', String(it.qty || 1), inr(it.price), inr(it.amount)]),
+    head: [['#', 'Item Name', 'Qty', 'Charges']],
+    body: items.map((it, i) => [String(i + 1), it.name || '—', String(it.qty || 1), inr(it.charges)]),
     theme: 'grid', headStyles: { fillColor: BRAND, fontSize: 9.5 }, bodyStyles: { fontSize: 9.5, fontStyle: 'bold', textColor: DARK },
-    columnStyles: { 0: { cellWidth: 10, halign: 'center' }, 2: { cellWidth: 18, halign: 'center' }, 3: { cellWidth: 32, halign: 'right' }, 4: { cellWidth: 32, halign: 'right' } },
+    columnStyles: { 0: { cellWidth: 10, halign: 'center' }, 2: { cellWidth: 20, halign: 'center' }, 3: { cellWidth: 40, halign: 'right' } },
     margin: { left: M, right: M },
   })
   y = doc.lastAutoTable.finalY + 6
 
-  const subtotal = items.reduce((s, it) => s + (Number(it.amount) || 0), 0)
+  const subtotal = items.reduce((s, it) => s + (Number(it.charges) || 0), 0)
   const received = Math.max(0, Number(invoice.received) || 0)
   const balance = Math.max(0, subtotal - received)
 
@@ -1159,8 +1159,8 @@ export async function generateInvoice(invoice, opts = {}) {
   // corner: business name, signature (centered above the line), the line
   // itself, "Authorized Signatory" and the physiotherapist's name +
   // qualification, all centered under each other. The official seal sits
-  // just left of this column, 45% larger than a "normal" report signature
-  // stamp (20mm → 29mm) since it's the headline mark on an invoice.
+  // just left of this column, ~59% larger than a "normal" report signature
+  // stamp (20mm → 32mm) since it's the headline mark on an invoice.
   y = ensure(doc, y, 48)
   const colW = 76
   const colX = PW - M - colW
@@ -1174,8 +1174,8 @@ export async function generateInvoice(invoice, opts = {}) {
     loadImageData('/w2w-official-seal.png'),
   ])
   if (seal) {
-    const sw = 29, sh = 29 // +45% over the standard 20mm report stamp
-    try { doc.addImage(seal.dataUrl, seal.fmt, colX - 24, y - 3, sw, sh) } catch { /* ignore bad image */ }
+    const sw = 32, sh = 32 // 20mm base stamp, +45% then +10% more
+    try { doc.addImage(seal.dataUrl, seal.fmt, colX - 26, y - 5, sw, sh) } catch { /* ignore bad image */ }
   }
   if (sig) {
     let w = 15 * sig.ratio, h = 15
@@ -1192,15 +1192,22 @@ export async function generateInvoice(invoice, opts = {}) {
   if (quals) { doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5); doc.setTextColor(110); doc.text(quals, cx, lineY + 14, { align: 'center' }) }
   y = lineY + 20
 
-  // Terms & Conditions — the very last content block before the footer.
+  // Terms & Conditions — bottom-anchored to sit just above the footer line
+  // (rather than flowing right after the signature block, which left a big
+  // empty gap above the footer on a typical short invoice). Never pulled up
+  // above the signature block though — if content is long, it just follows
+  // immediately after it, same as before.
   if (invoice.terms) {
-    y = ensure(doc, y, 24)
-    y = sectionHeader(doc, y, 'Terms and Conditions')
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(8.5); doc.setTextColor(70)
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(8.5)
     const termLines = doc.splitTextToSize(invoice.terms, CW - 4)
-    y = ensure(doc, y, termLines.length * 4.2 + 4)
-    doc.text(termLines, M + 2, y)
-    y += termLines.length * 4.2 + 4
+    const footerLineY = PH - 18
+    const headerY = Math.max(y, footerLineY - 8 - termLines.length * 4.2)
+    doc.setFillColor(238, 249, 251)
+    doc.rect(M, headerY - 4, CW, 7, 'F')
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(10.5); doc.setTextColor(...DARK)
+    doc.text('Terms and Conditions', M + 2, headerY + 1)
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(8.5); doc.setTextColor(70)
+    doc.text(termLines, M + 2, headerY + 9)
   }
 
   footerAll(doc)

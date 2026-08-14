@@ -1117,19 +1117,20 @@ function ExerciseCard({ ex, onChange, onRemove, hideDone }) {
 // including touch — native HTML5 drag has no touch support). The reordered
 // array is what gets saved, copied to other days/patients and turned into
 // templates, so the order sticks everywhere the plan is reused.
-function ReorderableRow({ children, canMoveUp, canMoveDown, onMoveUp, onMoveDown, onDragStart, onDragOver, onDrop, dragging }) {
+function ReorderableRow({ children, canMoveUp, canMoveDown, onMoveUp, onMoveDown, onDragStart, onDragOver, onDrop, onDragEnd }) {
   return (
     <div
       draggable
       onDragStart={onDragStart}
       onDragOver={onDragOver}
       onDrop={onDrop}
-      className={`flex items-stretch gap-1 transition ${dragging ? 'opacity-40' : ''}`}
+      onDragEnd={onDragEnd}
+      className="flex items-stretch gap-1"
     >
       <div className="flex shrink-0 flex-col items-center justify-center gap-0.5">
-        <button type="button" onClick={onMoveUp} disabled={!canMoveUp} title="Move up" className="grid h-6 w-6 place-items-center rounded text-slate-300 hover:bg-slate-100 hover:text-brand-600 disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-slate-300"><ChevronUp size={14} /></button>
-        <span className="grid h-6 w-6 cursor-grab place-items-center text-slate-300 active:cursor-grabbing" title="Drag to reorder"><GripVertical size={14} /></span>
-        <button type="button" onClick={onMoveDown} disabled={!canMoveDown} title="Move down" className="grid h-6 w-6 place-items-center rounded text-slate-300 hover:bg-slate-100 hover:text-brand-600 disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-slate-300"><ChevronDown size={14} /></button>
+        <button type="button" onClick={onMoveUp} disabled={!canMoveUp} title="Move up" className="grid h-6 w-6 place-items-center rounded text-slate-900 hover:bg-slate-100 hover:text-brand-600 disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-slate-900"><ChevronUp size={15} strokeWidth={2.75} /></button>
+        <span className="grid h-6 w-6 cursor-grab place-items-center text-slate-900 active:cursor-grabbing" title="Drag to reorder"><GripVertical size={15} strokeWidth={2.75} /></span>
+        <button type="button" onClick={onMoveDown} disabled={!canMoveDown} title="Move down" className="grid h-6 w-6 place-items-center rounded text-slate-900 hover:bg-slate-100 hover:text-brand-600 disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-slate-900"><ChevronDown size={15} strokeWidth={2.75} /></button>
       </div>
       <div className="min-w-0 flex-1">{children}</div>
     </div>
@@ -1310,12 +1311,12 @@ function DayEditor({ day, allDays, onCopyFromDay, onOpenCrossPatientCopy, onAppl
             return (
               <ReorderableRow
                 key={idx}
-                dragging={dragFrom === idx}
                 canMoveUp={visualIdx > 0} canMoveDown={visualIdx < main.length - 1}
                 onMoveUp={() => moveExercise(idx, -1)} onMoveDown={() => moveExercise(idx, 1)}
                 onDragStart={() => setDragFrom(idx)}
                 onDragOver={(e) => e.preventDefault()}
                 onDrop={(e) => { e.preventDefault(); reorderExercises(dragFrom, idx); setDragFrom(null) }}
+                onDragEnd={() => setDragFrom(null)}
               >
                 <ExerciseCard ex={ex} onChange={(u) => updateExercise(idx, u)} onRemove={() => removeExercise(idx)} />
               </ReorderableRow>
@@ -1333,12 +1334,12 @@ function DayEditor({ day, allDays, onCopyFromDay, onOpenCrossPatientCopy, onAppl
               return (
                 <ReorderableRow
                   key={idx}
-                  dragging={dragFrom === idx}
                   canMoveUp={visualIdx > 0} canMoveDown={visualIdx < cardio.length - 1}
                   onMoveUp={() => moveExercise(idx, -1)} onMoveDown={() => moveExercise(idx, 1)}
                   onDragStart={() => setDragFrom(idx)}
                   onDragOver={(e) => e.preventDefault()}
                   onDrop={(e) => { e.preventDefault(); reorderExercises(dragFrom, idx); setDragFrom(null) }}
+                  onDragEnd={() => setDragFrom(null)}
                 >
                   <ExerciseCard ex={ex} onChange={(u) => updateExercise(idx, u)} onRemove={() => removeExercise(idx)} />
                 </ReorderableRow>

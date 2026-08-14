@@ -14,18 +14,14 @@ service cloud.firestore {
         && request.auth.uid == 'jB0005vbkwOQiqNQBrm2Ikk6u3B3');
     }
     // Outside freelance home-visit physiotherapist login (homevisit@w2w.in).
-    // Deliberately NOT part of isAdmin() — this account only gets the narrow
-    // grants below (its own clients, home-visit records, its own therapist-
-    // name list), never the clinic's treatments/rehab/fitness/accounting data.
+    // Deliberately NOT part of isAdmin() — this account gets client read/
+    // update access (so it can find and add a home visit for ANY registered
+    // patient, same as any other login — clients are shared across every
+    // login), but never treatments/rehabPlans/fitnessPlans/accounting/the
+    // clinic therapist list, and it may only ever CREATE a brand-new client
+    // tagged Home-Visit-only (enforced on clients/{id} below).
     function isHomeVisitOnly() {
       return request.auth != null && request.auth.uid == 'PutvvFLabSY6n4SFJbmu01b4THv2';
-    }
-    // A client this freelance account may touch — must be tagged for the
-    // Home Visit program (a client can carry other program tags too and
-    // still be visible here, but a NEW client this account creates must be
-    // Home-Visit-only, enforced separately on clients/{id} below).
-    function isHomeVisitClient(clientId) {
-      return 'W2W Home Visit' in get(/databases/$(database)/documents/clients/$(clientId)).data.programs;
     }
 
     // ---- Validation helpers (for public, unauthenticated writes) -----------
@@ -90,12 +86,14 @@ service cloud.firestore {
     }
 
     // Client/patient CRM and all sub-data — admin only, EXCEPT the home-visit
-    // login gets a narrow slice: it may only read/create/update clients
-    // tagged for Home Visit (never delete), and within those, only the
-    // homeVisits and notes subcollections — treatments/rehabPlans/fitnessPlans
-    // and everything else stay admin-only even for a client it can otherwise see.
+    // login gets a narrow slice: it may read/update any client (clients are
+    // shared across every login — it needs to find and add a home visit for
+    // a patient registered by anyone), but a client it CREATES must be
+    // Home-Visit-only, and it may never delete a client. Within any client,
+    // only the homeVisits and notes subcollections are open to it —
+    // treatments/rehabPlans/fitnessPlans and everything else stay admin-only.
     match /clients/{id} {
-      allow read: if isAdmin() || (isHomeVisitOnly() && 'W2W Home Visit' in resource.data.programs);
+      allow read: if isAdmin() || isHomeVisitOnly();
       allow create: if isAdmin() || (
         isHomeVisitOnly()
         && request.resource.data.programs is list
@@ -103,16 +101,16 @@ service cloud.firestore {
       );
       allow update: if isAdmin() || (
         isHomeVisitOnly()
-        && 'W2W Home Visit' in resource.data.programs
         && 'W2W Home Visit' in request.resource.data.programs
+        && request.resource.data.programs.hasAll(resource.data.programs) // only additions — can't strip a client's other program tags
       );
       allow delete: if isAdmin();
 
       match /homeVisits/{visitId} {
-        allow read, write: if isAdmin() || (isHomeVisitOnly() && isHomeVisitClient(id));
+        allow read, write: if isAdmin() || isHomeVisitOnly();
       }
       match /notes/{noteId} {
-        allow read, write: if isAdmin() || (isHomeVisitOnly() && isHomeVisitClient(id));
+        allow read, write: if isAdmin() || isHomeVisitOnly();
       }
       match /{sub=**} {
         allow read, write: if isAdmin();

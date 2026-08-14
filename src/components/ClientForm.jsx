@@ -141,7 +141,15 @@ export default function ClientForm({ clients = [], onCreated, onClose, defaultPr
     if (!agreed) { setError('Please tick the Declaration & Consent at the top before saving.'); window.scrollTo({ top: 0, behavior: 'smooth' }); return }
     const data = {}
     BASIC_KEYS.forEach((k) => { const v = form[k]; data[k] = typeof v === 'string' ? v.trim() : v })
-    if (lockProgram) data.programs = [lockProgram]
+    if (lockProgram) {
+      // Adds the locked program to whatever this client already has —
+      // never replaces it. A brand-new client (no `existing`) simply gets
+      // just the locked program; an existing client (found via search, or
+      // opened via "Update Registration") keeps every other program tag it
+      // already had — this form must never be able to strip them.
+      const current = Array.isArray(existing?.programs) ? existing.programs : []
+      data.programs = current.includes(lockProgram) ? current : [...current, lockProgram]
+    }
     data.registeredOn = regDate || todayISO()
     if (isFitness) data.fitnessGoals = fitnessGoals
     else data.painAreas = painAreas
