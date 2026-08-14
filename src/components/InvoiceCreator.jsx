@@ -26,7 +26,7 @@ function loadDefaultTerms() {
   try { return localStorage.getItem(TERMS_KEY) || FALLBACK_TERMS } catch { return FALLBACK_TERMS }
 }
 
-const blankItem = () => ({ name: '', qty: '1', charges: 0 })
+const blankItem = () => ({ name: '', charges: 0 })
 
 // One line item's name picker — a free-typed name with a portal-rendered
 // suggestions dropdown (never clipped by the table's scroll container, unlike
@@ -178,7 +178,6 @@ function ItemRow({ item, onChange, onRemove, suggestions, favorites, onSaveServi
       <td className="py-2 pr-2">
         <ItemPicker item={item} onChange={onChange} suggestions={suggestions} favorites={favorites} onSaveService={onSaveService} onUpdateService={onUpdateService} onDeleteService={onDeleteService} />
       </td>
-      <td className="w-16 py-2 pr-2"><input className="input h-9 text-center text-sm" inputMode="numeric" value={item.qty} onChange={(e) => set('qty')(onlyDigits(e.target.value).slice(0, 3) || '1')} /></td>
       <td className="w-28 py-2 pr-2"><input className="input h-9 text-right text-sm font-semibold" inputMode="numeric" value={item.charges} placeholder="0" onChange={(e) => set('charges')(Number(onlyDigits(e.target.value).slice(0, 8)) || 0)} /></td>
       <td className="w-9 py-2 pt-3">
         <button type="button" onClick={onRemove} className="grid h-7 w-7 place-items-center rounded-full text-slate-300 hover:bg-red-50 hover:text-red-500"><Trash2 size={14} /></button>
@@ -283,7 +282,7 @@ export default function InvoiceCreator() {
     try {
       const { invoiceNo } = await createInvoice({
         date, clientName: name, clientPhone: phone, clientDocId: pickedClient?.id || null,
-        items: validItems.map((it) => ({ name: it.name.trim(), qty: Number(it.qty) || 1, charges: Number(it.charges) || 0 })),
+        items: validItems.map((it) => ({ name: it.name.trim(), charges: Number(it.charges) || 0 })),
         subtotal, received: receivedNum, balance, terms,
       })
       const res = await generateInvoice({ invoiceNo, date, clientName: name, clientPhone: phone, items: validItems, received: receivedNum, terms }, { action })
@@ -359,10 +358,10 @@ export default function InvoiceCreator() {
         <div>
           <label className="label text-xs">Items</label>
           <div className="overflow-x-auto rounded-xl border border-slate-200 p-3">
-            <table className="w-full min-w-[440px]">
+            <table className="w-full min-w-[320px]">
               <thead>
                 <tr className="border-b border-slate-200 text-left text-[11px] font-bold uppercase tracking-wide text-slate-400">
-                  <th className="pb-2">Item name</th><th className="pb-2">Qty</th><th className="pb-2 text-right">Charges</th><th></th>
+                  <th className="pb-2">Item name</th><th className="pb-2 text-right">Charges</th><th></th>
                 </tr>
               </thead>
               <tbody>
@@ -420,12 +419,12 @@ export default function InvoiceCreator() {
         </div>
 
         {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}
-        <div className="flex flex-wrap justify-end gap-2">
-          <button type="button" onClick={resetForm} className="btn-ghost">Clear</button>
-          <button type="button" onClick={() => go('both')} disabled={!!busy} className="btn-outline">{busy === 'both' ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />} Download &amp; Send</button>
-          <button type="button" onClick={() => go('download')} disabled={!!busy} className="btn-primary">{busy === 'download' ? <Loader2 size={18} className="animate-spin" /> : <FileDown size={18} />} Create &amp; Download</button>
+        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:justify-end">
+          <button type="button" onClick={resetForm} className="btn-ghost w-full justify-center sm:w-auto">Clear</button>
+          <button type="button" onClick={() => go('both')} disabled={!!busy} className="btn-outline w-full justify-center sm:w-auto">{busy === 'both' ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />} Download &amp; Send</button>
+          <button type="button" onClick={() => go('download')} disabled={!!busy} className="btn-primary w-full justify-center sm:w-auto">{busy === 'download' ? <Loader2 size={18} className="animate-spin" /> : <FileDown size={18} />} Create &amp; Download</button>
         </div>
-        {msg && <p className="flex items-center justify-end gap-1.5 text-right text-sm text-emerald-600"><CheckCircle2 size={15} /> {msg}</p>}
+        {msg && <p className="flex items-center justify-center gap-1.5 text-center text-sm text-emerald-600 sm:justify-end sm:text-right"><CheckCircle2 size={15} /> {msg}</p>}
       </div>
 
       {/* Recent invoices — only the latest RECENT_SHOWN are ever kept (see createInvoice) */}

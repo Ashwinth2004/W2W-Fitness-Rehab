@@ -1090,7 +1090,7 @@ function amountInWordsINR(n) {
 //  corner) and Terms & Conditions as the very last block before the footer.
 //  A4, standard margins (same M/CW as every other report in this file).
 //  `invoice`: { invoiceNo, date, clientName, clientPhone, items: [{name,
-//  qty, charges}], received, terms }
+//  charges}], received, terms }
 // ---------------------------------------------------------------------------
 export async function generateInvoice(invoice, opts = {}) {
   const { action = 'download' } = opts
@@ -1118,10 +1118,10 @@ export async function generateInvoice(invoice, opts = {}) {
   const items = invoice.items || []
   autoTable(doc, {
     startY: y,
-    head: [['#', 'Item Name', 'Qty', 'Charges']],
-    body: items.map((it, i) => [String(i + 1), it.name || '—', String(it.qty || 1), inr(it.charges)]),
+    head: [['#', 'Item Name', 'Charges']],
+    body: items.map((it, i) => [String(i + 1), it.name || '—', inr(it.charges)]),
     theme: 'grid', headStyles: { fillColor: BRAND, fontSize: 9.5 }, bodyStyles: { fontSize: 9.5, fontStyle: 'bold', textColor: DARK },
-    columnStyles: { 0: { cellWidth: 10, halign: 'center' }, 2: { cellWidth: 20, halign: 'center' }, 3: { cellWidth: 40, halign: 'right' } },
+    columnStyles: { 0: { cellWidth: 10, halign: 'center' }, 2: { cellWidth: 40, halign: 'right' } },
     margin: { left: M, right: M },
   })
   y = doc.lastAutoTable.finalY + 6
