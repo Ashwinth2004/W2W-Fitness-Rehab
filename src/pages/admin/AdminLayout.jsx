@@ -37,10 +37,11 @@ export default function AdminLayout() {
   )
 }
 
-// "Install app" button — shown only when the browser fires beforeinstallprompt
-// (i.e. on the admin pages where the manifest is injected). Hidden once installed
-// or when the browser offers no prompt (e.g. iOS uses Share → Add to Home Screen).
-function InstallAppButton() {
+// Shared beforeinstallprompt capture — role-agnostic (every login sees the
+// same install offer whenever the browser makes one available). Hidden once
+// installed or when the browser offers no prompt (e.g. iOS uses Share → Add
+// to Home Screen).
+function useInstallPrompt() {
   const [deferred, setDeferred] = useState(null)
   useEffect(() => {
     const onPrompt = (e) => { e.preventDefault(); setDeferred(e) }
@@ -52,13 +53,36 @@ function InstallAppButton() {
       window.removeEventListener('appinstalled', onInstalled)
     }
   }, [])
+  const install = async () => { deferred.prompt(); try { await deferred.userChoice } catch (_) {} setDeferred(null) }
+  return { deferred, install }
+}
+
+// Full labelled "Install app" row — the expanded sidebar footer. Takes the
+// shared { deferred, install } as props (not its own hook call) — the
+// native beforeinstallprompt event fires only once per page load, and this
+// row mounts/unmounts as the sidebar collapses, so it must share state with
+// every other variant rather than capture the event independently.
+function InstallAppButton({ deferred, install }) {
   if (!deferred) return null
   return (
     <button
-      onClick={async () => { deferred.prompt(); try { await deferred.userChoice } catch (_) {} setDeferred(null) }}
+      onClick={install}
       className="mb-1 flex w-full items-center gap-3 rounded-xl bg-white/10 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-white/20"
     >
       <Download size={18} /> Install app
+    </button>
+  )
+}
+
+// Compact icon-only version — sits on the left side of the menu bar itself
+// (the mobile top bar, and the collapsed/mini desktop sidebar) so it's
+// visible immediately, without opening the nav drawer, on every login. Same
+// shared-props rule as InstallAppButton above.
+function InstallAppIcon({ deferred, install, className = '' }) {
+  if (!deferred) return null
+  return (
+    <button onClick={install} title="Install app" aria-label="Install app" className={className}>
+      <Download size={20} />
     </button>
   )
 }
@@ -68,6 +92,7 @@ function AdminShell() {
   const { guard } = useUnsaved()
   const navigate = useNavigate()
   const location = useLocation()
+  const installPrompt = useInstallPrompt()
   const [open, setOpen] = useState(false)
   const [newEnq, setNewEnq] = useState(0)
   // Desktop sidebar collapse — an admin preference, remembered per browser.
@@ -173,7 +198,10 @@ function AdminShell() {
         ))}
       </nav>
       <div className="border-t border-white/10 p-3">
-        {!mini && <InstallAppButton />}
+        {!mini && <InstallAppButton {...installPrompt} />}
+        {mini && (
+          <InstallAppIcon {...installPrompt} className="mb-1 grid h-9 w-full place-items-center rounded-xl bg-white/10 text-white transition hover:bg-white/20" />
+        )}
         {!mini && (
           <a href="/" target="_blank" rel="noreferrer" className="flex items-center gap-3 rounded-xl px-4 py-2.5 text-sm text-brand-100 hover:bg-white/10 hover:text-white">
             <ExternalLink size={18} /> View Website
@@ -210,9 +238,12 @@ function AdminShell() {
       <div className="flex min-w-0 flex-1 flex-col">
         {/* Top bar (mobile) */}
         <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-slate-200 bg-white px-4 lg:hidden">
-          <button onClick={() => setOpen(true)} className="rounded-lg p-2 text-slate-700" aria-label="Open menu">
-            <Menu size={24} />
-          </button>
+          <div className="flex items-center gap-1">
+            <button onClick={() => setOpen(true)} className="rounded-lg p-2 text-slate-700" aria-label="Open menu">
+              <Menu size={24} />
+            </button>
+            <InstallAppIcon {...installPrompt} className="rounded-lg p-2 text-slate-700" />
+          </div>
           <div className="flex items-center gap-2">
             <img src="/w2w-fitness-rehab-logo.webp" alt="W2W Fitness & Rehab logo" className="h-9 w-9 rounded-full object-contain" />
             <span className="font-bold text-brand-700">W2W Admin</span>
