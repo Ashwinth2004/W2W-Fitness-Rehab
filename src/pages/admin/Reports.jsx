@@ -13,6 +13,7 @@ import { fmtDate, isoOf, todayISO } from '../../lib/format'
 import DateField from '../../components/DateField'
 import AdminPageHeader from '../../components/AdminPageHeader'
 import InvoiceCreator from '../../components/InvoiceCreator'
+import { useUnsaved } from '../../context/UnsavedContext'
 
 const monthKey = (d) => format(d, 'yyyy-MM')
 const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
@@ -22,6 +23,7 @@ const CUR_YEAR = new Date().getFullYear()
 const YEARS = Array.from({ length: 9 }, (_, i) => String(CUR_YEAR - i))
 
 export default function Reports() {
+  const { guard } = useUnsaved()
   const [tab, setTab] = useState('reports') // reports | invoices
   const [mode, setMode] = useState('month') // month | year | range | day
   const [month, setMonth] = useState(monthKey(new Date()))
@@ -107,7 +109,7 @@ export default function Reports() {
 
       <div className="flex flex-wrap gap-2">
         {[['reports', 'Reports', FileText], ['invoices', 'Invoices', Receipt]].map(([id, lbl, Icon]) => (
-          <button key={id} onClick={() => setTab(id)} className={`flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition ${tab === id ? 'bg-brand-600 text-white shadow' : 'bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50'}`}>
+          <button key={id} onClick={() => guard(() => setTab(id))} className={`flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition ${tab === id ? 'bg-brand-600 text-white shadow' : 'bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50'}`}>
             <Icon size={16} /> {lbl}
           </button>
         ))}

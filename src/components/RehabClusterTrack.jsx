@@ -159,6 +159,92 @@ export default function RehabClusterTrack({ client, plan, plans = [], onClose })
   const daysRef = useRef(days)
   useEffect(() => { daysRef.current = days }, [days])
 
+  // Long-press-and-drag reordering of the exercise tiles — pointer events
+  // (not HTML5 drag-and-drop, which has no touch support) so the same
+  // handlers work for a mouse click-drag and a finger long-press-drag alike.
+  // Refs (not state) hold the live drag/over index so the window-level
+  // pointerup/pointercancel listeners below always see the latest values
+  // without re-subscribing on every pointermove.
+  const dragIdxRef = useRef(null)
+  const overIdxRef = useRef(null)
+  const pressTimer = useRef(null)
+  const pressStart = useRef({ x: 0, y: 0 })
+  const draggingRef = useRef(false)
+  const [, setDragTick] = useState(0)
+  const rerender = () => setDragTick((t) => t + 1)
+
+  function reorderExercises(fromIdx, toIdx, exList, dayNum) {
+    if (fromIdx == null || toIdx == null || fromIdx === toIdx) return
+    const fromStretch = exList[fromIdx]?.type === 'Stretching'
+    if ((exList[toIdx]?.type === 'Stretching') !== fromStretch) return // keep main/stretches sections separate
+    const next = [...exList]
+    const [moved] = next.splice(fromIdx, 1)
+    next.splice(toIdx, 0, moved)
+    persist(applyToDay(dayNum, (d) => ({ ...d, exercises: next })))
+  }
+
+  function endDrag(exList, dayNum) {
+    clearTimeout(pressTimer.current)
+    if (draggingRef.current && dragIdxRef.current != null && overIdxRef.current != null && dragIdxRef.current !== overIdxRef.current) {
+      reorderExercises(dragIdxRef.current, overIdxRef.current, exList, dayNum)
+    }
+    draggingRef.current = false
+    dragIdxRef.current = null
+    overIdxRef.current = null
+    rerender()
+  }
+
+  function cancelDrag() {
+    clearTimeout(pressTimer.current)
+    draggingRef.current = false
+    dragIdxRef.current = null
+    overIdxRef.current = null
+    rerender()
+  }
+
+  // Re-subscribed whenever the active day's exercises change so the
+  // fallback pointerup/pointercancel listeners always reorder the freshest list.
+  useEffect(() => {
+    const onUp = () => endDrag(exercises, activeDay)
+    window.addEventListener('pointerup', onUp)
+    window.addEventListener('pointercancel', cancelDrag)
+    return () => {
+      window.removeEventListener('pointerup', onUp)
+      window.removeEventListener('pointercancel', cancelDrag)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [days, activeDay])
+
+  function handleTilePointerDown(idx, e) {
+    if (e.pointerType === 'mouse' && e.button !== 0) return
+    if (e.target.closest('select, input, textarea')) return
+    pressStart.current = { x: e.clientX, y: e.clientY }
+    clearTimeout(pressTimer.current)
+    pressTimer.current = setTimeout(() => {
+      draggingRef.current = true
+      dragIdxRef.current = idx
+      overIdxRef.current = idx
+      rerender()
+      if (navigator.vibrate) navigator.vibrate(12)
+    }, 380)
+  }
+
+  function handleTilePointerMove(e) {
+    if (!draggingRef.current) {
+      const dx = Math.abs(e.clientX - pressStart.current.x)
+      const dy = Math.abs(e.clientY - pressStart.current.y)
+      if (dx > 10 || dy > 10) clearTimeout(pressTimer.current)
+      return
+    }
+    e.preventDefault()
+    const el = document.elementFromPoint(e.clientX, e.clientY)
+    const tile = el?.closest('[data-tile-idx]')
+    if (tile) {
+      const idx = Number(tile.dataset.tileIdx)
+      if (overIdxRef.current !== idx) { overIdxRef.current = idx; rerender() }
+    }
+  }
+
   async function persist(nextDays) {
     setSaving(true)
     try { await updateRehabPlan(client.id, plan.id, { ...plan, days: nextDays }) }
@@ -319,41 +405,65 @@ export default function RehabClusterTrack({ client, plan, plans = [], onClose })
           ) : (
             <div className="space-y-5">
               {main.length > 0 && (
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 2xl:grid-cols-3">
-                  {main.map((ex) => {
-                    const idx = exercises.indexOf(ex)
-                    const key = `${activeDay}-${idx}`
-                    return (
-                      <ExerciseTile
-                        key={idx} ex={ex} expanded={expandedKey === key}
-                        onToggleExpand={() => setExpandedKey((k) => (k === key ? null : key))}
-                        onToggleDone={() => toggleExerciseDone(activeDay, idx)}
-                        onNotesChange={(e) => setFieldLocal(activeDay, idx, 'notes', e.target.value)}
-                        onNotesBlur={commitEdits}
-                        onFieldSelect={(field, value) => setSessionField(activeDay, idx, field, value)}
-                        onToggleProgression={(p) => toggleProgression(activeDay, idx, p)}
-                      />
-                    )
-                  })}
+                <div>
+                  {main.length > 1 && <p className="mb-2 text-[11px] font-medium text-slate-400">Press and hold a tile to drag and reorder.</p>}
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 2xl:grid-cols-3">
+                    {main.map((ex) => {
+                      const idx = exercises.indexOf(ex)
+                      const key = `${activeDay}-${idx}`
+                      const isDragged = dragIdxRef.current === idx
+                      const isOver = dragIdxRef.current != null && overIdxRef.current === idx && !isDragged
+                      return (
+                        <div
+                          key={idx} data-tile-idx={idx}
+                          onPointerDown={(e) => handleTilePointerDown(idx, e)}
+                          onPointerMove={handleTilePointerMove}
+                          style={{ touchAction: isDragged ? 'none' : 'pan-y' }}
+                          className={`relative rounded-2xl transition ${isDragged ? 'z-10 scale-[0.97] shadow-xl ring-2 ring-brand-500' : isOver ? 'ring-2 ring-brand-300' : ''}`}
+                        >
+                          <ExerciseTile
+                            ex={ex} expanded={expandedKey === key}
+                            onToggleExpand={() => setExpandedKey((k) => (k === key ? null : key))}
+                            onToggleDone={() => toggleExerciseDone(activeDay, idx)}
+                            onNotesChange={(e) => setFieldLocal(activeDay, idx, 'notes', e.target.value)}
+                            onNotesBlur={commitEdits}
+                            onFieldSelect={(field, value) => setSessionField(activeDay, idx, field, value)}
+                            onToggleProgression={(p) => toggleProgression(activeDay, idx, p)}
+                          />
+                        </div>
+                      )
+                    })}
+                  </div>
                 </div>
               )}
               {stretches.length > 0 && (
                 <div>
                   <p className="mb-2 text-sm font-bold text-brand-700">Stretches</p>
+                  {stretches.length > 1 && <p className="mb-2 text-[11px] font-medium text-slate-400">Press and hold a tile to drag and reorder.</p>}
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 2xl:grid-cols-3">
                     {stretches.map((ex) => {
                       const idx = exercises.indexOf(ex)
                       const key = `${activeDay}-${idx}`
+                      const isDragged = dragIdxRef.current === idx
+                      const isOver = dragIdxRef.current != null && overIdxRef.current === idx && !isDragged
                       return (
-                        <ExerciseTile
-                          key={idx} ex={ex} expanded={expandedKey === key}
-                          onToggleExpand={() => setExpandedKey((k) => (k === key ? null : key))}
-                          onToggleDone={() => toggleExerciseDone(activeDay, idx)}
-                          onNotesChange={(e) => setFieldLocal(activeDay, idx, 'notes', e.target.value)}
-                          onNotesBlur={commitEdits}
-                          onFieldSelect={(field, value) => setSessionField(activeDay, idx, field, value)}
-                          onToggleProgression={(p) => toggleProgression(activeDay, idx, p)}
-                        />
+                        <div
+                          key={idx} data-tile-idx={idx}
+                          onPointerDown={(e) => handleTilePointerDown(idx, e)}
+                          onPointerMove={handleTilePointerMove}
+                          style={{ touchAction: isDragged ? 'none' : 'pan-y' }}
+                          className={`relative rounded-2xl transition ${isDragged ? 'z-10 scale-[0.97] shadow-xl ring-2 ring-brand-500' : isOver ? 'ring-2 ring-brand-300' : ''}`}
+                        >
+                          <ExerciseTile
+                            ex={ex} expanded={expandedKey === key}
+                            onToggleExpand={() => setExpandedKey((k) => (k === key ? null : key))}
+                            onToggleDone={() => toggleExerciseDone(activeDay, idx)}
+                            onNotesChange={(e) => setFieldLocal(activeDay, idx, 'notes', e.target.value)}
+                            onNotesBlur={commitEdits}
+                            onFieldSelect={(field, value) => setSessionField(activeDay, idx, field, value)}
+                            onToggleProgression={(p) => toggleProgression(activeDay, idx, p)}
+                          />
+                        </div>
                       )
                     })}
                   </div>

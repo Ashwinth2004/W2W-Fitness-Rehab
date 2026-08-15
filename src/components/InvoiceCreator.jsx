@@ -11,6 +11,7 @@ import { generateInvoice } from '../lib/pdf'
 import { todayISO, fmtDate } from '../lib/format'
 import { onlyDigits, isValidMobile } from '../lib/validate'
 import { useFavorites } from '../lib/useFavorites'
+import { useUnsaved } from '../context/UnsavedContext'
 import DateField from './DateField'
 
 const rs = (n) => 'Rs. ' + Number(n || 0).toLocaleString('en-IN')
@@ -187,6 +188,7 @@ function ItemRow({ item, onChange, onRemove, suggestions, favorites, onSaveServi
 }
 
 export default function InvoiceCreator() {
+  const { setDirty } = useUnsaved()
   const [clients, setClients] = useState([])
   const [serviceCharges, setServiceCharges] = useState([])
   const [invoiceServices, setInvoiceServices] = useState([])
@@ -210,6 +212,16 @@ export default function InvoiceCreator() {
   useEffect(() => watchServiceCharges(setServiceCharges), [])
   useEffect(() => watchInvoiceServices(setInvoiceServices), [])
   useEffect(() => watchInvoices(setRecent), [])
+
+  // Warn before navigating away with an in-progress, unsaved invoice —
+  // dirty the moment there's real content, clean once it's blank again
+  // (cleared on save or via the Clear button).
+  const isDirty = !!(
+    pickedClient || clientName.trim() || clientPhone.trim() || received.trim()
+    || items.some((it) => it.name.trim() || Number(it.charges) > 0)
+  )
+  useEffect(() => { setDirty(isDirty) }, [isDirty, setDirty])
+  useEffect(() => () => setDirty(false), [setDirty]) // clear the flag if this screen ever unmounts
 
   // Combined suggestion list — clinic services (reused, read-only here) +
   // this module's own favorites — de-duplicated by name.
@@ -287,6 +299,10 @@ export default function InvoiceCreator() {
       })
       const res = await generateInvoice({ invoiceNo, date, clientName: name, clientPhone: phone, items: validItems, received: receivedNum, terms }, { action })
       setMsg(res === 'downloaded-and-shared' ? `Invoice ${invoiceNo} downloaded and shared.` : res === 'shared' ? `Invoice ${invoiceNo} shared.` : res === 'downloaded' ? `Invoice ${invoiceNo} downloaded.` : `Invoice ${invoiceNo} saved.`)
+      // Saved — clear the working fields so the form (and the unsaved-changes
+      // guard) treat it as clean again, ready for the next invoice.
+      setPickedClient(null); setClientName(''); setClientPhone(''); setDate(todayISO())
+      setItems([blankItem()]); setReceived('')
     } catch (err) {
       console.error('invoice failed:', err)
       setError('Could not create the invoice. Please try again.')
