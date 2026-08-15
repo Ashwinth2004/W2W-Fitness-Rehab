@@ -405,41 +405,37 @@ export default function RehabClusterTrack({ client, plan, plans = [], onClose })
           ) : (
             <div className="space-y-5">
               {main.length > 0 && (
-                <div>
-                  {main.length > 1 && <p className="mb-2 text-[11px] font-medium text-slate-400">Press and hold a tile to drag and reorder.</p>}
-                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 2xl:grid-cols-3">
-                    {main.map((ex) => {
-                      const idx = exercises.indexOf(ex)
-                      const key = `${activeDay}-${idx}`
-                      const isDragged = dragIdxRef.current === idx
-                      const isOver = dragIdxRef.current != null && overIdxRef.current === idx && !isDragged
-                      return (
-                        <div
-                          key={idx} data-tile-idx={idx}
-                          onPointerDown={(e) => handleTilePointerDown(idx, e)}
-                          onPointerMove={handleTilePointerMove}
-                          style={{ touchAction: isDragged ? 'none' : 'pan-y' }}
-                          className={`relative rounded-2xl transition ${isDragged ? 'z-10 scale-[0.97] shadow-xl ring-2 ring-brand-500' : isOver ? 'ring-2 ring-brand-300' : ''}`}
-                        >
-                          <ExerciseTile
-                            ex={ex} expanded={expandedKey === key}
-                            onToggleExpand={() => setExpandedKey((k) => (k === key ? null : key))}
-                            onToggleDone={() => toggleExerciseDone(activeDay, idx)}
-                            onNotesChange={(e) => setFieldLocal(activeDay, idx, 'notes', e.target.value)}
-                            onNotesBlur={commitEdits}
-                            onFieldSelect={(field, value) => setSessionField(activeDay, idx, field, value)}
-                            onToggleProgression={(p) => toggleProgression(activeDay, idx, p)}
-                          />
-                        </div>
-                      )
-                    })}
-                  </div>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 2xl:grid-cols-3">
+                  {main.map((ex) => {
+                    const idx = exercises.indexOf(ex)
+                    const key = `${activeDay}-${idx}`
+                    const isDragged = dragIdxRef.current === idx
+                    const isOver = dragIdxRef.current != null && overIdxRef.current === idx && !isDragged
+                    return (
+                      <div
+                        key={idx} data-tile-idx={idx}
+                        onPointerDown={(e) => handleTilePointerDown(idx, e)}
+                        onPointerMove={handleTilePointerMove}
+                        style={{ touchAction: isDragged ? 'none' : 'pan-y' }}
+                        className={`relative rounded-2xl transition ${isDragged ? 'z-10 scale-[0.97] shadow-xl ring-2 ring-brand-500' : isOver ? 'ring-2 ring-brand-300' : ''}`}
+                      >
+                        <ExerciseTile
+                          ex={ex} expanded={expandedKey === key}
+                          onToggleExpand={() => setExpandedKey((k) => (k === key ? null : key))}
+                          onToggleDone={() => toggleExerciseDone(activeDay, idx)}
+                          onNotesChange={(e) => setFieldLocal(activeDay, idx, 'notes', e.target.value)}
+                          onNotesBlur={commitEdits}
+                          onFieldSelect={(field, value) => setSessionField(activeDay, idx, field, value)}
+                          onToggleProgression={(p) => toggleProgression(activeDay, idx, p)}
+                        />
+                      </div>
+                    )
+                  })}
                 </div>
               )}
               {stretches.length > 0 && (
                 <div>
                   <p className="mb-2 text-sm font-bold text-brand-700">Stretches</p>
-                  {stretches.length > 1 && <p className="mb-2 text-[11px] font-medium text-slate-400">Press and hold a tile to drag and reorder.</p>}
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 2xl:grid-cols-3">
                     {stretches.map((ex) => {
                       const idx = exercises.indexOf(ex)
