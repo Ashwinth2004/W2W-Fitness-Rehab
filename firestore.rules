@@ -95,17 +95,23 @@ service cloud.firestore {
     // homeVisitType field (if present) must be 'physio' or 'rehab' for Home Visit clients.
     match /clients/{id} {
       allow read: if isAdmin() || isHomeVisitOnly();
+      // Which services a home-visit patient is registered for lives in its own
+      // `homeVisitServices` list, NOT in `programs` — so `programs` stays
+      // exactly ['W2W Home Visit'] and picking a service can never make a
+      // home-visit patient look like a clinic one.
       allow create: if isAdmin() || (
         isHomeVisitOnly()
         && request.resource.data.programs is list
         && request.resource.data.programs == ['W2W Home Visit']
-        && (!('homeVisitType' in request.resource.data) || request.resource.data.homeVisitType in ['physio', 'rehab'])
+        && (!('homeVisitType' in request.resource.data) || request.resource.data.homeVisitType in ['physio', 'rehab', 'fitness'])
       );
+      // The home-visit login may only edit a patient that already belongs to
+      // Home Visits, and can never move them out of it.
       allow update: if isAdmin() || (
         isHomeVisitOnly()
+        && 'W2W Home Visit' in resource.data.programs
         && 'W2W Home Visit' in request.resource.data.programs
-        && request.resource.data.programs.hasAll(resource.data.programs) // only additions — can't strip a client's other program tags
-        && (!('homeVisitType' in request.resource.data) || request.resource.data.homeVisitType in ['physio', 'rehab'])
+        && (!('homeVisitType' in request.resource.data) || request.resource.data.homeVisitType in ['physio', 'rehab', 'fitness'])
       );
       allow delete: if isAdmin();
 

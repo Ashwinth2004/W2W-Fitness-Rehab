@@ -11,7 +11,7 @@ import DateField from './DateField'
 import AssessmentField from './AssessmentField'
 import BodyPainSelector from './BodyPainSelector'
 import HomeVisitServiceTypeSelector from './HomeVisitServiceTypeSelector'
-import { homeVisitServicesFor, programsForServices } from '../lib/homeVisit'
+import { homeVisitServicesFor, HOME_VISIT_PROGRAM } from '../lib/homeVisit'
 
 const goalChipCls = (active) =>
   `inline-flex cursor-pointer items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
@@ -161,8 +161,13 @@ export default function ClientForm({ clients = [], onCreated, onClose, defaultPr
         requestAnimationFrame(() => document.getElementById('hv-services')?.scrollIntoView({ behavior: 'smooth', block: 'center' }))
         return
       }
-      data.programs = programsForServices(hvServices)
-      data.homeVisitType = hvServices[0] // keeps older single-service records readable
+      // Services live in their own field; `programs` stays exactly
+      // ['W2W Home Visit'] so the freelance login is allowed to write it.
+      data.homeVisitServices = hvServices
+      data.programs = [HOME_VISIT_PROGRAM]
+      // `homeVisitType` was the old single-service field and only ever
+      // accepted 'physio'/'rehab'. It is deliberately not written any more —
+      // homeVisitServices replaces it and covers Fitness too.
     } else if (lockProgram) {
       // Adds the locked program to whatever this client already has —
       // never replaces it. A brand-new client (no `existing`) simply gets

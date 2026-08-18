@@ -50,23 +50,23 @@ export const HOME_VISIT_SERVICES = [
 export const serviceById = (id) => HOME_VISIT_SERVICES.find((s) => s.id === id) || null
 
 // Which services a home-visit patient is registered for, as service ids.
-// Falls back to the older single `homeVisitType` field for records made
-// before multi-service registration, and to Physio if nothing is recorded
-// at all, so an existing patient never ends up with no way in.
+//
+// Stored in its own `homeVisitServices` field rather than mixed into the
+// clinic's `programs` array. Keeping them apart matters: `programs` is the
+// clinic's vocabulary, and a home-visit patient's programs array must stay
+// exactly ['W2W Home Visit'] for the freelance login to be allowed to write
+// it at all. It also means picking a service here can never make a patient
+// look like a clinic patient.
+//
+// Older records fall back to the single `homeVisitType`, then to the program
+// tags, then to Physio — so an existing patient always has a way in.
 export function homeVisitServicesFor(client) {
-  const programs = Array.isArray(client?.programs) ? client.programs : []
-  const picked = HOME_VISIT_SERVICES.filter((s) => programs.includes(s.program)).map((s) => s.id)
-  if (picked.length) return picked
+  const stored = Array.isArray(client?.homeVisitServices) ? client.homeVisitServices.filter((id) => serviceById(id)) : []
+  if (stored.length) return stored
   if (client?.homeVisitType && serviceById(client.homeVisitType)) return [client.homeVisitType]
-  return ['physio']
-}
-
-// Turn the chosen service ids into the `programs` array stored on the client.
-// 'W2W Home Visit' is always included — that's what marks them as belonging
-// to this module — but it is never something the user picks by hand.
-export function programsForServices(serviceIds = []) {
-  const programs = HOME_VISIT_SERVICES.filter((s) => serviceIds.includes(s.id)).map((s) => s.program)
-  return [...programs, HOME_VISIT_PROGRAM]
+  const programs = Array.isArray(client?.programs) ? client.programs : []
+  const fromPrograms = HOME_VISIT_SERVICES.filter((s) => programs.includes(s.program)).map((s) => s.id)
+  return fromPrograms.length ? fromPrograms : ['physio']
 }
 
 // Split a full client list into the two worlds in one pass.
