@@ -29,7 +29,7 @@ import PatientAvatar from '../../components/PatientAvatar'
 import ClientForm from '../../components/ClientForm'
 import { RehabPlanner } from './Rehab'
 import { FitnessPlanner } from './Fitness'
-import { isHomeVisitOnlyClient } from '../../lib/homeVisit'
+import { isHomeVisitOnlyClient, homeVisitServicesFor, serviceById, HOME_VISIT_SERVICES } from '../../lib/homeVisit'
 import { useUnsaved } from '../../context/UnsavedContext'
 
 const PAY_MODES = ['Cash', 'UPI', 'Card', 'Bank transfer', 'Other']
@@ -41,6 +41,9 @@ export default function HomeVisits() {
   const [clients, setClients] = useState([])
   const [params, setParams] = useSearchParams()
   const [showForm, setShowForm] = useState(false)
+  // Id of a patient just registered — shown as a banner on the list with an
+  // explicit way through to their treatment, rather than jumping there.
+  const [justRegistered, setJustRegistered] = useState('')
   const navigate = useNavigate()
 
   useEffect(() => watchClients(setClients), [])
@@ -58,13 +61,38 @@ export default function HomeVisits() {
           <ClientForm
             clients={clients}
             defaultPrograms={['W2W Home Visit']}
-            lockProgram={role === 'homevisit' ? 'W2W Home Visit' : undefined}
+            homeVisitMode
             homeVisitOnly
-            onCreated={(id) => { setShowForm(false); setParams({ client: id }) }}
+            // "Create patient" returns to the patient list, the same as every
+            // other module; only "Create & continue to Treatment" opens the
+            // treatment straight away.
+            onCreated={(id, dest) => {
+              setShowForm(false)
+              if (dest === 'treatment') setParams({ client: id })
+              else setJustRegistered(id)
+            }}
             onClose={() => setShowForm(false)}
           />
         ) : (
-          <HomeVisitClientPicker clients={clients} role={role} onPick={(id) => setParams({ client: id })} onNew={() => setShowForm(true)} />
+          <>
+            {justRegistered && (() => {
+              const c = clients.find((x) => x.id === justRegistered)
+              return (
+                <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border-2 border-emerald-200 bg-emerald-50 px-4 py-3">
+                  <p className="flex items-center gap-2 text-sm font-semibold text-emerald-800">
+                    <CheckCircle2 size={18} /> {c ? `${c.name} (${c.clientId}) registered.` : 'Patient registered.'}
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    <button type="button" onClick={() => { setJustRegistered(''); setParams({ client: justRegistered }) }} className="btn-primary px-3 py-1.5 text-sm">
+                      Continue with treatment <ArrowRight size={15} />
+                    </button>
+                    <button type="button" onClick={() => setJustRegistered('')} className="btn-ghost px-3 py-1.5 text-sm">Stay on the list</button>
+                  </div>
+                </div>
+              )
+            })()}
+            <HomeVisitClientPicker clients={clients} role={role} onPick={(id) => setParams({ client: id })} onNew={() => setShowForm(true)} />
+          </>
         )}
       </div>
     )
@@ -87,8 +115,8 @@ export default function HomeVisits() {
       client={client}
       clients={clients}
       editId={params.get('visit') || ''}
-      tab={params.get('tab') || (client.homeVisitType === 'rehab' ? 'rehab' : 'physio')}
-      onTab={(t) => setParams(t === 'physio' ? { client: client.id } : { client: client.id, tab: t })}
+      tab={params.get('tab') || ''}
+      onTab={(t) => setParams({ client: client.id, tab: t })}
       role={role}
       onChangeClient={() => setParams({})}
       navigate={navigate}
@@ -100,11 +128,7 @@ export default function HomeVisits() {
 // the home-visit assessment, plus the real Rehab & Exercises and Fitness
 // planners (the very same components the clinic modules render) and a link
 // through to the full patient profile.
-const HV_TABS = [
-  ['physio', 'Physio', Stethoscope],
-  ['rehab', 'Rehab & Exercises', Dumbbell],
-  ['fitness', 'Fitness', Activity],
-]
+const TAB_ICONS = { physio: Stethoscope, rehab: Dumbbell, fitness: Activity }
 
 function HomeVisitWorkspace({ client, clients, editId, tab, onTab, role, onChangeClient, navigate }) {
   const { guard } = useUnsaved()
@@ -120,6 +144,12 @@ function HomeVisitWorkspace({ client, clients, editId, tab, onTab, role, onChang
     updateClient(client.id, { homeVisitOnly: true }).catch(() => { /* best-effort migration */ })
   }, [client])
 
+  // Only the services this patient is registered for — nothing unregistered
+  // is offered, so there's no way to wander into the wrong workspace.
+  const services = useMemo(() => homeVisitServicesFor(client), [client])
+  // Fall back to their first registered service when no tab is named (or the
+  // named one isn't registered for this patient).
+  const activeTab = services.includes(tab) ? tab : services[0]
   const go = (t) => () => guard(() => onTab(t))
 
   return (
@@ -130,17 +160,22 @@ function HomeVisitWorkspace({ client, clients, editId, tab, onTab, role, onChang
       </AdminPageHeader>
 
       <div className="flex flex-wrap gap-2">
-        {HV_TABS.map(([id, label, Icon]) => (
-          <button
-            key={id} type="button" onClick={go(id)}
-            className={`flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition ${tab === id ? 'bg-brand-600 text-white shadow' : 'bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50'}`}
-          >
-            <Icon size={16} /> {label}
-          </button>
-        ))}
+        {services.map((id) => {
+          const svc = serviceById(id)
+          const Icon = TAB_ICONS[id]
+          if (!svc) return null
+          return (
+            <button
+              key={id} type="button" onClick={go(id)}
+              className={`flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition ${activeTab === id ? 'bg-brand-600 text-white shadow' : 'bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50'}`}
+            >
+              <Icon size={16} /> {svc.label}
+            </button>
+          )
+        })}
       </div>
 
-      {tab === 'rehab' ? (
+      {activeTab === 'rehab' ? (
         <RehabPlanner
           key={`${client.id}:rehab`}
           client={client} clients={hvClients} title={null}
@@ -148,7 +183,7 @@ function HomeVisitWorkspace({ client, clients, editId, tab, onTab, role, onChang
           hideBilling={role === 'homevisit'} hideProfileLink={role === 'homevisit'}
           onChangeClient={onChangeClient} navigate={navigate}
         />
-      ) : tab === 'fitness' ? (
+      ) : activeTab === 'fitness' ? (
         <FitnessPlanner
           key={`${client.id}:fitness`}
           client={client} clients={hvClients} title={null}
@@ -170,12 +205,16 @@ function HomeVisitWorkspace({ client, clients, editId, tab, onTab, role, onChang
 function HomeVisitClientPicker({ clients, onPick, onNew, note, role }) {
   const [q, setQ] = useState('')
   const [therapistFilter, setTherapistFilter] = useState('')
+  const [serviceFilter, setServiceFilter] = useState('')
   const [expandedId, setExpandedId] = useState('')
   // Only patients registered through this module — clinic patients are never
   // listed here, in any login (see lib/homeVisit.js).
   const hvClients = clients.filter(isHomeVisitOnlyClient)
   const therapistOptions = [...new Set(hvClients.map((c) => c.therapist).filter(Boolean))].sort()
-  const byTherapist = therapistFilter ? hvClients.filter((c) => c.therapist === therapistFilter) : hvClients
+  // Service filter — the quickest way to work one service at a time
+  // (all the H-W2W REHAB patients, say) without other services in the way.
+  const byService = serviceFilter ? hvClients.filter((c) => homeVisitServicesFor(c).includes(serviceFilter)) : hvClients
+  const byTherapist = therapistFilter ? byService.filter((c) => c.therapist === therapistFilter) : byService
   const filtered = q
     ? byTherapist.filter((c) => [c.name, c.phone, c.clientId, c.email].filter(Boolean).join(' ').toLowerCase().includes(q.toLowerCase()))
     : byTherapist
@@ -210,6 +249,23 @@ function HomeVisitClientPicker({ clients, onPick, onNew, note, role }) {
           </div>
           <button onClick={onNew} className="btn-outline shrink-0"><Plus size={16} /> Register new patient</button>
         </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="flex items-center gap-1 text-xs font-bold uppercase tracking-wide text-slate-400"><Filter size={13} /> Service</span>
+          <button type="button" onClick={() => setServiceFilter('')} className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${!serviceFilter ? 'bg-brand-600 text-white shadow' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
+            All ({hvClients.length})
+          </button>
+          {HOME_VISIT_SERVICES.map((svc) => {
+            const n = hvClients.filter((c) => homeVisitServicesFor(c).includes(svc.id)).length
+            return (
+              <button
+                key={svc.id} type="button" onClick={() => setServiceFilter(serviceFilter === svc.id ? '' : svc.id)}
+                className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${serviceFilter === svc.id ? 'bg-brand-600 text-white shadow' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+              >
+                {svc.label} ({n})
+              </button>
+            )
+          })}
+        </div>
         {therapistOptions.length > 1 && (
           <div className="flex flex-wrap items-center gap-2">
             <span className="flex items-center gap-1 text-xs font-bold uppercase tracking-wide text-slate-400"><Filter size={13} /> Physiotherapist</span>
@@ -225,7 +281,8 @@ function HomeVisitClientPicker({ clients, onPick, onNew, note, role }) {
         <p className="card py-12 text-center text-sm text-slate-400">No patients registered for Home Visits yet. Register your first patient above.</p>
       ) : filtered.length === 0 ? (
         <p className="card py-12 text-center text-sm text-slate-400">
-          {therapistFilter ? `No patients assigned to ${therapistFilter}.` : `No home visit patients match "${q}".`}
+          {serviceFilter ? `No patients registered for ${serviceById(serviceFilter)?.label || 'this service'}${therapistFilter ? ` under ${therapistFilter}` : ''}.`
+            : therapistFilter ? `No patients assigned to ${therapistFilter}.` : `No home visit patients match "${q}".`}
         </p>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
@@ -634,7 +691,7 @@ function HomeVisitForm({ client, editId = '', role, onChangeClient, navigate, hi
     {editRegOpen && (
       <div className="fixed inset-0 z-[90] overflow-y-auto bg-slate-900/50 p-4 backdrop-blur-sm">
         <div className="mx-auto my-4 max-w-3xl">
-          <ClientForm editClient={client} lockProgram={role === 'homevisit' ? 'W2W Home Visit' : undefined} onCreated={() => setEditRegOpen(false)} onClose={() => setEditRegOpen(false)} />
+          <ClientForm editClient={client} homeVisitMode onCreated={() => setEditRegOpen(false)} onClose={() => setEditRegOpen(false)} />
         </div>
       </div>
     )}

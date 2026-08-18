@@ -36,6 +36,39 @@ export function isClinicClient(c) {
   return !isHomeVisitOnlyClient(c)
 }
 
+// The services a Home Visit patient can be registered for. Inside the Home
+// Visits module these are the ONLY choice offered — "W2W Home Visit" itself
+// is implied by registering here, so it is never shown as a separate option.
+// The stored `program` value stays the clinic's original identifier so
+// badges, reports and existing records keep working unchanged.
+export const HOME_VISIT_SERVICES = [
+  { id: 'physio', label: 'H-W2W PHYSIO', short: 'Physio', program: 'W2W Treatment' },
+  { id: 'rehab', label: 'H-W2W REHAB', short: 'Rehab & Exercises', program: 'W2W Fitness & Rehab' },
+  { id: 'fitness', label: 'H-W2W FITNESS', short: 'Fitness', program: 'W2W Fitness' },
+]
+
+export const serviceById = (id) => HOME_VISIT_SERVICES.find((s) => s.id === id) || null
+
+// Which services a home-visit patient is registered for, as service ids.
+// Falls back to the older single `homeVisitType` field for records made
+// before multi-service registration, and to Physio if nothing is recorded
+// at all, so an existing patient never ends up with no way in.
+export function homeVisitServicesFor(client) {
+  const programs = Array.isArray(client?.programs) ? client.programs : []
+  const picked = HOME_VISIT_SERVICES.filter((s) => programs.includes(s.program)).map((s) => s.id)
+  if (picked.length) return picked
+  if (client?.homeVisitType && serviceById(client.homeVisitType)) return [client.homeVisitType]
+  return ['physio']
+}
+
+// Turn the chosen service ids into the `programs` array stored on the client.
+// 'W2W Home Visit' is always included — that's what marks them as belonging
+// to this module — but it is never something the user picks by hand.
+export function programsForServices(serviceIds = []) {
+  const programs = HOME_VISIT_SERVICES.filter((s) => serviceIds.includes(s.id)).map((s) => s.program)
+  return [...programs, HOME_VISIT_PROGRAM]
+}
+
 // Split a full client list into the two worlds in one pass.
 export function partitionClients(clients = []) {
   const homeVisit = []

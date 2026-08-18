@@ -11,6 +11,7 @@ import DateField from './DateField'
 import AssessmentField from './AssessmentField'
 import BodyPainSelector from './BodyPainSelector'
 import HomeVisitServiceTypeSelector from './HomeVisitServiceTypeSelector'
+import { homeVisitServicesFor, programsForServices } from '../lib/homeVisit'
 
 const goalChipCls = (active) =>
   `inline-flex cursor-pointer items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
@@ -43,7 +44,7 @@ const blankForm = (programs = ['W2W Treatment']) => ({ ...Object.fromEntries(BAS
 // `homeVisitOnly` stamps brand-new registrations as belonging to the Home
 // Visits module (see lib/homeVisit.js). It is only ever set on creation —
 // editing an existing patient never changes which side they belong to.
-export default function ClientForm({ clients = [], onCreated, onClose, defaultPrograms, editClient, variant = 'clinical', lockProgram = '', homeVisitOnly = false }) {
+export default function ClientForm({ clients = [], onCreated, onClose, defaultPrograms, editClient, variant = 'clinical', lockProgram = '', homeVisitOnly = false, homeVisitMode = false }) {
   const isFitness = variant === 'fitness'
   const [form, setForm] = useState(() => {
     if (!editClient) return blankForm(lockProgram ? [lockProgram] : defaultPrograms)
@@ -68,6 +69,10 @@ export default function ClientForm({ clients = [], onCreated, onClose, defaultPr
   const [customGoals, setCustomGoals] = useState(() => getCustomFitnessGoals())
   const [goalDraft, setGoalDraft] = useState('')
   const [homeVisitType, setHomeVisitType] = useState(() => editClient?.homeVisitType || '')
+  // Home Visits registers by service (H-W2W PHYSIO / REHAB / FITNESS) instead
+  // of the clinic's program chips — one picker, nothing unregistered offered.
+  const [hvServices, setHvServices] = useState(() => (editClient ? homeVisitServicesFor(editClient) : []))
+  const [hvInvalid, setHvInvalid] = useState(false)
   const { setDirty } = useUnsaved()
 
   function toggleGoal(g) {
@@ -147,7 +152,18 @@ export default function ClientForm({ clients = [], onCreated, onClose, defaultPr
     if (!agreed) { setError('Please tick the Declaration & Consent at the top before saving.'); window.scrollTo({ top: 0, behavior: 'smooth' }); return }
     const data = {}
     BASIC_KEYS.forEach((k) => { const v = form[k]; data[k] = typeof v === 'string' ? v.trim() : v })
-    if (lockProgram) {
+    if (homeVisitMode) {
+      // One picker decides everything: the chosen services become the stored
+      // programs, and 'W2W Home Visit' is added automatically.
+      if (!hvServices.length) {
+        setHvInvalid(true)
+        setError('Choose at least one Home Visit service.')
+        requestAnimationFrame(() => document.getElementById('hv-services')?.scrollIntoView({ behavior: 'smooth', block: 'center' }))
+        return
+      }
+      data.programs = programsForServices(hvServices)
+      data.homeVisitType = hvServices[0] // keeps older single-service records readable
+    } else if (lockProgram) {
       // Adds the locked program to whatever this client already has —
       // never replaces it. A brand-new client (no `existing`) simply gets
       // just the locked program; an existing client (found via search, or
@@ -159,7 +175,7 @@ export default function ClientForm({ clients = [], onCreated, onClose, defaultPr
     data.registeredOn = regDate || todayISO()
     if (isFitness) data.fitnessGoals = fitnessGoals
     else data.painAreas = painAreas
-    if (form.programs?.includes('W2W Home Visit') && homeVisitType) {
+    if (!homeVisitMode && form.programs?.includes('W2W Home Visit') && homeVisitType) {
       data.homeVisitType = homeVisitType
     }
     setBusy(true)
@@ -264,7 +280,14 @@ export default function ClientForm({ clients = [], onCreated, onClose, defaultPr
           <legend className="px-2 text-sm font-bold text-brand-700">{s.title}</legend>
           <div className={`grid gap-3 ${s.cols1 ? '' : 'sm:grid-cols-2'}`}>
             {s.fields.map((f) => (
-              f.k === 'programs' && lockProgram ? (
+              f.k === 'programs' && homeVisitMode ? (
+                <div key={f.k} id="hv-services" className="sm:col-span-2">
+                  <HomeVisitServiceTypeSelector
+                    value={hvServices} invalid={hvInvalid}
+                    onChange={(next) => { setHvServices(next); setHvInvalid(false); setDirty(true) }}
+                  />
+                </div>
+              ) : f.k === 'programs' && lockProgram ? (
                 <div key={f.k} className={f.full ? 'sm:col-span-2' : ''}>
                   <label className="mb-1.5 block text-xs font-medium text-slate-700">{f.label}</label>
                   <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-3.5 py-2 text-sm font-medium text-slate-600">
@@ -278,13 +301,6 @@ export default function ClientForm({ clients = [], onCreated, onClose, defaultPr
           </div>
         </fieldset>
       ))}
-
-      {form.programs?.includes('W2W Home Visit') && (
-        <HomeVisitServiceTypeSelector
-          value={homeVisitType}
-          onChange={(type) => { setHomeVisitType(type); setDirty(true) }}
-        />
-      )}
 
       {isFitness ? (
         <fieldset className="rounded-2xl border border-slate-100 p-4">

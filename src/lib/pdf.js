@@ -168,7 +168,41 @@ function footerAll(doc) {
 //   'both'     — always saves AND attempts to share, so the file is never
 //                left undownloaded just because the share sheet was cancelled
 //                or unsupported (used by the Invoice "Download & Send" button).
-async function finalize(doc, filename, action = 'download', shareText) {
+// Build a WhatsApp chat link for a patient's number. A wa.me link can only
+// carry TEXT — WhatsApp has no way to accept a file through a URL — so
+// callers download the PDF alongside it for the user to attach.
+export function whatsAppUrl(phone, text) {
+  const digits = String(phone || '').replace(/\D/g, '')
+  if (!digits) return ''
+  const wa = digits.length === 10 ? `91${digits}` : digits
+  return `https://wa.me/${wa}${text ? `?text=${encodeURIComponent(text)}` : ''}`
+}
+
+async function finalize(doc, filename, action = 'download', shareText, opts = {}) {
+  // 'whatsapp' → send this PDF to one specific person.
+  // On a phone the share sheet can carry the file itself, so the PDF really
+  // does travel with the message once WhatsApp is picked. Everywhere else
+  // (desktop browsers) no API can attach a file to a chat, so the next best
+  // thing is: download the PDF and open that patient's chat with the message
+  // ready, leaving only the attach step.
+  if (action === 'whatsapp') {
+    const waUrl = whatsAppUrl(opts.phone, shareText)
+    try {
+      const blob = doc.output('blob')
+      const file = new File([blob], filename, { type: 'application/pdf' })
+      if (typeof navigator !== 'undefined' && navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({ files: [file], title: filename, text: shareText || filename })
+        return 'shared'
+      }
+    } catch (err) {
+      if (err?.name === 'AbortError') return 'cancelled'
+      // fall through to download + open the chat
+    }
+    doc.save(filename)
+    if (waUrl && typeof window !== 'undefined') window.open(waUrl, '_blank', 'noopener')
+    return waUrl ? 'downloaded-and-whatsapp' : 'downloaded'
+  }
+
   if (action === 'share' || action === 'both') {
     try {
       const blob = doc.output('blob')
@@ -1212,5 +1246,8 @@ export async function generateInvoice(invoice, opts = {}) {
 
   footerAll(doc)
   const filename = `W2W_Invoice_${invoice.invoiceNo || 'draft'}_${(invoice.clientName || 'client').replace(/\s+/g, '_')}.pdf`
-  return finalize(doc, filename, action, `Invoice ${invoice.invoiceNo || ''} from W2W Fitness & Rehab.`)
+  const dueNow = Number(invoice.balance) || 0
+  const waText = `Hi ${invoice.clientName || 'there'}, your invoice ${invoice.invoiceNo || ''} from Way to Wellness Fitness & Rehab is ready.`
+    + (dueNow > 0 ? ` Balance due: Rs. ${dueNow.toLocaleString('en-IN')}.` : ' Payment received in full — thank you!')
+  return finalize(doc, filename, action, waText, { phone: invoice.clientPhone })
 }

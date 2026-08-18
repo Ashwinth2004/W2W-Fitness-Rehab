@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import {
-  Search, Plus, Trash2, Star, FileDown, Send, Loader2, IndianRupee, Receipt, X, CheckCircle2, Save, Pencil, Check, MessageCircle,
+  Search, Plus, Trash2, Star, FileDown, Loader2, IndianRupee, Receipt, X, CheckCircle2, Save, Pencil, Check,
 } from 'lucide-react'
 import {
   watchClients, watchServiceCharges, watchInvoiceServices, addInvoiceService, updateInvoiceService, deleteInvoiceService,
@@ -12,6 +12,7 @@ import { todayISO, fmtDate } from '../lib/format'
 import { onlyDigits, isValidMobile } from '../lib/validate'
 import { useFavorites } from '../lib/useFavorites'
 import { useUnsaved } from '../context/UnsavedContext'
+import { WhatsAppIcon } from './BrandIcons'
 import DateField from './DateField'
 
 const rs = (n) => 'Rs. ' + Number(n || 0).toLocaleString('en-IN')
@@ -297,8 +298,22 @@ export default function InvoiceCreator() {
         items: validItems.map((it) => ({ name: it.name.trim(), charges: Number(it.charges) || 0 })),
         subtotal, received: receivedNum, balance, terms,
       })
-      const res = await generateInvoice({ invoiceNo, date, clientName: name, clientPhone: phone, items: validItems, received: receivedNum, terms }, { action })
-      setMsg(res === 'downloaded-and-shared' ? `Invoice ${invoiceNo} downloaded and shared.` : res === 'shared' ? `Invoice ${invoiceNo} shared.` : res === 'downloaded' ? `Invoice ${invoiceNo} downloaded.` : `Invoice ${invoiceNo} saved.`)
+      if (action === 'whatsapp' && !phone) {
+        setError('Add the client’s contact number to send this invoice on WhatsApp.')
+        setBusy(''); return
+      }
+      const res = await generateInvoice(
+        { invoiceNo, date, clientName: name, clientPhone: phone, items: validItems, received: receivedNum, balance, terms },
+        { action },
+      )
+      setMsg(
+        res === 'shared' ? `Invoice ${invoiceNo} sent on WhatsApp.`
+        : res === 'downloaded-and-whatsapp' ? `Invoice ${invoiceNo} downloaded and WhatsApp opened — attach the PDF to send.`
+        : res === 'downloaded-and-shared' ? `Invoice ${invoiceNo} downloaded and shared.`
+        : res === 'downloaded' ? `Invoice ${invoiceNo} downloaded.`
+        : res === 'cancelled' ? `Invoice ${invoiceNo} saved.`
+        : `Invoice ${invoiceNo} saved.`,
+      )
       // Saved — clear the working fields so the form (and the unsaved-changes
       // guard) treat it as clean again, ready for the next invoice.
       setPickedClient(null); setClientName(''); setClientPhone(''); setDate(todayISO())
@@ -313,28 +328,25 @@ export default function InvoiceCreator() {
   async function redownload(inv) {
     try { await generateInvoice(inv, { action: 'download' }) } catch (_) { /* best-effort */ }
   }
-  async function shareToWhatsApp(inv) {
+  // Send an invoice straight to that patient's WhatsApp. On a phone the share
+  // sheet carries the PDF itself; on desktop the PDF downloads and their chat
+  // opens with the message ready, so only the attach step is left.
+  async function sendOnWhatsApp(inv) {
     if (!inv.clientPhone) {
-      alert('No phone number available for this invoice. Please add a contact number.')
+      setError('This invoice has no contact number, so it can’t be sent on WhatsApp.')
       return
     }
-    // First download the invoice, then open WhatsApp
+    setBusy(`wa:${inv.id || 'new'}`); setError('')
     try {
-      await redownload(inv)
-      // Give a moment for download to start, then open WhatsApp
-      setTimeout(() => {
-        const phone = inv.clientPhone.replace(/\D/g, '').slice(-10)
-        const msg = `Hi ${inv.clientName || 'there'}! Your invoice ${inv.invoiceNo} is ready. Please find the invoice PDF attached. Balance due: Rs. ${inv.balance > 0 ? inv.balance.toLocaleString('en-IN') : '0'}.`
-        const encodedMsg = encodeURIComponent(msg)
-        const whatsappUrl = `https://wa.me/91${phone}?text=${encodedMsg}`
-        window.open(whatsappUrl, '_blank')
-      }, 500)
-    } catch (_) {
-      // If download fails, just open WhatsApp
-      const phone = inv.clientPhone.replace(/\D/g, '').slice(-10)
-      const whatsappUrl = `https://wa.me/91${phone}`
-      window.open(whatsappUrl, '_blank')
+      const res = await generateInvoice(inv, { action: 'whatsapp' })
+      setMsg(res === 'shared' ? `Invoice ${inv.invoiceNo} sent.`
+        : res === 'cancelled' ? ''
+        : `Invoice ${inv.invoiceNo} downloaded and WhatsApp opened — attach the PDF to send.`)
+    } catch (err) {
+      console.error('whatsapp send failed:', err)
+      setError('Could not send the invoice. Please try again.')
     }
+    setBusy('')
   }
   async function removeInvoice(inv) {
     if (!window.confirm(`Delete invoice ${inv.invoiceNo}? This cannot be undone.`)) return
@@ -460,7 +472,7 @@ export default function InvoiceCreator() {
         {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}
         <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:justify-end">
           <button type="button" onClick={resetForm} className="btn-ghost w-full justify-center sm:w-auto">Clear</button>
-          <button type="button" onClick={() => go('both')} disabled={!!busy} className="btn-outline w-full justify-center sm:w-auto">{busy === 'both' ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />} Download &amp; Send</button>
+          <button type="button" onClick={() => go('whatsapp')} disabled={!!busy} className="btn-outline w-full justify-center border-green-500 text-green-700 hover:bg-green-50 sm:w-auto">{busy === 'whatsapp' ? <Loader2 size={16} className="animate-spin" /> : <WhatsAppIcon size={16} />} Create &amp; Send on WhatsApp</button>
           <button type="button" onClick={() => go('download')} disabled={!!busy} className="btn-primary w-full justify-center sm:w-auto">{busy === 'download' ? <Loader2 size={18} className="animate-spin" /> : <FileDown size={18} />} Create &amp; Download</button>
         </div>
         {msg && <p className="flex items-center justify-center gap-1.5 text-center text-sm text-emerald-600 sm:justify-end sm:text-right"><CheckCircle2 size={15} /> {msg}</p>}
@@ -478,7 +490,13 @@ export default function InvoiceCreator() {
                   <p className="text-xs text-slate-500">{fmtDate(inv.date)} · {rs(inv.subtotal)} {inv.balance > 0 ? `· Balance ${rs(inv.balance)}` : '· Paid'}</p>
                 </div>
                 <div className="flex shrink-0 gap-1.5">
-                  <button type="button" onClick={() => shareToWhatsApp(inv)} title="Share on WhatsApp" className="grid h-8 w-8 place-items-center rounded-full text-slate-400 hover:bg-green-50 hover:text-green-600"><MessageCircle size={15} /></button>
+                  <button
+                    type="button" onClick={() => sendOnWhatsApp(inv)} disabled={!!busy || !inv.clientPhone}
+                    title={inv.clientPhone ? `Send to ${inv.clientPhone} on WhatsApp` : 'No contact number on this invoice'}
+                    className="grid h-8 w-8 place-items-center rounded-full text-slate-400 transition hover:bg-green-50 hover:text-green-600 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    {busy === `wa:${inv.id}` ? <Loader2 size={15} className="animate-spin" /> : <WhatsAppIcon size={15} />}
+                  </button>
                   <button type="button" onClick={() => redownload(inv)} title="Download again" className="grid h-8 w-8 place-items-center rounded-full text-slate-400 hover:bg-brand-50 hover:text-brand-600"><FileDown size={15} /></button>
                   <button type="button" onClick={() => removeInvoice(inv)} title="Delete" className="grid h-8 w-8 place-items-center rounded-full text-slate-400 hover:bg-red-50 hover:text-red-500"><Trash2 size={15} /></button>
                 </div>
