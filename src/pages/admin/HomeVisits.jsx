@@ -2,11 +2,12 @@ import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import {
   Home, Search, Loader2, Save, ArrowRight, Plus, CheckCircle2, BadgeCheck, IndianRupee, Send, FileDown,
-  Pencil, MapPin, Filter,
+  Pencil, MapPin, Filter, Trash2, ChevronDown,
 } from 'lucide-react'
 import {
   watchClients, watchHomeVisits, addHomeVisit, updateHomeVisit, watchServiceCharges,
   setAccountingForHomeVisit, deleteAccountingForHomeVisit, getClientNotesOnce, getHomeVisitsOnce, updateClient,
+  deleteClient,
 } from '../../lib/firestore'
 import { useAuth } from '../../context/AuthContext'
 import { HOME_VISIT_SECTIONS, HOME_VISIT_KEYS, formatAssessmentValue } from '../../lib/assessmentSchema'
@@ -105,25 +106,22 @@ export default function HomeVisits() {
 
 const isHomeVisitClient = (c) => Array.isArray(c?.programs) && c.programs.includes('W2W Home Visit')
 
-function HomeVisitClientPicker({ clients, onPick, onNew, note }) {
+function HomeVisitClientPicker({ clients, onPick, onNew, note, role }) {
   const [q, setQ] = useState('')
-  // Default to Home-Visit-registered patients only — a Treatment-only client
-  // shouldn't clutter this list. "Show all clients" reveals everyone — every
-  // login (including the freelancer's) can see any registered patient, so a
-  // client added by front desk without the Home Visit tag can still be found
-  // and given their first home visit here.
-  const [showAll, setShowAll] = useState(false)
   const [therapistFilter, setTherapistFilter] = useState('')
+  const [expandedId, setExpandedId] = useState('')
   const hvClients = clients.filter(isHomeVisitClient)
-  const pool = showAll ? clients : hvClients
-  // Which freelance/handling physiotherapist has been assigned each patient —
-  // `client.therapist` is kept current as the latest visit's therapist
-  // (see addHomeVisit), so no extra reads are needed to filter by it.
   const therapistOptions = [...new Set(hvClients.map((c) => c.therapist).filter(Boolean))].sort()
-  const byTherapist = therapistFilter ? pool.filter((c) => c.therapist === therapistFilter) : pool
+  const byTherapist = therapistFilter ? hvClients.filter((c) => c.therapist === therapistFilter) : hvClients
   const filtered = q
     ? byTherapist.filter((c) => [c.name, c.phone, c.clientId, c.email].filter(Boolean).join(' ').toLowerCase().includes(q.toLowerCase()))
     : byTherapist
+
+  async function handleDeleteClient(e, c) {
+    e.stopPropagation()
+    if (!window.confirm(`Delete ${c.name} (${c.clientId}) permanently? This cannot be undone.`)) return
+    try { await deleteClient(c.id) } catch (_) {}
+  }
 
   return (
     <div className="space-y-5">
@@ -158,46 +156,97 @@ function HomeVisitClientPicker({ clients, onPick, onNew, note }) {
             ))}
           </div>
         )}
-        {hvClients.length > 0 && (
-          <button type="button" onClick={() => setShowAll((v) => !v)} className="text-xs font-semibold text-brand-600 hover:underline">
-            {showAll ? 'Show only Home Visit patients' : 'Show all clients'}
-          </button>
-        )}
       </div>
 
-      {clients.length === 0 ? (
-        <p className="card py-12 text-center text-sm text-slate-400">No patients yet. Register your first patient above.</p>
+      {hvClients.length === 0 ? (
+        <p className="card py-12 text-center text-sm text-slate-400">No patients registered for Home Visits yet. Register your first patient above.</p>
       ) : filtered.length === 0 ? (
         <p className="card py-12 text-center text-sm text-slate-400">
-          {therapistFilter ? `No patients assigned to ${therapistFilter}.` : showAll ? `No patients match “${q}”.` : hvClients.length === 0 ? 'No patients registered for Home Visits yet.' : `No home visit patients match “${q}”.`}
+          {therapistFilter ? `No patients assigned to ${therapistFilter}.` : `No home visit patients match "${q}".`}
         </p>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          {filtered.map((c) => (
-            <div
-              key={c.id}
-              role="button"
-              tabIndex={0}
-              onClick={() => onPick(c.id)}
-              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onPick(c.id) } }}
-              className="card cursor-pointer p-5 transition hover:shadow-soft hover:ring-1 hover:ring-brand-200"
-            >
-              <div className="flex items-start justify-between">
-                <div className="flex items-center gap-3">
-                  <PatientAvatar client={c} />
-                  <div className="min-w-0">
-                    <p className="truncate font-semibold text-slate-900">{c.name}</p>
-                    <p className="flex items-center gap-1 text-xs font-medium text-brand-600"><BadgeCheck size={13} /> {c.clientId}<RehabBadge client={c} /><FitnessBadge client={c} /><HomeVisitBadge client={c} /></p>
+          {filtered.map((c) => {
+            const expanded = expandedId === c.id
+            const facts = [['age', 'Age'], ['gender', 'Gender'], ['email', 'Email'], ['occupation', 'Occupation / Sports'], ['height', 'Height (cm)'], ['weight', 'Weight (kg)']].filter(([k]) => c[k])
+            const hasArea = Array.isArray(c.painAreas) && c.painAreas.length > 0
+            return (
+              <div key={c.id} className="card p-5 transition hover:shadow-soft hover:ring-1 hover:ring-brand-200">
+                <div
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => onPick(c.id)}
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onPick(c.id) } }}
+                  className="cursor-pointer"
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-3">
+                      <PatientAvatar client={c} />
+                      <div className="min-w-0">
+                        <p className="truncate font-semibold text-slate-900">{c.name}</p>
+                        <p className="flex items-center gap-1 text-xs font-medium text-brand-600"><BadgeCheck size={13} /> {c.clientId}<RehabBadge client={c} /><FitnessBadge client={c} /><HomeVisitBadge client={c} /></p>
+                      </div>
+                    </div>
+                  </div>
+                  {c.address && <p className="mt-3 flex items-start gap-1.5 text-xs text-slate-500"><MapPin size={13} className="mt-0.5 shrink-0" /> {c.address}</p>}
+                  <div className="mt-4 flex items-center justify-between">
+                    <p className="text-xs text-slate-500">Since {fmtDate(c.createdAt)}</p>
+                    <div onClick={(e) => e.stopPropagation()}><ContactActions phone={c.phone} size="sm" /></div>
                   </div>
                 </div>
+
+                <div className="mt-3 flex items-center justify-between border-t border-slate-100 pt-3">
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); setExpandedId(expanded ? '' : c.id) }}
+                    className="flex items-center gap-1 text-xs font-semibold text-brand-600 hover:underline"
+                  >
+                    <ChevronDown size={14} className={`transition-transform ${expanded ? 'rotate-180' : ''}`} />
+                    {expanded ? 'Hide details' : 'View details'}
+                  </button>
+                  {role !== 'homevisit' && (
+                    <button
+                      type="button"
+                      onClick={(e) => handleDeleteClient(e, c)}
+                      className="flex items-center gap-1 text-xs text-red-500 hover:text-red-700"
+                    >
+                      <Trash2 size={13} /> Delete
+                    </button>
+                  )}
+                </div>
+
+                {expanded && (
+                  <div className="mt-3 space-y-3 border-t border-slate-100 pt-3">
+                    {facts.length > 0 && (
+                      <dl className="grid gap-x-4 gap-y-2 sm:grid-cols-2">
+                        {facts.map(([k, label]) => (
+                          <div key={k}>
+                            <dt className="text-[11px] font-medium uppercase tracking-wide text-slate-400">{label}</dt>
+                            <dd className="mt-0.5 break-words text-sm text-slate-800">{formatAssessmentValue(c[k])}</dd>
+                          </div>
+                        ))}
+                      </dl>
+                    )}
+                    {hasArea && (
+                      <div>
+                        <p className="mb-1 text-[11px] font-medium uppercase tracking-wide text-slate-400">Pain areas ({c.painAreas.length})</p>
+                        <BodyPainSelector value={c.painAreas} readonly />
+                      </div>
+                    )}
+                    {role !== 'homevisit' && (
+                      <Link
+                        to={`/admin/clients/${c.id}`}
+                        onClick={(e) => e.stopPropagation()}
+                        className="inline-flex items-center gap-1 text-xs font-semibold text-brand-600 hover:underline"
+                      >
+                        Open full profile →
+                      </Link>
+                    )}
+                  </div>
+                )}
               </div>
-              {c.address && <p className="mt-3 flex items-start gap-1.5 text-xs text-slate-500"><MapPin size={13} className="mt-0.5 shrink-0" /> {c.address}</p>}
-              <div className="mt-4 flex items-center justify-between">
-                <p className="text-xs text-slate-500">Since {fmtDate(c.createdAt)}</p>
-                <div onClick={(e) => e.stopPropagation()}><ContactActions phone={c.phone} size="sm" /></div>
-              </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       )}
     </div>
