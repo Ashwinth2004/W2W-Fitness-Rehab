@@ -26,6 +26,7 @@ import FitnessBadge from '../../components/FitnessBadge'
 import HomeVisitBadge from '../../components/HomeVisitBadge'
 import PatientAvatar from '../../components/PatientAvatar'
 import ClientForm from '../../components/ClientForm'
+import HomeVisitRehabFlow from '../../components/HomeVisitRehabFlow'
 import { useUnsaved } from '../../context/UnsavedContext'
 
 const PAY_MODES = ['Cash', 'UPI', 'Card', 'Bank transfer', 'Other']
@@ -76,6 +77,20 @@ export default function HomeVisits() {
     )
   }
 
+  // Render appropriate workflow based on service type
+  if (client.homeVisitType === 'rehab') {
+    return (
+      <HomeVisitRehabFlow
+        key={client.id}
+        client={client}
+        role={role}
+        onChangeClient={() => setParams({})}
+        navigate={navigate}
+      />
+    )
+  }
+
+  // Default: Physio home visit form
   return (
     <HomeVisitForm
       key={`${client.id}:${params.get('visit') || ''}`}
