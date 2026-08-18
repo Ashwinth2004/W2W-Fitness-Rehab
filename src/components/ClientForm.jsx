@@ -10,6 +10,7 @@ import { useUnsaved } from '../context/UnsavedContext'
 import DateField from './DateField'
 import AssessmentField from './AssessmentField'
 import BodyPainSelector from './BodyPainSelector'
+import HomeVisitServiceTypeSelector from './HomeVisitServiceTypeSelector'
 
 const goalChipCls = (active) =>
   `inline-flex cursor-pointer items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
@@ -62,6 +63,7 @@ export default function ClientForm({ clients = [], onCreated, onClose, defaultPr
   const [fitnessGoals, setFitnessGoals] = useState(() => (editClient && Array.isArray(editClient.fitnessGoals) ? editClient.fitnessGoals : []))
   const [customGoals, setCustomGoals] = useState(() => getCustomFitnessGoals())
   const [goalDraft, setGoalDraft] = useState('')
+  const [homeVisitType, setHomeVisitType] = useState(() => editClient?.homeVisitType || '')
   const { setDirty } = useUnsaved()
 
   function toggleGoal(g) {
@@ -153,6 +155,9 @@ export default function ClientForm({ clients = [], onCreated, onClose, defaultPr
     data.registeredOn = regDate || todayISO()
     if (isFitness) data.fitnessGoals = fitnessGoals
     else data.painAreas = painAreas
+    if (form.programs?.includes('W2W Home Visit') && homeVisitType) {
+      data.homeVisitType = homeVisitType
+    }
     setBusy(true)
     try {
       if (existing && editing) {
@@ -267,6 +272,13 @@ export default function ClientForm({ clients = [], onCreated, onClose, defaultPr
           </div>
         </fieldset>
       ))}
+
+      {form.programs?.includes('W2W Home Visit') && (
+        <HomeVisitServiceTypeSelector
+          value={homeVisitType}
+          onChange={(type) => { setHomeVisitType(type); setDirty(true) }}
+        />
+      )}
 
       {isFitness ? (
         <fieldset className="rounded-2xl border border-slate-100 p-4">

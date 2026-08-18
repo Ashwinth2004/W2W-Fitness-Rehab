@@ -313,15 +313,28 @@ export default function InvoiceCreator() {
   async function redownload(inv) {
     try { await generateInvoice(inv, { action: 'download' }) } catch (_) { /* best-effort */ }
   }
-  function shareToWhatsApp(inv) {
+  async function shareToWhatsApp(inv) {
     if (!inv.clientPhone) {
       alert('No phone number available for this invoice. Please add a contact number.')
       return
     }
-    // Handle Indian phone numbers (10 digits → 91 + number)
-    const phone = inv.clientPhone.replace(/\D/g, '').slice(-10)
-    const whatsappUrl = `https://wa.me/91${phone}`
-    window.open(whatsappUrl, '_blank')
+    // First download the invoice, then open WhatsApp
+    try {
+      await redownload(inv)
+      // Give a moment for download to start, then open WhatsApp
+      setTimeout(() => {
+        const phone = inv.clientPhone.replace(/\D/g, '').slice(-10)
+        const msg = `Hi ${inv.clientName || 'there'}! Your invoice ${inv.invoiceNo} is ready. Please find the invoice PDF attached. Balance due: Rs. ${inv.balance > 0 ? inv.balance.toLocaleString('en-IN') : '0'}.`
+        const encodedMsg = encodeURIComponent(msg)
+        const whatsappUrl = `https://wa.me/91${phone}?text=${encodedMsg}`
+        window.open(whatsappUrl, '_blank')
+      }, 500)
+    } catch (_) {
+      // If download fails, just open WhatsApp
+      const phone = inv.clientPhone.replace(/\D/g, '').slice(-10)
+      const whatsappUrl = `https://wa.me/91${phone}`
+      window.open(whatsappUrl, '_blank')
+    }
   }
   async function removeInvoice(inv) {
     if (!window.confirm(`Delete invoice ${inv.invoiceNo}? This cannot be undone.`)) return
