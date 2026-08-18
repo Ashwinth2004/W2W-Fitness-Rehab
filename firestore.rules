@@ -92,17 +92,20 @@ service cloud.firestore {
     // Home-Visit-only, and it may never delete a client. Within any client,
     // only the homeVisits and notes subcollections are open to it —
     // treatments/rehabPlans/fitnessPlans and everything else stay admin-only.
+    // homeVisitType field (if present) must be 'physio' or 'rehab' for Home Visit clients.
     match /clients/{id} {
       allow read: if isAdmin() || isHomeVisitOnly();
       allow create: if isAdmin() || (
         isHomeVisitOnly()
         && request.resource.data.programs is list
         && request.resource.data.programs == ['W2W Home Visit']
+        && (!('homeVisitType' in request.resource.data) || request.resource.data.homeVisitType in ['physio', 'rehab'])
       );
       allow update: if isAdmin() || (
         isHomeVisitOnly()
         && 'W2W Home Visit' in request.resource.data.programs
         && request.resource.data.programs.hasAll(resource.data.programs) // only additions — can't strip a client's other program tags
+        && (!('homeVisitType' in request.resource.data) || request.resource.data.homeVisitType in ['physio', 'rehab'])
       );
       allow delete: if isAdmin();
 
