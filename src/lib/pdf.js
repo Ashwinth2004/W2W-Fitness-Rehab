@@ -179,28 +179,29 @@ export function whatsAppUrl(phone, text) {
 }
 
 async function finalize(doc, filename, action = 'download', shareText, opts = {}) {
-  // 'whatsapp' → send this PDF to one specific person.
-  // On a phone the share sheet can carry the file itself, so the PDF really
-  // does travel with the message once WhatsApp is picked. Everywhere else
-  // (desktop browsers) no API can attach a file to a chat, so the next best
-  // thing is: download the PDF and open that patient's chat with the message
-  // ready, leaving only the attach step.
+  // 'whatsapp' → open THIS patient's own chat, every time.
+  //
+  // Deliberately not the share sheet. The sheet can carry the PDF, but it has
+  // no recipient — it drops you in WhatsApp's contact list to pick the person
+  // by hand, which is exactly the wrong patient waiting to happen. A wa.me
+  // deep link always lands in the right chat with the message written, so the
+  // PDF is downloaded alongside for a one-tap attach.
+  //
+  // (No web API can put a file into a named chat by itself. Only WhatsApp's
+  // paid Business API can send a document to a number without a human.)
   if (action === 'whatsapp') {
     const waUrl = whatsAppUrl(opts.phone, shareText)
-    try {
-      const blob = doc.output('blob')
-      const file = new File([blob], filename, { type: 'application/pdf' })
-      if (typeof navigator !== 'undefined' && navigator.canShare && navigator.canShare({ files: [file] })) {
-        await navigator.share({ files: [file], title: filename, text: shareText || filename })
-        return 'shared'
-      }
-    } catch (err) {
-      if (err?.name === 'AbortError') return 'cancelled'
-      // fall through to download + open the chat
-    }
+    if (!waUrl) { doc.save(filename); return 'downloaded' }
+    // Save first so the file is already in Downloads by the time the chat opens.
     doc.save(filename)
-    if (waUrl && typeof window !== 'undefined') window.open(waUrl, '_blank', 'noopener')
-    return waUrl ? 'downloaded-and-whatsapp' : 'downloaded'
+    if (typeof window !== 'undefined') {
+      // Same tab on mobile: window.open is widely popup-blocked there, and the
+      // OS hands off to the WhatsApp app anyway, so nothing is lost.
+      const onPhone = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent || '')
+      if (onPhone) window.location.href = waUrl
+      else window.open(waUrl, '_blank', 'noopener')
+    }
+    return 'downloaded-and-whatsapp'
   }
 
   if (action === 'share' || action === 'both') {
