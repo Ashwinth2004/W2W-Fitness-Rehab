@@ -63,6 +63,118 @@ export function blankPlan(home = false) {
   }
 }
 
+// ---- Inserting / removing days anywhere in a plan -------------------------
+// Day numbers are always a gap-free 1..N sequence, so removing or inserting
+// one in the middle renumbers everything after it (delete Day 5 → the old
+// Day 6 becomes Day 5, and so on).
+//
+// Each day also carries its own date, which is normally auto-derived as
+// startDate + (day - 1). A date still sitting on that auto value is re-derived
+// for the day's new position so the schedule stays consecutive; a date the
+// admin typed themselves is left exactly as they set it.
+export function renumberDays(days, startDate) {
+  return days.map((d, i) => {
+    const wasAuto = !d.date || (startDate && d.date === addDaysISO(startDate, d.day - 1))
+    return { ...d, day: i + 1, date: wasAuto && startDate ? addDaysISO(startDate, i) : d.date }
+  })
+}
+
+// Insert a fresh empty day at `index` (0-based), pushing the rest down.
+export function insertDayAt(days, index, startDate, home = false) {
+  const at = Math.max(0, Math.min(index, days.length))
+  const next = [...days]
+  next.splice(at, 0, blankDay(at + 1, startDate, home))
+  return renumberDays(next, startDate)
+}
+
+// Remove the day at `index` (0-based). Never removes the last remaining day.
+export function removeDayAt(days, index, startDate) {
+  if (days.length <= 1 || index < 0 || index >= days.length) return days
+  return renumberDays(days.filter((_, i) => i !== index), startDate)
+}
+
+// The Day 1 / Day 2 / … pill strip, plus the controls that add a day either
+// side of the selected one or delete it. Owns all day add/remove/renumber
+// logic so every planner (Rehab, Fitness, Home Visit) behaves identically —
+// callers just persist the new array via `onDaysChange(days, activeDay)`.
+export function DayStrip({ days, activeDay, startDate, home = false, maxDays = MAX_DAYS, onSelectDay, onDaysChange }) {
+  const activeIdx = days.findIndex((d) => d.day === activeDay)
+  const idx = activeIdx === -1 ? 0 : activeIdx
+  const current = days[idx]
+  const canAdd = days.length < maxDays
+  const canDelete = days.length > 1
+
+  function insertAt(at) {
+    if (!canAdd) return
+    onDaysChange(insertDayAt(days, at, startDate, home), at + 1)
+  }
+
+  function deleteActive() {
+    if (!canDelete || !current) return
+    const count = current.exercises?.length || 0
+    const after = days.length - idx - 1
+    const warn = `Delete Day ${current.day}${count ? ` and its ${count} exercise${count > 1 ? 's' : ''}` : ''}?`
+      + (after ? `\n\nThe ${after} day${after > 1 ? 's' : ''} after it will move up (Day ${current.day + 1} becomes Day ${current.day}).` : '')
+    if (!window.confirm(warn)) return
+    const next = removeDayAt(days, idx, startDate)
+    onDaysChange(next, Math.min(idx + 1, next.length))
+  }
+
+  const btn = 'flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold transition disabled:cursor-not-allowed disabled:opacity-40'
+
+  return (
+    <div className="space-y-2.5 border-b border-slate-100 pb-4">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-wrap gap-2">
+          {days.map((d) => (
+            <button
+              key={d.day} type="button" onClick={() => onSelectDay(d.day)}
+              className={`flex items-center gap-1.5 rounded-full px-4 py-1.5 text-sm font-semibold transition ${activeDay === d.day ? 'bg-brand-600 text-white shadow' : d.completed ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200 hover:bg-emerald-100' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+            >
+              {d.completed && <CheckCircle2 size={14} />}
+              Day {d.day}
+              {d.exercises?.length ? (
+                <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${activeDay === d.day ? 'bg-white/25' : d.completed ? 'bg-emerald-100' : 'bg-slate-200'}`} title={`${d.exercises.length} exercise${d.exercises.length > 1 ? 's' : ''} prescribed`}>
+                  {d.exercises.length} ex
+                </span>
+              ) : null}
+            </button>
+          ))}
+        </div>
+        <span className="shrink-0 text-xs text-slate-400">{days.filter((d) => d.completed).length}/{days.length} sessions completed</span>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-1.5">
+        <span className="mr-0.5 text-[11px] font-bold uppercase tracking-wide text-slate-400">Day {current?.day}</span>
+        <button
+          type="button" onClick={() => insertAt(idx)} disabled={!canAdd} title={`Insert a new day before Day ${current?.day}`}
+          className={`${btn} bg-slate-100 text-slate-600 hover:bg-slate-200`}
+        >
+          <Plus size={12} /> Insert before
+        </button>
+        <button
+          type="button" onClick={() => insertAt(idx + 1)} disabled={!canAdd} title={`Insert a new day after Day ${current?.day}`}
+          className={`${btn} bg-slate-100 text-slate-600 hover:bg-slate-200`}
+        >
+          <Plus size={12} /> Insert after
+        </button>
+        <button
+          type="button" onClick={deleteActive} disabled={!canDelete} title={canDelete ? `Delete Day ${current?.day}` : 'A plan needs at least one day'}
+          className={`${btn} bg-red-50 text-red-600 hover:bg-red-100`}
+        >
+          <Trash2 size={12} /> Delete this day
+        </button>
+        <button
+          type="button" onClick={() => insertAt(days.length)} disabled={!canAdd} title="Add a new day at the end"
+          className={`${btn} ml-auto bg-brand-50 text-brand-700 hover:bg-brand-100`}
+        >
+          <Plus size={12} /> Add day at end
+        </button>
+      </div>
+    </div>
+  )
+}
+
 export function Field({ label, children }) {
   return <div><label className="label text-[11px]">{label}</label>{children}</div>
 }

@@ -30,7 +30,7 @@ import { useUnsaved } from '../../context/UnsavedContext'
 import {
   MAX_DAYS, PAY_MODES, blankDay, blankPlan, isPlanComplete,
   templateDays, templateExerciseCount,
-  DayEditor, PlanTips, CopyFromPatientModal, RehabTemplateManager,
+  DayEditor, DayStrip, PlanTips, CopyFromPatientModal, RehabTemplateManager,
 } from '../../components/RehabPlannerShared'
 
 function RehabComingSoon() {
@@ -298,6 +298,16 @@ function RehabPlanner({ client, clients = [], editId = '', onChangeClient, navig
     setDirty(true)
   }
 
+  // A day was inserted or deleted somewhere in the strip — the day list is
+  // now the source of truth for the plan length, so keep totalDays (and the
+  // "Plan length (days)" box) in step with it.
+  function applyDays(nextDays, nextActiveDay) {
+    setForm((f) => ({ ...f, days: nextDays, totalDays: nextDays.length }))
+    setDaysText(String(nextDays.length))
+    if (nextActiveDay) setActiveDay(nextActiveDay)
+    setDirty(true)
+  }
+
   function pickPackage(name, amount, classes) {
     setForm((f) => ({ ...f, bill: { ...f.bill, service: name, ...(amount != null ? { amount: String(amount) } : {}) } }))
     setBillOpen(true)
@@ -544,25 +554,10 @@ function RehabPlanner({ client, clients = [], editId = '', onChangeClient, navig
         </div>
 
         <div className="card p-4 sm:p-5 md:p-6">
-          <div className="flex flex-col gap-2 border-b border-slate-100 pb-4 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex flex-wrap gap-2">
-              {form.days.map((d) => (
-                <button
-                  key={d.day} type="button" onClick={() => setActiveDay(d.day)}
-                  className={`flex items-center gap-1.5 rounded-full px-4 py-1.5 text-sm font-semibold transition ${activeDay === d.day ? 'bg-brand-600 text-white shadow' : d.completed ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200 hover:bg-emerald-100' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
-                >
-                  {d.completed && <CheckCircle2 size={14} />}
-                  Day {d.day}
-                  {d.exercises?.length ? (
-                    <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${activeDay === d.day ? 'bg-white/25' : d.completed ? 'bg-emerald-100' : 'bg-slate-200'}`} title={`${d.exercises.length} exercise${d.exercises.length > 1 ? 's' : ''} prescribed`}>
-                      {d.exercises.length} ex
-                    </span>
-                  ) : null}
-                </button>
-              ))}
-            </div>
-            <span className="text-xs text-slate-400">{form.days.filter((d) => d.completed).length}/{form.days.length} sessions completed</span>
-          </div>
+          <DayStrip
+            days={form.days} activeDay={activeDay} startDate={form.startDate}
+            onSelectDay={setActiveDay} onDaysChange={applyDays}
+          />
           <div className="pt-4">
             {activeDayData && (
               <DayEditor
