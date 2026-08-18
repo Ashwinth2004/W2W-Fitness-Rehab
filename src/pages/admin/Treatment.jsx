@@ -28,6 +28,7 @@ import FitnessBadge from '../../components/FitnessBadge'
 import HomeVisitBadge from '../../components/HomeVisitBadge'
 import PatientAvatar from '../../components/PatientAvatar'
 import ClientForm from '../../components/ClientForm'
+import { isHomeVisitOnlyClient } from '../../lib/homeVisit'
 import { useUnsaved } from '../../context/UnsavedContext'
 
 const PAY_MODES = ['Cash', 'UPI', 'Card', 'Bank transfer', 'Other']
@@ -59,10 +60,8 @@ export default function Treatment() {
 const isPhysioClient = (c) => Array.isArray(c?.programs) && c.programs.includes('W2W Treatment')
 const isRehabClient = (c) => Array.isArray(c?.programs) && c.programs.includes('W2W Fitness & Rehab')
 const isFitnessClient = (c) => Array.isArray(c?.programs) && c.programs.includes('W2W Fitness')
-// A client registered for Home Visit ONLY (no other program) is a freelancer
-// patient — kept out of the Physio/Rehab/Fitness pickers entirely, matching
-// the Home Visits module's own data segregation (Clients module still shows them).
-const isHomeVisitOnlyClient = (c) => Array.isArray(c?.programs) && c.programs.length === 1 && c.programs[0] === 'W2W Home Visit'
+// Patients belonging to the Home Visits module are kept out of this picker
+// entirely — see lib/homeVisit.js for the split.
 const PROGRAM_FILTERS = [
   { key: 'all', label: 'All', icon: Users },
   { key: 'physio', label: 'Physio', icon: Stethoscope },

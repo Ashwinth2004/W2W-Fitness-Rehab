@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { Users, Plus, Search, X, BadgeCheck, Stethoscope, Dumbbell, Activity, Home } from 'lucide-react'
+import { Users, Plus, Search, X, BadgeCheck, Stethoscope, Dumbbell, Activity } from 'lucide-react'
 import { watchClients, findClientByClientId } from '../../lib/firestore'
 import { fmtDate, matchesDateFilter } from '../../lib/format'
 import ContactActions from '../../components/ContactActions'
@@ -11,19 +11,18 @@ import RehabBadge from '../../components/RehabBadge'
 import FitnessBadge from '../../components/FitnessBadge'
 import HomeVisitBadge from '../../components/HomeVisitBadge'
 import PatientAvatar from '../../components/PatientAvatar'
+import { isClinicClient } from '../../lib/homeVisit'
 
 // A client can be enrolled in any combination of programs — a client on
 // several shows up under each matching single-program filter as well as "All".
 const isPhysioClient = (c) => Array.isArray(c?.programs) && c.programs.includes('W2W Treatment')
 const isRehabClient = (c) => Array.isArray(c?.programs) && c.programs.includes('W2W Fitness & Rehab')
 const isFitnessClient = (c) => Array.isArray(c?.programs) && c.programs.includes('W2W Fitness')
-const isHomeVisitClient = (c) => Array.isArray(c?.programs) && c.programs.includes('W2W Home Visit')
 const PROGRAM_FILTERS = [
   { key: 'all', label: 'All', icon: Users },
   { key: 'physio', label: 'Physio', icon: Stethoscope },
   { key: 'rehab', label: 'Rehab & Exercises', icon: Dumbbell },
   { key: 'fitness', label: 'Fitness', icon: Activity },
-  { key: 'homevisit', label: 'Home Visit', icon: Home },
 ]
 
 export default function Clients() {
@@ -38,11 +37,14 @@ export default function Clients() {
 
   useEffect(() => watchClients(setClients), [])
 
-  const programPool = programFilter === 'physio' ? clients.filter(isPhysioClient)
-    : programFilter === 'rehab' ? clients.filter(isRehabClient)
-    : programFilter === 'fitness' ? clients.filter(isFitnessClient)
-    : programFilter === 'homevisit' ? clients.filter(isHomeVisitClient)
-    : clients.filter((c) => !isHomeVisitClient(c)) // All clients except Home Visit (shown separately)
+  // Home Visit patients belong to the Home Visits module and are managed
+  // only from there — they never surface in the clinic's client list.
+  const clinicClients = clients.filter(isClinicClient)
+
+  const programPool = programFilter === 'physio' ? clinicClients.filter(isPhysioClient)
+    : programFilter === 'rehab' ? clinicClients.filter(isRehabClient)
+    : programFilter === 'fitness' ? clinicClients.filter(isFitnessClient)
+    : clinicClients
 
   const filtered = programPool
     .filter((c) => matchesDateFilter(c.createdAt, dateFilter))
@@ -89,13 +91,12 @@ export default function Clients() {
 
       <div className="card space-y-2 p-4">
         <p className="text-xs font-bold uppercase tracking-wide text-slate-400">Filter by program</p>
-        <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-5">
+        <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-4">
           {PROGRAM_FILTERS.map((f) => {
-            const count = f.key === 'physio' ? clients.filter(isPhysioClient).length
-              : f.key === 'rehab' ? clients.filter(isRehabClient).length
-              : f.key === 'fitness' ? clients.filter(isFitnessClient).length
-              : f.key === 'homevisit' ? clients.filter(isHomeVisitClient).length
-              : clients.filter((c) => !isHomeVisitClient(c)).length
+            const count = f.key === 'physio' ? clinicClients.filter(isPhysioClient).length
+              : f.key === 'rehab' ? clinicClients.filter(isRehabClient).length
+              : f.key === 'fitness' ? clinicClients.filter(isFitnessClient).length
+              : clinicClients.length
             const active = programFilter === f.key
             return (
               <button

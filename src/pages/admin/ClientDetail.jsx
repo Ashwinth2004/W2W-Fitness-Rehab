@@ -26,6 +26,7 @@ import FitnessBadge from '../../components/FitnessBadge'
 import HomeVisitBadge from '../../components/HomeVisitBadge'
 import PatientAvatar from '../../components/PatientAvatar'
 import { generateClientReport, generateRehabReport, generateFitnessReport, generateHomeVisitReport } from '../../lib/pdf'
+import { useAuth } from '../../context/AuthContext'
 
 const SESSION_GROUPS = [
   ['History', [['pastHistory', 'Past medical history'], ['complaint', 'Chief complaint'], ['mechanism', 'Mechanism of injury'], ['radiology', 'Radiological report']]],
@@ -51,6 +52,7 @@ const ACTIVITY = [['walking', 'Walking / steps'], ['exercise', 'Exercise'], ['de
 const REG_FIELDS = [['email', 'Email'], ['occupation', 'Occupation / Sports'], ['height', 'Height (cm)'], ['weight', 'Weight (kg)'], ['handDominance', 'Hand dominance'], ['referredBy', 'Referred by']]
 
 export default function ClientDetail() {
+  const { role } = useAuth()
   const { id } = useParams()
   const navigate = useNavigate()
   const [client, setClient] = useState(undefined)
@@ -60,19 +62,21 @@ export default function ClientDetail() {
   const [editing, setEditing] = useState(false)
   const [reporting, setReporting] = useState(false)
 
+  // Clinic treatments are off-limits to the freelance home-visit login (and a
+  // home-visit patient never has any), so skip that listener for it rather
+  // than let it fail with a permission error on every profile open.
   useEffect(() => {
     getClient(id).then(setClient)
-    const u1 = watchClientNotes(id, setNotes)
-    const u2 = watchTreatments(id, setTreatments)
-    const u3 = watchHomeVisits(id, setHomeVisits)
-    return () => { u1(); u2(); u3() }
-  }, [id])
+    const unsubs = [watchClientNotes(id, setNotes), watchHomeVisits(id, setHomeVisits)]
+    if (role !== 'homevisit') unsubs.push(watchTreatments(id, setTreatments))
+    return () => unsubs.forEach((u) => u())
+  }, [id, role])
 
   if (client === undefined) return <div className="grid place-items-center py-20 text-slate-400"><Loader2 className="animate-spin" /></div>
   if (client === null) return (
     <div className="py-20 text-center">
       <p className="text-slate-500">Client not found.</p>
-      <Link to="/admin/clients" className="btn-outline mt-4">Back to clients</Link>
+      <Link to={role === 'homevisit' ? '/admin/home-visits' : '/admin/clients'} className="btn-outline mt-4">Back</Link>
     </div>
   )
 
@@ -87,8 +91,8 @@ export default function ClientDetail() {
 
   return (
     <div className="space-y-6">
-      <Link to="/admin/clients" className="inline-flex items-center gap-1 text-sm font-medium text-brand-600 hover:gap-2">
-        <ArrowLeft size={16} /> All clients
+      <Link to={role === 'homevisit' ? '/admin/home-visits' : '/admin/clients'} className="inline-flex items-center gap-1 text-sm font-medium text-brand-600 hover:gap-2">
+        <ArrowLeft size={16} /> {role === 'homevisit' ? 'Home Visits' : 'All clients'}
       </Link>
 
       {/* Header */}
@@ -103,10 +107,20 @@ export default function ClientDetail() {
             </div>
           </div>
           <div className="flex flex-wrap justify-center gap-2 md:justify-start">
-            <Link to={`/admin/treatment?client=${id}`} className="btn-outline"><Stethoscope size={16} /> New Physio Treatment</Link>
-            <Link to={`/admin/rehab?client=${id}`} className="btn-outline"><Activity size={16} /> Rehab &amp; Exercises</Link>
-            <Link to={`/admin/fitness?client=${id}`} className="btn-outline"><Dumbbell size={16} /> Fitness</Link>
-            <Link to={`/admin/home-visits?client=${id}`} className="btn-outline"><Home size={16} /> Home Visit</Link>
+            {role === 'homevisit' ? (
+              <>
+                <Link to={`/admin/home-visits?client=${id}`} className="btn-outline"><Stethoscope size={16} /> Physio</Link>
+                <Link to={`/admin/home-visits?client=${id}&tab=rehab`} className="btn-outline"><Activity size={16} /> Rehab &amp; Exercises</Link>
+                <Link to={`/admin/home-visits?client=${id}&tab=fitness`} className="btn-outline"><Dumbbell size={16} /> Fitness</Link>
+              </>
+            ) : (
+              <>
+                <Link to={`/admin/treatment?client=${id}`} className="btn-outline"><Stethoscope size={16} /> New Physio Treatment</Link>
+                <Link to={`/admin/rehab?client=${id}`} className="btn-outline"><Activity size={16} /> Rehab &amp; Exercises</Link>
+                <Link to={`/admin/fitness?client=${id}`} className="btn-outline"><Dumbbell size={16} /> Fitness</Link>
+                <Link to={`/admin/home-visits?client=${id}`} className="btn-outline"><Home size={16} /> Home Visit</Link>
+              </>
+            )}
             <button onClick={() => setReporting(true)} className="btn-primary"><FileDown size={18} /> Generate Report</button>
             <button onClick={() => setEditing(true)} className="btn-ghost"><Pencil size={16} /> Update Registration</button>
             <button onClick={handleDelete} className="btn-ghost text-red-500 hover:bg-red-50"><Trash2 size={16} /></button>
@@ -179,7 +193,8 @@ export default function ClientDetail() {
       )}
 
       {/* Treatment sessions (per visit) */}
-      <TreatmentSessions clientId={id} treatments={treatments} />
+      {/* Clinic-only: the home-visit login records its sessions as home visits. */}
+      {role !== 'homevisit' && <TreatmentSessions clientId={id} treatments={treatments} />}
 
       {/* Home visit sessions (per visit) */}
       <HomeVisitSessions clientId={id} visits={homeVisits} />

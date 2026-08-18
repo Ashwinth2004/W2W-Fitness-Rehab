@@ -39,7 +39,11 @@ const blankForm = (programs = ['W2W Treatment']) => ({ ...Object.fromEntries(BAS
 // created or edited through a restricted login can never pick up another
 // program tag from this form. Used by the Home Visits module for the
 // freelancer login, which must only ever produce Home-Visit-only clients.
-export default function ClientForm({ clients = [], onCreated, onClose, defaultPrograms, editClient, variant = 'clinical', lockProgram = '' }) {
+//
+// `homeVisitOnly` stamps brand-new registrations as belonging to the Home
+// Visits module (see lib/homeVisit.js). It is only ever set on creation —
+// editing an existing patient never changes which side they belong to.
+export default function ClientForm({ clients = [], onCreated, onClose, defaultPrograms, editClient, variant = 'clinical', lockProgram = '', homeVisitOnly = false }) {
   const isFitness = variant === 'fitness'
   const [form, setForm] = useState(() => {
     if (!editClient) return blankForm(lockProgram ? [lockProgram] : defaultPrograms)
@@ -164,7 +168,9 @@ export default function ClientForm({ clients = [], onCreated, onClose, defaultPr
         await updateClient(existing.id, data)
         setDirty(false); onCreated(existing.id, dest)
       } else {
-        const { id } = await createClient(data, manualId ? customId : '')
+        // Stamped once, at registration only — which module a patient
+        // belongs to never changes on a later edit.
+        const { id } = await createClient({ ...data, homeVisitOnly: !!homeVisitOnly }, manualId ? customId : '')
         setDirty(false); onCreated(id, dest)
       }
     } catch (err) {

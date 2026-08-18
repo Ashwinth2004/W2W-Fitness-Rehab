@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import {
   Dumbbell, Search, Loader2, Save, ArrowRight, Plus, CheckCircle2, BadgeCheck,
-  IndianRupee, PlayCircle, LayoutGrid, TrendingUp,
+  IndianRupee, PlayCircle, LayoutGrid, TrendingUp, LayoutTemplate, Pencil, Trash2,
 } from 'lucide-react'
 import {
   watchClients, addRehabPlan, updateRehabPlan, watchRehabPlans, deleteRehabPlan,
@@ -32,6 +32,7 @@ import {
   templateDays, templateExerciseCount,
   DayEditor, DayStrip, PlanTips, CopyFromPatientModal, RehabTemplateManager,
 } from '../../components/RehabPlannerShared'
+import { isHomeVisitClient, isHomeVisitOnlyClient } from '../../lib/homeVisit'
 
 function RehabComingSoon() {
   return (
@@ -117,8 +118,6 @@ function RehabApp() {
 }
 
 const isRehabClient = (c) => Array.isArray(c?.programs) && c.programs.includes('W2W Fitness & Rehab')
-const isHomeVisitClient = (c) => Array.isArray(c?.programs) && c.programs.includes('W2W Home Visit')
-const isHomeVisitOnlyClient = (c) => Array.isArray(c?.programs) && c.programs.length === 1 && c.programs[0] === 'W2W Home Visit'
 const isRehabEligible = (c) => isRehabClient(c) || (isHomeVisitClient(c) && !isHomeVisitOnlyClient(c))
 
 function RehabClientPicker({ clients, onPick, onNew, onTemplates, note }) {
@@ -217,8 +216,14 @@ function RehabClientPicker({ clients, onPick, onNew, onTemplates, note }) {
   )
 }
 
-function RehabPlanner({ client, clients = [], editId = '', onChangeClient, navigate }) {
+// `title` / `hideBilling` / `hideProfileLink` let the Home Visits module embed
+// this exact planner for its own patients: same editor, same templates, same
+// tracking — only the page title and the clinic-only bits differ.
+export function RehabPlanner({ client, clients = [], editId = '', onChangeClient, navigate, title = 'Rehab & Exercises', hideBilling = false, hideProfileLink = false, role = '', therapistSource = 'therapists' }) {
   const [plans, setPlans] = useState([])
+  // The freelance home-visit login has no access to the clinic's service
+  // charges or accounting — skip those reads/writes entirely for it.
+  const clinicData = role !== 'homevisit'
   const [services, setServices] = useState([])
   const [form, setForm] = useState(() => blankPlan(false))
   const [activeDay, setActiveDay] = useState(1)
@@ -236,8 +241,8 @@ function RehabPlanner({ client, clients = [], editId = '', onChangeClient, navig
   const editLoaded = useRef(false)
 
   useEffect(() => watchRehabPlans(client.id, setPlans), [client.id])
-  useEffect(() => watchServiceCharges(setServices), [])
-  useEffect(() => { ensureRehabPackagesSeeded() }, [])
+  useEffect(() => { if (clinicData) return watchServiceCharges(setServices) }, [clinicData])
+  useEffect(() => { if (clinicData) ensureRehabPackagesSeeded() }, [clinicData])
   useEffect(() => () => setDirty(false), [setDirty])
 
   useEffect(() => { setDaysText(String(form.totalDays)) }, [form.totalDays])
@@ -369,13 +374,13 @@ function RehabPlanner({ client, clients = [], editId = '', onChangeClient, navig
       else { planId = await addRehabPlan(client.id, data) }
 
       try {
-        if (billData.addToAccounting && (billData.amount > 0 || billData.paid > 0)) {
+        if (clinicData && billData.addToAccounting && (billData.amount > 0 || billData.paid > 0)) {
           await setAccountingForRehabPlan(planId, {
             date: form.startDate, clientId: client.clientId, clientDocId: client.id, clientName: client.name,
             service: billData.service, therapist: form.therapist,
             amount: billData.amount, paid: billData.paid, balance: billData.balance, mode: billData.mode,
           })
-        } else {
+        } else if (clinicData) {
           await deleteAccountingForRehabPlan(planId)
         }
       } catch (_) {}
@@ -412,7 +417,7 @@ function RehabPlanner({ client, clients = [], editId = '', onChangeClient, navig
   if (saved) {
     return (
       <div className="space-y-5">
-        <AdminPageHeader title="Rehab & Exercises" />
+        {title && <AdminPageHeader title={title} />}
         <div className="card mx-auto max-w-lg p-8 text-center">
           <CheckCircle2 className="mx-auto text-green-500" size={48} />
           <h2 className="mt-3 text-xl font-bold">{editId ? 'Plan updated' : 'Rehab plan saved'}</h2>
@@ -430,7 +435,7 @@ function RehabPlanner({ client, clients = [], editId = '', onChangeClient, navig
           )}
 
           <div className="mt-4 flex flex-wrap justify-center gap-2">
-            <Link to={`/admin/clients/${client.id}`} className="btn-primary">Open patient page <ArrowRight size={16} /></Link>
+            {!hideProfileLink && <Link to={`/admin/clients/${client.id}`} className="btn-primary">Open patient page <ArrowRight size={16} /></Link>}
             <button onClick={() => { if (editId) navigate(`/admin/rehab?client=${client.id}`); else { setForm(blankPlan(false)); setActiveDay(1); setBillOpen(false); setSaved(false) } }} className="btn-outline">Add another plan</button>
             <button onClick={onChangeClient} className="btn-ghost">Another patient</button>
           </div>
@@ -445,10 +450,10 @@ function RehabPlanner({ client, clients = [], editId = '', onChangeClient, navig
   return (
     <div className="space-y-5">
       <form onSubmit={save} className="space-y-5">
-        <AdminPageHeader title="Rehab & Exercises">
-          <button type="button" onClick={() => guard(() => navigate(`/admin/clients/${client.id}`))} className="text-sm font-medium text-brand-600 hover:underline">Open patient page →</button>
+        {title && <AdminPageHeader title={title}>
+          {!hideProfileLink && <button type="button" onClick={() => guard(() => navigate(`/admin/clients/${client.id}`))} className="text-sm font-medium text-brand-600 hover:underline">Open patient page →</button>}
           <button type="button" onClick={() => guard(() => onChangeClient())} className="text-sm font-medium text-brand-600 hover:underline">Change patient</button>
-        </AdminPageHeader>
+        </AdminPageHeader>}
 
         <div className="card space-y-4 p-5 md:p-6">
           <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-brand-50 p-4">
@@ -492,7 +497,7 @@ function RehabPlanner({ client, clients = [], editId = '', onChangeClient, navig
           <div className="grid gap-3 md:grid-cols-2">
             <div>
               <label className="label text-sm">Prescribed by (Physiotherapist) *</label>
-              <TherapistSelect id="rehab-therapist" invalid={therapistInvalid} value={form.therapist} onChange={(v) => { setForm((f) => ({ ...f, therapist: v })); setDirty(true); setTherapistInvalid(false) }} />
+              <TherapistSelect id="rehab-therapist" source={therapistSource} invalid={therapistInvalid} value={form.therapist} onChange={(v) => { setForm((f) => ({ ...f, therapist: v })); setDirty(true); setTherapistInvalid(false) }} />
             </div>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div><label className="label text-sm">Plan start date</label><DateField value={form.startDate} onChange={setStartDate} /></div>
@@ -515,6 +520,7 @@ function RehabPlanner({ client, clients = [], editId = '', onChangeClient, navig
           </div>
         </div>
 
+        {!hideBilling && (
         <div className="overflow-hidden rounded-2xl border-2 border-amber-300 bg-gradient-to-br from-amber-50 to-white shadow-soft ring-1 ring-amber-100">
           <button
             type="button" onClick={() => setBillOpen((v) => !v)}
@@ -552,6 +558,8 @@ function RehabPlanner({ client, clients = [], editId = '', onChangeClient, navig
             </div>
           )}
         </div>
+        )}
+
 
         <div className="card p-4 sm:p-5 md:p-6">
           <DayStrip

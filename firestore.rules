@@ -115,6 +115,15 @@ service cloud.firestore {
       match /notes/{noteId} {
         allow read, write: if isAdmin() || isHomeVisitOnly();
       }
+      // The Home Visits module now runs the same Rehab & Exercises and
+      // Fitness planners the clinic uses, so the home-visit login needs its
+      // patients' exercise plans. Physio `treatments` stay clinic-only.
+      match /rehabPlans/{planId} {
+        allow read, write: if isAdmin() || isHomeVisitOnly();
+      }
+      match /fitnessPlans/{planId} {
+        allow read, write: if isAdmin() || isHomeVisitOnly();
+      }
       match /{sub=**} {
         allow read, write: if isAdmin();
       }
@@ -194,10 +203,10 @@ service cloud.firestore {
     match /serviceCharges/{id} { allow read, write: if isFullAdmin(); }
     // Bank account names (Cash/Bank tagging in Expenses) — Accounting module → full admin only.
     match /bankAccounts/{id} { allow read, write: if isFullAdmin(); }
-    // Reusable named rehab exercise-set templates (Rehab & Exercises module) → any admin.
-    match /rehabTemplates/{id} { allow read, write: if isAdmin(); }
-    // Reusable named fitness exercise-set templates (Fitness module) → any admin.
-    match /fitnessTemplates/{id} { allow read, write: if isAdmin(); }
+    // Reusable named exercise-set templates. The home-visit login builds plans
+    // with the same planners, so it needs these too.
+    match /rehabTemplates/{id} { allow read, write: if isAdmin() || isHomeVisitOnly(); }
+    match /fitnessTemplates/{id} { allow read, write: if isAdmin() || isHomeVisitOnly(); }
     // Admin scratchpad notes/goals (Notes & Goals module) → full admin only.
     match /notes/{id} { allow read, write: if isFullAdmin(); }
   }

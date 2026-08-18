@@ -43,7 +43,13 @@ export function landingPathFor(role) {
 
 // Whether a role may open a given admin path.
 export function canAccessPath(role, path) {
-  if (role === 'homevisit') return path === '/admin/home-visits' || path.startsWith('/admin/home-visits/')
+  if (role === 'homevisit') {
+    if (path === '/admin/home-visits' || path.startsWith('/admin/home-visits/')) return true
+    // A single patient's profile opens from inside the Home Visits module
+    // ("View Profile"), so the detail page is reachable — but the Clients
+    // LIST itself stays closed, which also keeps it out of the sidebar.
+    return /^\/admin\/clients\/[^/]+$/.test(path)
+  }
   if (role !== 'limited') return true
   if (path === '/admin') return true
   return LIMITED_ALLOW.some((p) => path === p || path.startsWith(p + '/'))

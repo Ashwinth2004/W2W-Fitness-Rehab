@@ -43,6 +43,7 @@ import FitnessBadge from '../../components/FitnessBadge'
 import HomeVisitBadge from '../../components/HomeVisitBadge'
 import AdminPageHeader from '../../components/AdminPageHeader'
 import { DayStrip } from '../../components/RehabPlannerShared'
+import { isHomeVisitClient, isHomeVisitOnlyClient } from '../../lib/homeVisit'
 import { useUnsaved } from '../../context/UnsavedContext'
 
 const MAX_DAYS = 60
@@ -144,11 +145,6 @@ function FitnessApp() {
 }
 
 const isFitnessClient = (c) => Array.isArray(c?.programs) && c.programs.includes('W2W Fitness')
-const isHomeVisitClient = (c) => Array.isArray(c?.programs) && c.programs.includes('W2W Home Visit')
-// A client registered for Home Visit ONLY (no other program) is a freelancer
-// patient — kept out of the Physio/Rehab/Fitness pickers entirely, matching
-// the Home Visits module's own data segregation (Clients module still shows them).
-const isHomeVisitOnlyClient = (c) => Array.isArray(c?.programs) && c.programs.length === 1 && c.programs[0] === 'W2W Home Visit'
 // Fitness can be assigned to Fitness clients OR Home Visit clients (for home-based fitness)
 const isFitnessEligible = (c) => isFitnessClient(c) || (isHomeVisitClient(c) && !isHomeVisitOnlyClient(c))
 
@@ -1404,8 +1400,14 @@ function PlanTips({ days, activeDayData }) {
   )
 }
 
-function FitnessPlanner({ client, clients = [], editId = '', onChangeClient, navigate }) {
+// `title` / `hideBilling` / `hideProfileLink` let the Home Visits module embed
+// this exact planner for its own patients: same editor, same templates, same
+// tracking — only the page title and the clinic-only bits differ.
+export function FitnessPlanner({ client, clients = [], editId = '', onChangeClient, navigate, title = 'Fitness', hideBilling = false, hideProfileLink = false, role = '', therapistSource = 'therapists' }) {
   const [plans, setPlans] = useState([])
+  // The freelance home-visit login has no access to the clinic's service
+  // charges or accounting — skip those reads/writes entirely for it.
+  const clinicData = role !== 'homevisit'
   const [services, setServices] = useState([])
   const [form, setForm] = useState(blankPlan)
   const [activeDay, setActiveDay] = useState(1)
@@ -1423,8 +1425,8 @@ function FitnessPlanner({ client, clients = [], editId = '', onChangeClient, nav
   const editLoaded = useRef(false)
 
   useEffect(() => watchFitnessPlans(client.id, setPlans), [client.id])
-  useEffect(() => watchServiceCharges(setServices), [])
-  useEffect(() => { ensureRehabPackagesSeeded() }, [])
+  useEffect(() => { if (clinicData) return watchServiceCharges(setServices) }, [clinicData])
+  useEffect(() => { if (clinicData) ensureRehabPackagesSeeded() }, [clinicData])
   useEffect(() => () => setDirty(false), [setDirty])
 
   // Keep the "Plan length" text in sync with the committed value — but only
@@ -1584,13 +1586,13 @@ function FitnessPlanner({ client, clients = [], editId = '', onChangeClient, nav
       // Mirror the package charge into Accounting (best-effort — a limited admin
       // without accounting access must not have this block the plan save).
       try {
-        if (billData.addToAccounting && (billData.amount > 0 || billData.paid > 0)) {
+        if (clinicData && billData.addToAccounting && (billData.amount > 0 || billData.paid > 0)) {
           await setAccountingForFitnessPlan(planId, {
             date: form.startDate, clientId: client.clientId, clientDocId: client.id, clientName: client.name,
             service: billData.service, therapist: form.therapist,
             amount: billData.amount, paid: billData.paid, balance: billData.balance, mode: billData.mode,
           })
-        } else {
+        } else if (clinicData) {
           await deleteAccountingForFitnessPlan(planId)
         }
       } catch (_) { /* accounting sync is best-effort */ }
@@ -1632,7 +1634,7 @@ function FitnessPlanner({ client, clients = [], editId = '', onChangeClient, nav
   if (saved) {
     return (
       <div className="space-y-5">
-        <AdminPageHeader title="Fitness" />
+        {title && <AdminPageHeader title={title} />}
         <div className="card mx-auto max-w-lg p-8 text-center">
           <CheckCircle2 className="mx-auto text-green-500" size={48} />
           <h2 className="mt-3 text-xl font-bold">{editId ? 'Plan updated' : 'Fitness plan saved'}</h2>
@@ -1650,7 +1652,7 @@ function FitnessPlanner({ client, clients = [], editId = '', onChangeClient, nav
           )}
 
           <div className="mt-4 flex flex-wrap justify-center gap-2">
-            <Link to={`/admin/clients/${client.id}`} className="btn-primary">Open patient page <ArrowRight size={16} /></Link>
+            {!hideProfileLink && <Link to={`/admin/clients/${client.id}`} className="btn-primary">Open patient page <ArrowRight size={16} /></Link>}
             <button onClick={() => { if (editId) navigate(`/admin/fitness?client=${client.id}`); else { setForm(blankPlan()); setActiveDay(1); setBillOpen(false); setSaved(false) } }} className="btn-outline">Add another plan</button>
             <button onClick={onChangeClient} className="btn-ghost">Another patient</button>
           </div>
@@ -1665,10 +1667,10 @@ function FitnessPlanner({ client, clients = [], editId = '', onChangeClient, nav
   return (
     <div className="space-y-5">
       <form onSubmit={save} className="space-y-5">
-        <AdminPageHeader title="Fitness">
-          <button type="button" onClick={() => guard(() => navigate(`/admin/clients/${client.id}`))} className="text-sm font-medium text-brand-600 hover:underline">Open patient page →</button>
+        {title && <AdminPageHeader title={title}>
+          {!hideProfileLink && <button type="button" onClick={() => guard(() => navigate(`/admin/clients/${client.id}`))} className="text-sm font-medium text-brand-600 hover:underline">Open patient page →</button>}
           <button type="button" onClick={() => guard(() => onChangeClient())} className="text-sm font-medium text-brand-600 hover:underline">Change patient</button>
-        </AdminPageHeader>
+        </AdminPageHeader>}
 
         <div className="card space-y-4 p-5 md:p-6">
           <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-brand-50 p-4">
@@ -1719,7 +1721,7 @@ function FitnessPlanner({ client, clients = [], editId = '', onChangeClient, nav
           <div className="grid gap-3 md:grid-cols-2">
             <div>
               <label className="label text-sm">Prescribed by (Trainer) *</label>
-              <TherapistSelect id="fitness-therapist" invalid={therapistInvalid} value={form.therapist} onChange={(v) => { setForm((f) => ({ ...f, therapist: v })); setDirty(true); setTherapistInvalid(false) }} />
+              <TherapistSelect id="fitness-therapist" source={therapistSource} invalid={therapistInvalid} value={form.therapist} onChange={(v) => { setForm((f) => ({ ...f, therapist: v })); setDirty(true); setTherapistInvalid(false) }} />
             </div>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div><label className="label text-sm">Plan start date</label><DateField value={form.startDate} onChange={setStartDate} /></div>
@@ -1742,6 +1744,7 @@ function FitnessPlanner({ client, clients = [], editId = '', onChangeClient, nav
           </div>
         </div>
 
+        {!hideBilling && (
         <div className="overflow-hidden rounded-2xl border-2 border-amber-300 bg-gradient-to-br from-amber-50 to-white shadow-soft ring-1 ring-amber-100">
           <button
             type="button" onClick={() => setBillOpen((v) => !v)}
@@ -1779,6 +1782,8 @@ function FitnessPlanner({ client, clients = [], editId = '', onChangeClient, nav
             </div>
           )}
         </div>
+        )}
+
 
         <div className="card p-4 sm:p-5 md:p-6">
           <DayStrip

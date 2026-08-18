@@ -2,7 +2,7 @@ import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import {
   Home, Search, Loader2, Save, ArrowRight, Plus, CheckCircle2, BadgeCheck, IndianRupee, Send, FileDown,
-  Pencil, MapPin, Filter, Trash2, ChevronDown,
+  Pencil, MapPin, Filter, Trash2, ChevronDown, Stethoscope, Dumbbell, Activity,
 } from 'lucide-react'
 import {
   watchClients, watchHomeVisits, addHomeVisit, updateHomeVisit, watchServiceCharges,
@@ -27,7 +27,9 @@ import FitnessBadge from '../../components/FitnessBadge'
 import HomeVisitBadge from '../../components/HomeVisitBadge'
 import PatientAvatar from '../../components/PatientAvatar'
 import ClientForm from '../../components/ClientForm'
-import HomeVisitRehabFlow from '../../components/HomeVisitRehabFlow'
+import { RehabPlanner } from './Rehab'
+import { FitnessPlanner } from './Fitness'
+import { isHomeVisitOnlyClient } from '../../lib/homeVisit'
 import { useUnsaved } from '../../context/UnsavedContext'
 
 const PAY_MODES = ['Cash', 'UPI', 'Card', 'Bank transfer', 'Other']
@@ -57,6 +59,7 @@ export default function HomeVisits() {
             clients={clients}
             defaultPrograms={['W2W Home Visit']}
             lockProgram={role === 'homevisit' ? 'W2W Home Visit' : undefined}
+            homeVisitOnly
             onCreated={(id) => { setShowForm(false); setParams({ client: id }) }}
             onClose={() => setShowForm(false)}
           />
@@ -78,25 +81,14 @@ export default function HomeVisits() {
     )
   }
 
-  // Render appropriate workflow based on service type
-  if (client.homeVisitType === 'rehab') {
-    return (
-      <HomeVisitRehabFlow
-        key={client.id}
-        client={client}
-        role={role}
-        onChangeClient={() => setParams({})}
-        navigate={navigate}
-      />
-    )
-  }
-
-  // Default: Physio home visit form
   return (
-    <HomeVisitForm
-      key={`${client.id}:${params.get('visit') || ''}`}
+    <HomeVisitWorkspace
+      key={client.id}
       client={client}
+      clients={clients}
       editId={params.get('visit') || ''}
+      tab={params.get('tab') || (client.homeVisitType === 'rehab' ? 'rehab' : 'physio')}
+      onTab={(t) => setParams(t === 'physio' ? { client: client.id } : { client: client.id, tab: t })}
       role={role}
       onChangeClient={() => setParams({})}
       navigate={navigate}
@@ -104,13 +96,84 @@ export default function HomeVisits() {
   )
 }
 
-const isHomeVisitClient = (c) => Array.isArray(c?.programs) && c.programs.includes('W2W Home Visit')
+// Everything the clinic can do for a patient, for a home-visit patient:
+// the home-visit assessment, plus the real Rehab & Exercises and Fitness
+// planners (the very same components the clinic modules render) and a link
+// through to the full patient profile.
+const HV_TABS = [
+  ['physio', 'Physio', Stethoscope],
+  ['rehab', 'Rehab & Exercises', Dumbbell],
+  ['fitness', 'Fitness', Activity],
+]
+
+function HomeVisitWorkspace({ client, clients, editId, tab, onTab, role, onChangeClient, navigate }) {
+  const { guard } = useUnsaved()
+  // Only ever offer other home-visit patients when copying a plan across.
+  const hvClients = useMemo(() => clients.filter(isHomeVisitOnlyClient), [clients])
+
+  // Older home-visit records predate the explicit flag and were recognised by
+  // having Home Visit as their only program. Giving one a rehab or fitness
+  // plan adds a second program, which would have leaked them into the clinic
+  // modules — so stamp the flag the first time we open such a patient.
+  useEffect(() => {
+    if (client.homeVisitOnly === true || !isHomeVisitOnlyClient(client)) return
+    updateClient(client.id, { homeVisitOnly: true }).catch(() => { /* best-effort migration */ })
+  }, [client])
+
+  const go = (t) => () => guard(() => onTab(t))
+
+  return (
+    <div className="space-y-5">
+      <AdminPageHeader title="Home Visits">
+        <button type="button" onClick={() => guard(() => navigate(`/admin/clients/${client.id}`))} className="text-sm font-medium text-brand-600 hover:underline">View Profile →</button>
+        <button type="button" onClick={() => guard(onChangeClient)} className="text-sm font-medium text-brand-600 hover:underline">Change patient</button>
+      </AdminPageHeader>
+
+      <div className="flex flex-wrap gap-2">
+        {HV_TABS.map(([id, label, Icon]) => (
+          <button
+            key={id} type="button" onClick={go(id)}
+            className={`flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition ${tab === id ? 'bg-brand-600 text-white shadow' : 'bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50'}`}
+          >
+            <Icon size={16} /> {label}
+          </button>
+        ))}
+      </div>
+
+      {tab === 'rehab' ? (
+        <RehabPlanner
+          key={`${client.id}:rehab`}
+          client={client} clients={hvClients} title={null}
+          role={role} therapistSource="homeVisit"
+          hideBilling={role === 'homevisit'} hideProfileLink={role === 'homevisit'}
+          onChangeClient={onChangeClient} navigate={navigate}
+        />
+      ) : tab === 'fitness' ? (
+        <FitnessPlanner
+          key={`${client.id}:fitness`}
+          client={client} clients={hvClients} title={null}
+          role={role} therapistSource="homeVisit"
+          hideBilling={role === 'homevisit'} hideProfileLink={role === 'homevisit'}
+          onChangeClient={onChangeClient} navigate={navigate}
+        />
+      ) : (
+        <HomeVisitForm
+          key={`${client.id}:${editId}`}
+          client={client} editId={editId} role={role} hideHeader
+          onChangeClient={onChangeClient} navigate={navigate}
+        />
+      )}
+    </div>
+  )
+}
 
 function HomeVisitClientPicker({ clients, onPick, onNew, note, role }) {
   const [q, setQ] = useState('')
   const [therapistFilter, setTherapistFilter] = useState('')
   const [expandedId, setExpandedId] = useState('')
-  const hvClients = clients.filter(isHomeVisitClient)
+  // Only patients registered through this module — clinic patients are never
+  // listed here, in any login (see lib/homeVisit.js).
+  const hvClients = clients.filter(isHomeVisitOnlyClient)
   const therapistOptions = [...new Set(hvClients.map((c) => c.therapist).filter(Boolean))].sort()
   const byTherapist = therapistFilter ? hvClients.filter((c) => c.therapist === therapistFilter) : hvClients
   const filtered = q
@@ -293,7 +356,7 @@ function PatientSummary({ client, role }) {
   )
 }
 
-function HomeVisitForm({ client, editId = '', role, onChangeClient, navigate }) {
+function HomeVisitForm({ client, editId = '', role, onChangeClient, navigate, hideHeader = false }) {
   const [visits, setVisits] = useState([])
   const [form, setForm] = useState(blank)
   const [date, setDate] = useState(todayISO())
@@ -450,7 +513,7 @@ function HomeVisitForm({ client, editId = '', role, onChangeClient, navigate }) 
   if (saved) {
     return (
       <div className="space-y-5">
-        <AdminPageHeader title="Home Visits" />
+        {!hideHeader && <AdminPageHeader title="Home Visits" />}
         <div className="card mx-auto max-w-lg p-8 text-center">
           <CheckCircle2 className="mx-auto text-green-500" size={48} />
           <h2 className="mt-3 text-xl font-bold">{editId ? 'Home visit updated' : 'Home visit saved'}</h2>
@@ -471,11 +534,11 @@ function HomeVisitForm({ client, editId = '', role, onChangeClient, navigate }) 
   return (
     <>
     <form onSubmit={save} onKeyDown={(e) => { if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA') e.preventDefault() }} className="space-y-5">
-      <AdminPageHeader title="Home Visits">
-        {role !== 'homevisit' && (
-          <button type="button" onClick={() => guard(() => navigate(`/admin/clients/${client.id}`))} className="text-sm font-medium text-brand-600 hover:underline">Open patient page →</button>
-        )}
-      </AdminPageHeader>
+      {!hideHeader && (
+        <AdminPageHeader title="Home Visits">
+          <button type="button" onClick={() => guard(() => navigate(`/admin/clients/${client.id}`))} className="text-sm font-medium text-brand-600 hover:underline">View Profile →</button>
+        </AdminPageHeader>
+      )}
 
       <div className="card space-y-4 p-5 md:p-6">
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-brand-50 p-4">
