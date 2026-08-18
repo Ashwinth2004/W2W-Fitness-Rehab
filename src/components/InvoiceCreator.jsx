@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import {
-  Search, Plus, Trash2, Star, FileDown, Send, Loader2, IndianRupee, Receipt, X, CheckCircle2, Save, Pencil, Check,
+  Search, Plus, Trash2, Star, FileDown, Send, Loader2, IndianRupee, Receipt, X, CheckCircle2, Save, Pencil, Check, MessageCircle,
 } from 'lucide-react'
 import {
   watchClients, watchServiceCharges, watchInvoiceServices, addInvoiceService, updateInvoiceService, deleteInvoiceService,
@@ -313,6 +313,19 @@ export default function InvoiceCreator() {
   async function redownload(inv) {
     try { await generateInvoice(inv, { action: 'download' }) } catch (_) { /* best-effort */ }
   }
+  function shareToWhatsApp(inv) {
+    if (!inv.clientPhone) {
+      alert('No phone number available for this invoice. Please add a contact number.')
+      return
+    }
+    const amount = inv.balance > 0 ? `Rs. ${inv.balance} due` : 'Paid'
+    const msg = `Hi ${inv.clientName || 'there'}! Your invoice ${inv.invoiceNo} dated ${inv.date || 'today'} for Rs. ${inv.subtotal} (${amount}) is ready. Please let us know if you have any questions.`
+    const encodedMsg = encodeURIComponent(msg)
+    // Handle Indian phone numbers (10 digits → 91 + number)
+    const phone = inv.clientPhone.replace(/\D/g, '').slice(-10)
+    const whatsappUrl = `https://wa.me/91${phone}?text=${encodedMsg}`
+    window.open(whatsappUrl, '_blank')
+  }
   async function removeInvoice(inv) {
     if (!window.confirm(`Delete invoice ${inv.invoiceNo}? This cannot be undone.`)) return
     try { await deleteInvoice(inv.id) } catch (_) {}
@@ -455,6 +468,7 @@ export default function InvoiceCreator() {
                   <p className="text-xs text-slate-500">{fmtDate(inv.date)} · {rs(inv.subtotal)} {inv.balance > 0 ? `· Balance ${rs(inv.balance)}` : '· Paid'}</p>
                 </div>
                 <div className="flex shrink-0 gap-1.5">
+                  <button type="button" onClick={() => shareToWhatsApp(inv)} title="Share on WhatsApp" className="grid h-8 w-8 place-items-center rounded-full text-slate-400 hover:bg-green-50 hover:text-green-600"><MessageCircle size={15} /></button>
                   <button type="button" onClick={() => redownload(inv)} title="Download again" className="grid h-8 w-8 place-items-center rounded-full text-slate-400 hover:bg-brand-50 hover:text-brand-600"><FileDown size={15} /></button>
                   <button type="button" onClick={() => removeInvoice(inv)} title="Delete" className="grid h-8 w-8 place-items-center rounded-full text-slate-400 hover:bg-red-50 hover:text-red-500"><Trash2 size={15} /></button>
                 </div>

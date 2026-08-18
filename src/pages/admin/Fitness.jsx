@@ -143,10 +143,13 @@ function FitnessApp() {
 }
 
 const isFitnessClient = (c) => Array.isArray(c?.programs) && c.programs.includes('W2W Fitness')
+const isHomeVisitClient = (c) => Array.isArray(c?.programs) && c.programs.includes('W2W Home Visit')
 // A client registered for Home Visit ONLY (no other program) is a freelancer
 // patient — kept out of the Physio/Rehab/Fitness pickers entirely, matching
 // the Home Visits module's own data segregation (Clients module still shows them).
 const isHomeVisitOnlyClient = (c) => Array.isArray(c?.programs) && c.programs.length === 1 && c.programs[0] === 'W2W Home Visit'
+// Fitness can be assigned to Fitness clients OR Home Visit clients (for home-based fitness)
+const isFitnessEligible = (c) => isFitnessClient(c) || (isHomeVisitClient(c) && !isHomeVisitOnlyClient(c))
 
 function FitnessClientPicker({ clients, onPick, onNew, onTemplates, note }) {
   const [q, setQ] = useState('')
@@ -155,7 +158,7 @@ function FitnessClientPicker({ clients, onPick, onNew, onTemplates, note }) {
   // below reveals everyone when a Treatment-only patient needs a plan too.
   const [showAll, setShowAll] = useState(false)
   const visibleClients = clients.filter((c) => !isHomeVisitOnlyClient(c))
-  const fitnessRegisteredClients = visibleClients.filter(isFitnessClient)
+  const fitnessRegisteredClients = visibleClients.filter(isFitnessEligible)
   const pool = showAll ? visibleClients : fitnessRegisteredClients
   const filtered = q
     ? pool.filter((c) => [c.name, c.phone, c.clientId, c.email].filter(Boolean).join(' ').toLowerCase().includes(q.toLowerCase()))

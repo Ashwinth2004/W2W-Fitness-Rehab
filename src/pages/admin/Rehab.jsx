@@ -111,7 +111,10 @@ function RehabApp() {
   const [showTemplates, setShowTemplates] = useState(false)
   const navigate = useNavigate()
 
-  useEffect(() => watchClients(setClients), [])
+  useEffect(() => {
+    // Watch all clients but filter to show Rehab-eligible ones (Rehab program OR Home Visit)
+    return watchClients(setClients)
+  }, [])
 
   const clientId = params.get('client') || ''
   const client = useMemo(() => clients.find((c) => c.id === clientId) || null, [clients, clientId])
@@ -164,10 +167,13 @@ function RehabApp() {
 }
 
 const isRehabClient = (c) => Array.isArray(c?.programs) && c.programs.includes('W2W Fitness & Rehab')
+const isHomeVisitClient = (c) => Array.isArray(c?.programs) && c.programs.includes('W2W Home Visit')
 // A client registered for Home Visit ONLY (no other program) is a freelancer
 // patient — kept out of the Physio/Rehab/Fitness pickers entirely, matching
 // the Home Visits module's own data segregation (Clients module still shows them).
 const isHomeVisitOnlyClient = (c) => Array.isArray(c?.programs) && c.programs.length === 1 && c.programs[0] === 'W2W Home Visit'
+// Rehab can be assigned to Rehab clients OR Home Visit clients (for home-based rehab)
+const isRehabEligible = (c) => isRehabClient(c) || (isHomeVisitClient(c) && !isHomeVisitOnlyClient(c))
 
 function RehabClientPicker({ clients, onPick, onNew, onTemplates, note }) {
   const [q, setQ] = useState('')
@@ -176,7 +182,7 @@ function RehabClientPicker({ clients, onPick, onNew, onTemplates, note }) {
   // below reveals everyone when a Treatment-only patient needs a plan too.
   const [showAll, setShowAll] = useState(false)
   const visibleClients = clients.filter((c) => !isHomeVisitOnlyClient(c))
-  const rehabClients = visibleClients.filter(isRehabClient)
+  const rehabClients = visibleClients.filter(isRehabEligible)
   const pool = showAll ? visibleClients : rehabClients
   const filtered = q
     ? pool.filter((c) => [c.name, c.phone, c.clientId, c.email].filter(Boolean).join(' ').toLowerCase().includes(q.toLowerCase()))

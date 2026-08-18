@@ -42,7 +42,7 @@ export default function Clients() {
     : programFilter === 'rehab' ? clients.filter(isRehabClient)
     : programFilter === 'fitness' ? clients.filter(isFitnessClient)
     : programFilter === 'homevisit' ? clients.filter(isHomeVisitClient)
-    : clients
+    : clients.filter((c) => !isHomeVisitClient(c)) // All clients except Home Visit (shown separately)
 
   const filtered = programPool
     .filter((c) => matchesDateFilter(c.createdAt, dateFilter))
@@ -95,7 +95,7 @@ export default function Clients() {
               : f.key === 'rehab' ? clients.filter(isRehabClient).length
               : f.key === 'fitness' ? clients.filter(isFitnessClient).length
               : f.key === 'homevisit' ? clients.filter(isHomeVisitClient).length
-              : clients.length
+              : clients.filter((c) => !isHomeVisitClient(c)).length
             const active = programFilter === f.key
             return (
               <button

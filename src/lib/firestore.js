@@ -306,6 +306,11 @@ export function watchClients(cb) {
   return onSnapshot(q, (snap) => cb(snap.docs.map((d) => ({ id: d.id, ...d.data() }))))
 }
 
+export function watchHomeVisitClientsOnly(cb) {
+  const q = query(collection(db, 'clients'), where('programs', 'array-contains', 'W2W Home Visit'), orderBy('createdAt', 'desc'))
+  return onSnapshot(q, (snap) => cb(snap.docs.map((d) => ({ id: d.id, ...d.data() }))))
+}
+
 export async function getClient(id) {
   const snap = await getDoc(doc(db, 'clients', id))
   return snap.exists() ? { id: snap.id, ...snap.data() } : null
