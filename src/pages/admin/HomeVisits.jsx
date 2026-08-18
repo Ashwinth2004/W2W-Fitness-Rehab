@@ -2,7 +2,7 @@ import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import {
   Home, Search, Loader2, Save, ArrowRight, Plus, CheckCircle2, BadgeCheck, IndianRupee, Send, FileDown,
-  Pencil, MapPin, Filter, Trash2, ChevronDown, Stethoscope, Dumbbell, Activity,
+  Pencil, MapPin, Filter, Trash2, ChevronDown, Stethoscope, Dumbbell, Activity, User,
 } from 'lucide-react'
 import {
   watchClients, watchHomeVisits, addHomeVisit, updateHomeVisit, watchServiceCharges,
@@ -206,6 +206,7 @@ function HomeVisitClientPicker({ clients, onPick, onNew, note, role }) {
   const [q, setQ] = useState('')
   const [therapistFilter, setTherapistFilter] = useState('')
   const [serviceFilter, setServiceFilter] = useState('')
+  const [deleteError, setDeleteError] = useState('')
   const [expandedId, setExpandedId] = useState('')
   // Only patients registered through this module — clinic patients are never
   // listed here, in any login (see lib/homeVisit.js).
@@ -222,7 +223,15 @@ function HomeVisitClientPicker({ clients, onPick, onNew, note, role }) {
   async function handleDeleteClient(e, c) {
     e.stopPropagation()
     if (!window.confirm(`Delete ${c.name} (${c.clientId}) permanently? This cannot be undone.`)) return
-    try { await deleteClient(c.id) } catch (_) {}
+    try {
+      await deleteClient(c.id)
+      setDeleteError('')
+    } catch (err) {
+      console.error('delete home visit client failed:', err)
+      setDeleteError(err?.code === 'permission-denied'
+        ? 'This login is not allowed to delete patients yet. The updated Firestore rules need to be published in the Firebase Console.'
+        : 'Could not delete that patient. Please try again.')
+    }
   }
 
   return (
@@ -236,6 +245,7 @@ function HomeVisitClientPicker({ clients, onPick, onNew, note, role }) {
           </div>
         </div>
         {note && <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-700">{note}</p>}
+        {deleteError && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{deleteError}</p>}
         <div className="flex flex-col gap-3 sm:flex-row">
           <div className="relative flex-1">
             <Search className="pointer-events-none absolute left-3 top-3 text-slate-400" size={16} />
@@ -315,24 +325,33 @@ function HomeVisitClientPicker({ clients, onPick, onNew, note, role }) {
                   </div>
                 </div>
 
-                <div className="mt-3 flex items-center justify-between border-t border-slate-100 pt-3">
-                  <button
-                    type="button"
-                    onClick={(e) => { e.stopPropagation(); setExpandedId(expanded ? '' : c.id) }}
-                    className="flex items-center gap-1 text-xs font-semibold text-brand-600 hover:underline"
-                  >
-                    <ChevronDown size={14} className={`transition-transform ${expanded ? 'rotate-180' : ''}`} />
-                    {expanded ? 'Hide details' : 'View details'}
-                  </button>
-                  {role !== 'homevisit' && (
+                {/* Same per-patient actions every other module's client list
+                    offers — available to the home-visit login too. */}
+                <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-3">
+                  <div className="flex flex-wrap items-center gap-3">
                     <button
                       type="button"
-                      onClick={(e) => handleDeleteClient(e, c)}
-                      className="flex items-center gap-1 text-xs text-red-500 hover:text-red-700"
+                      onClick={(e) => { e.stopPropagation(); setExpandedId(expanded ? '' : c.id) }}
+                      className="flex items-center gap-1 text-xs font-semibold text-brand-600 hover:underline"
                     >
-                      <Trash2 size={13} /> Delete
+                      <ChevronDown size={14} className={`transition-transform ${expanded ? 'rotate-180' : ''}`} />
+                      {expanded ? 'Hide details' : 'View details'}
                     </button>
-                  )}
+                    <Link
+                      to={`/admin/clients/${c.id}`}
+                      onClick={(e) => e.stopPropagation()}
+                      className="flex items-center gap-1 text-xs font-semibold text-brand-600 hover:underline"
+                    >
+                      <User size={13} /> View Profile
+                    </Link>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={(e) => handleDeleteClient(e, c)}
+                    className="flex items-center gap-1 text-xs text-red-500 hover:text-red-700"
+                  >
+                    <Trash2 size={13} /> Delete
+                  </button>
                 </div>
 
                 {expanded && (
@@ -352,15 +371,6 @@ function HomeVisitClientPicker({ clients, onPick, onNew, note, role }) {
                         <p className="mb-1 text-[11px] font-medium uppercase tracking-wide text-slate-400">Pain areas ({c.painAreas.length})</p>
                         <BodyPainSelector value={c.painAreas} readonly />
                       </div>
-                    )}
-                    {role !== 'homevisit' && (
-                      <Link
-                        to={`/admin/clients/${c.id}`}
-                        onClick={(e) => e.stopPropagation()}
-                        className="inline-flex items-center gap-1 text-xs font-semibold text-brand-600 hover:underline"
-                      >
-                        Open full profile →
-                      </Link>
                     )}
                   </div>
                 )}

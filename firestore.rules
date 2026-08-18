@@ -113,7 +113,12 @@ service cloud.firestore {
         && 'W2W Home Visit' in request.resource.data.programs
         && (!('homeVisitType' in request.resource.data) || request.resource.data.homeVisitType in ['physio', 'rehab', 'fitness'])
       );
-      allow delete: if isAdmin();
+      // The home-visit login manages its own patient list end to end, so it can
+      // delete a patient — but only one that belongs to Home Visits.
+      allow delete: if isAdmin() || (
+        isHomeVisitOnly()
+        && 'W2W Home Visit' in resource.data.programs
+      );
 
       match /homeVisits/{visitId} {
         allow read, write: if isAdmin() || isHomeVisitOnly();

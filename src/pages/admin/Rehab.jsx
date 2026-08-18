@@ -395,7 +395,11 @@ export function RehabPlanner({ client, clients = [], editId = '', onChangeClient
       setDirty(false); setSaved(true)
     } catch (err) {
       console.error('save rehab plan failed:', err)
-      setError('Could not save the plan. Please try again.')
+      // A blunt "try again" is misleading when the write was refused outright —
+      // retrying will never help, so say what actually needs doing.
+      setError(err?.code === 'permission-denied'
+        ? 'This login is not allowed to save exercise plans yet. The updated Firestore rules need to be published in the Firebase Console.'
+        : 'Could not save the plan. Please try again.')
     }
     setBusy(false)
   }

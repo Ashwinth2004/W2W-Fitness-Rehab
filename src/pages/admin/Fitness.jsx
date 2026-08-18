@@ -1251,15 +1251,18 @@ function DayEditor({ day, allDays, onCopyFromDay, onOpenCrossPatientCopy, onAppl
       {/* Copy & Templates — reuse an existing day, another patient's plan, or a saved named set */}
       <div className="flex flex-wrap items-center gap-2 rounded-xl border border-dashed border-slate-200 bg-slate-50/60 p-2.5">
         <Copy size={14} className="shrink-0 text-slate-400" />
-        {otherDaysWithExercises.length > 0 && (
-          <>
-            <select className="input h-9 w-auto text-xs" value={copySource} onChange={(e) => setCopySource(e.target.value)}>
-              <option value="">Copy from day…</option>
-              {otherDaysWithExercises.map((d) => <option key={d.day} value={d.day}>Day {d.day} ({d.exercises.length} exercises)</option>)}
-            </select>
-            <button type="button" onClick={copyFromPicked} disabled={!copySource} className="btn-outline px-2.5 py-1.5 text-xs disabled:opacity-40">Copy</button>
-          </>
-        )}
+        {/* Always shown, even before there's anything to copy — hiding it made
+            the feature look missing on a plan whose other days are still empty. */}
+        <select
+          className="input h-9 w-auto text-xs disabled:cursor-not-allowed disabled:opacity-60"
+          value={copySource} disabled={otherDaysWithExercises.length === 0}
+          title={otherDaysWithExercises.length === 0 ? 'Add exercises to another day first, then you can copy them here' : 'Copy every exercise from another day of this plan'}
+          onChange={(e) => setCopySource(e.target.value)}
+        >
+          <option value="">{otherDaysWithExercises.length === 0 ? 'Copy from day… (no other day has exercises yet)' : 'Copy from day…'}</option>
+          {otherDaysWithExercises.map((d) => <option key={d.day} value={d.day}>Day {d.day} ({d.exercises.length} exercises)</option>)}
+        </select>
+        <button type="button" onClick={copyFromPicked} disabled={!copySource} className="btn-outline px-2.5 py-1.5 text-xs disabled:opacity-40">Copy</button>
         <button type="button" onClick={onOpenCrossPatientCopy} className="btn-outline px-2.5 py-1.5 text-xs">Copy from another patient</button>
         <div className="ml-auto flex flex-wrap items-center gap-1.5">
           {savingTemplate ? (
@@ -1609,7 +1612,11 @@ export function FitnessPlanner({ client, clients = [], editId = '', onChangeClie
       setDirty(false); setSaved(true)
     } catch (err) {
       console.error('save fitness plan failed:', err)
-      setError('Could not save the plan. Please try again.')
+      // A blunt "try again" is misleading when the write was refused outright —
+      // retrying will never help, so say what actually needs doing.
+      setError(err?.code === 'permission-denied'
+        ? 'This login is not allowed to save exercise plans yet. The updated Firestore rules need to be published in the Firebase Console.'
+        : 'Could not save the plan. Please try again.')
     }
     setBusy(false)
   }
