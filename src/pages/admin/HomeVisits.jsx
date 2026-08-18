@@ -5,7 +5,7 @@ import {
   Pencil, MapPin, Filter,
 } from 'lucide-react'
 import {
-  watchHomeVisitClientsOnly, watchHomeVisits, addHomeVisit, updateHomeVisit, watchServiceCharges,
+  watchClients, watchHomeVisits, addHomeVisit, updateHomeVisit, watchServiceCharges,
   setAccountingForHomeVisit, deleteAccountingForHomeVisit, getClientNotesOnce, getHomeVisitsOnce, updateClient,
 } from '../../lib/firestore'
 import { useAuth } from '../../context/AuthContext'
@@ -39,7 +39,7 @@ export default function HomeVisits() {
   const [showForm, setShowForm] = useState(false)
   const navigate = useNavigate()
 
-  useEffect(() => watchHomeVisitClientsOnly(setClients), [])
+  useEffect(() => watchClients(setClients), [])
 
   const clientId = params.get('client') || ''
   const client = useMemo(() => clients.find((c) => c.id === clientId) || null, [clients, clientId])
@@ -99,8 +99,8 @@ function HomeVisitClientPicker({ clients, onPick, onNew, note }) {
   // and given their first home visit here.
   const [showAll, setShowAll] = useState(false)
   const [therapistFilter, setTherapistFilter] = useState('')
-  const hvClients = clients // Already filtered by watchHomeVisitClientsOnly
-  const pool = clients // No need to show "all" since we only have Home Visit clients
+  const hvClients = clients.filter(isHomeVisitClient)
+  const pool = showAll ? clients : hvClients
   // Which freelance/handling physiotherapist has been assigned each patient —
   // `client.therapist` is kept current as the latest visit's therapist
   // (see addHomeVisit), so no extra reads are needed to filter by it.
@@ -142,6 +142,11 @@ function HomeVisitClientPicker({ clients, onPick, onNew, note }) {
               <button key={t} type="button" onClick={() => setTherapistFilter(t)} className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${therapistFilter === t ? 'bg-brand-600 text-white shadow' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>{t}</button>
             ))}
           </div>
+        )}
+        {hvClients.length > 0 && (
+          <button type="button" onClick={() => setShowAll((v) => !v)} className="text-xs font-semibold text-brand-600 hover:underline">
+            {showAll ? 'Show only Home Visit patients' : 'Show all clients'}
+          </button>
         )}
       </div>
 

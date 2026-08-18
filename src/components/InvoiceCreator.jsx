@@ -318,12 +318,9 @@ export default function InvoiceCreator() {
       alert('No phone number available for this invoice. Please add a contact number.')
       return
     }
-    const amount = inv.balance > 0 ? `Rs. ${inv.balance} due` : 'Paid'
-    const msg = `Hi ${inv.clientName || 'there'}! Your invoice ${inv.invoiceNo} dated ${inv.date || 'today'} for Rs. ${inv.subtotal} (${amount}) is ready. Please let us know if you have any questions.`
-    const encodedMsg = encodeURIComponent(msg)
     // Handle Indian phone numbers (10 digits → 91 + number)
     const phone = inv.clientPhone.replace(/\D/g, '').slice(-10)
-    const whatsappUrl = `https://wa.me/91${phone}?text=${encodedMsg}`
+    const whatsappUrl = `https://wa.me/91${phone}`
     window.open(whatsappUrl, '_blank')
   }
   async function removeInvoice(inv) {
