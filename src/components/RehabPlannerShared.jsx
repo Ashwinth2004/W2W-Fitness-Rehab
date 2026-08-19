@@ -1112,13 +1112,15 @@ export function DayEditor({ day, allDays, onCopyFromDay, onOpenCrossPatientCopy,
         <Copy size={14} className="shrink-0 text-slate-400" />
         {/* Always shown, even before there's anything to copy — hiding it made
             the feature look missing on a plan whose other days are still empty. */}
+        {/* w-full on phones: a long option label was widening this select past
+            the screen and forcing the whole page to scroll sideways. */}
         <select
-          className="input h-9 w-auto text-xs disabled:cursor-not-allowed disabled:opacity-60"
+          className="input h-9 w-full min-w-0 max-w-full text-xs disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
           value={copySource} disabled={otherDaysWithExercises.length === 0}
           title={otherDaysWithExercises.length === 0 ? 'Add exercises to another day first, then you can copy them here' : 'Copy every exercise from another day of this plan'}
           onChange={(e) => setCopySource(e.target.value)}
         >
-          <option value="">{otherDaysWithExercises.length === 0 ? 'Copy from day… (no other day has exercises yet)' : 'Copy from day…'}</option>
+          <option value="">{otherDaysWithExercises.length === 0 ? 'No other day has exercises yet' : 'Copy from day…'}</option>
           {otherDaysWithExercises.map((d) => <option key={d.day} value={d.day}>Day {d.day} ({d.exercises.length} exercises)</option>)}
         </select>
         <button type="button" onClick={copyFromPicked} disabled={!copySource} className="btn-outline px-2.5 py-1.5 text-xs disabled:opacity-40">Copy</button>

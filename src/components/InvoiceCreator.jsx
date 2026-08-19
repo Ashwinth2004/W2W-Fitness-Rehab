@@ -306,11 +306,7 @@ export default function InvoiceCreator() {
         { invoiceNo, date, clientName: name, clientPhone: phone, items: validItems, received: receivedNum, balance, terms },
         { action },
       )
-      setMsg(
-        res === 'downloaded-and-whatsapp' ? `Invoice ${invoiceNo} downloaded and ${name}’s WhatsApp chat opened — attach the PDF and send.`
-        : res === 'downloaded' ? `Invoice ${invoiceNo} downloaded.`
-        : `Invoice ${invoiceNo} saved.`,
-      )
+      setMsg(res === 'downloaded' || res === 'downloaded-and-whatsapp' ? `Invoice ${invoiceNo} created.` : `Invoice ${invoiceNo} saved.`)
       // Saved — clear the working fields so the form (and the unsaved-changes
       // guard) treat it as clean again, ready for the next invoice.
       setPickedClient(null); setClientName(''); setClientPhone(''); setDate(todayISO())
@@ -336,7 +332,7 @@ export default function InvoiceCreator() {
     setBusy(`wa:${inv.id || 'new'}`); setError('')
     try {
       const res = await generateInvoice(inv, { action: 'whatsapp' })
-      setMsg(`Invoice ${inv.invoiceNo} downloaded and ${inv.clientName || 'the client'}’s WhatsApp chat opened — attach the PDF and send.`)
+      setMsg('')
     } catch (err) {
       console.error('whatsapp send failed:', err)
       setError('Could not send the invoice. Please try again.')
