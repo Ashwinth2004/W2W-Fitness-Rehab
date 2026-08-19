@@ -566,8 +566,10 @@ function ActiveSessions({ client }) {
         })}
       </div>
 
-      {trackRehab && <RehabClusterTrack client={client} plan={trackRehab} plans={rehabPlans} onClose={() => setTrackRehab(null)} />}
-      {trackFitness && <FitnessClusterTrack client={client} plan={trackFitness} plans={fitnessPlans} onClose={() => setTrackFitness(null)} />}
+      {trackRehab && <RehabClusterTrack client={client} plan={trackRehab} plans={rehabPlans} onClose={() => setTrackRehab(null)}
+        onUpdatePlan={(pl) => navigate(`/admin/rehab?client=${id}&plan=${pl.id}`)} />}
+      {trackFitness && <FitnessClusterTrack client={client} plan={trackFitness} plans={fitnessPlans} onClose={() => setTrackFitness(null)}
+        onUpdatePlan={(pl) => navigate(`/admin/fitness?client=${id}&plan=${pl.id}`)} />}
     </div>
   )
 }

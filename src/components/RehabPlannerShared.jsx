@@ -97,7 +97,7 @@ export function removeDayAt(days, index, startDate) {
 // side of the selected one or delete it. Owns all day add/remove/renumber
 // logic so every planner (Rehab, Fitness, Home Visit) behaves identically —
 // callers just persist the new array via `onDaysChange(days, activeDay)`.
-export function DayStrip({ days, activeDay, startDate, home = false, maxDays = MAX_DAYS, onSelectDay, onDaysChange }) {
+export function DayStrip({ days, activeDay, startDate, home = false, maxDays = MAX_DAYS, onSelectDay, onDaysChange, onSaveDay, savingDay }) {
   const activeIdx = days.findIndex((d) => d.day === activeDay)
   const idx = activeIdx === -1 ? 0 : activeIdx
   const current = days[idx]
@@ -170,6 +170,18 @@ export function DayStrip({ days, activeDay, startDate, home = false, maxDays = M
         >
           <Plus size={12} /> Add day at end
         </button>
+        {/* Saves the plan without leaving the editor, so a long multi-day plan
+            can be banked day by day as it's built. */}
+        {onSaveDay && (
+          <button
+            type="button" onClick={onSaveDay} disabled={savingDay === 'saving'}
+            title={`Save the plan now, including Day ${current?.day}`}
+            className={`${btn} ${savingDay === 'saved' ? 'bg-emerald-600 text-white' : 'bg-brand-600 text-white hover:bg-brand-700'}`}
+          >
+            {savingDay === 'saving' ? <Loader2 size={12} className="animate-spin" /> : savingDay === 'saved' ? <Check size={12} /> : <Save size={12} />}
+            {savingDay === 'saving' ? 'Saving…' : savingDay === 'saved' ? `Day ${current?.day} saved` : `Save Day ${current?.day} plan`}
+          </button>
+        )}
       </div>
     </div>
   )

@@ -219,11 +219,19 @@ function RehabClientPicker({ clients, onPick, onNew, onTemplates, note }) {
 // `title` / `hideBilling` / `hideProfileLink` let the Home Visits module embed
 // this exact planner for its own patients: same editor, same templates, same
 // tracking — only the page title and the clinic-only bits differ.
-export function RehabPlanner({ client, clients = [], editId = '', onChangeClient, navigate, title = 'Rehab & Exercises', hideBilling = false, hideProfileLink = false, role = '', therapistSource = 'therapists' }) {
+export function RehabPlanner({ client, clients = [], editId = '', onChangeClient, navigate, title = 'Rehab & Exercises', hideBilling = false, hideProfileLink = false, role = '', therapistSource = 'therapists' , planHref }) {
   const [plans, setPlans] = useState([])
   // The freelance home-visit login has no access to the clinic's service
   // charges or accounting — skip those reads/writes entirely for it.
   const clinicData = role !== 'homevisit'
+  // In-place save from the day strip: banks the plan without leaving the
+  // editor, so a long multi-day plan doesn't have to be built in one go.
+  const [planDocId, setPlanDocId] = useState(editId)
+  const [daySaveState, setDaySaveState] = useState('')
+  // Where "Update Plan" goes. Defaults to this module's own URL, but the Home
+  // Visits module passes its own so editing a home-visit plan stays there
+  // instead of bouncing to a module that deliberately hides those patients.
+  const planUrl = (planId) => (planHref ? planHref(planId) : `/admin/rehab?client=${client.id}${planId ? `&plan=${planId}` : ''}`)
   const [services, setServices] = useState([])
   const [form, setForm] = useState(() => blankPlan(false))
   const [activeDay, setActiveDay] = useState(1)
@@ -352,6 +360,36 @@ export function RehabPlanner({ client, clients = [], editId = '', onChangeClient
     setDirty(true)
   }
 
+
+  async function saveCurrentDay() {
+    if (!form.therapist) {
+      setTherapistInvalid(true)
+      setError('Please choose who is prescribing this plan.')
+      return
+    }
+    setDaySaveState('saving'); setError('')
+    try {
+      const billData = {
+        service: (form.bill.service || '').trim(), amount: Number(form.bill.amount) || 0,
+        paid: Number(form.bill.paid) || 0, balance: billBalance, mode: form.bill.mode,
+        addToAccounting: form.bill.addToAccounting !== false,
+      }
+      const data = { ...form, bill: billData }
+      let id = planDocId
+      if (id) await updateRehabPlan(client.id, id, data)
+      else { id = await addRehabPlan(client.id, data); setPlanDocId(id) }
+      setDirty(false)
+      setDaySaveState('saved')
+      setTimeout(() => setDaySaveState(''), 2500)
+    } catch (err) {
+      console.error('save rehab plan failed:', err)
+      setDaySaveState('')
+      setError(err?.code === 'permission-denied'
+        ? 'This login is not allowed to save exercise plans yet. The updated Firestore rules need to be published in the Firebase Console.'
+        : 'Could not save the plan. Please try again.')
+    }
+  }
+
   async function save(e) {
     e.preventDefault(); setError('')
     if (!form.therapist) {
@@ -369,9 +407,9 @@ export function RehabPlanner({ client, clients = [], editId = '', onChangeClient
       }
       const data = { ...form, bill: billData }
 
-      let planId = editId
-      if (editId) await updateRehabPlan(client.id, editId, data)
-      else { planId = await addRehabPlan(client.id, data) }
+      let planId = planDocId
+      if (planId) await updateRehabPlan(client.id, planId, data)
+      else { planId = await addRehabPlan(client.id, data); setPlanDocId(planId) }
 
       try {
         if (clinicData && billData.addToAccounting && (billData.amount > 0 || billData.paid > 0)) {
@@ -439,12 +477,19 @@ export function RehabPlanner({ client, clients = [], editId = '', onChangeClient
           )}
 
           <div className="mt-4 flex flex-wrap justify-center gap-2">
+            {/* Straight back into the editor for the plan just saved. */}
+            {savedPlan?.id && (
+              <button onClick={() => { setSaved(false); setSavedPlan(null) }} className="btn-outline">
+                <Pencil size={15} /> Update plan
+              </button>
+            )}
             {!hideProfileLink && <Link to={`/admin/clients/${client.id}`} className="btn-primary">Open patient page <ArrowRight size={16} /></Link>}
-            <button onClick={() => { if (editId) navigate(`/admin/rehab?client=${client.id}`); else { setForm(blankPlan(false)); setActiveDay(1); setBillOpen(false); setSaved(false) } }} className="btn-outline">Add another plan</button>
+            <button onClick={() => { if (editId) navigate(planUrl('')); else { setForm(blankPlan(false)); setActiveDay(1); setBillOpen(false); setSaved(false) } }} className="btn-outline">Add another plan</button>
             <button onClick={onChangeClient} className="btn-ghost">Another patient</button>
           </div>
         </div>
-        {trackPlan && <RehabClusterTrack client={client} plan={trackPlan} plans={plans} onClose={() => setTrackPlan(null)} />}
+        {trackPlan && <RehabClusterTrack client={client} plan={trackPlan} plans={plans} onClose={() => setTrackPlan(null)}
+          onUpdatePlan={(pl) => navigate(planUrl(pl.id))} />}
       </div>
     )
   }
@@ -488,7 +533,7 @@ export function RehabPlanner({ client, clients = [], editId = '', onChangeClient
                         >
                           <LayoutGrid size={14} /> Track Progress
                         </button>
-                        <button type="button" onClick={() => guard(() => navigate(`/admin/rehab?client=${client.id}&plan=${p.id}`))} className="btn-primary px-3 py-1.5 text-xs">Update Plan <ArrowRight size={14} /></button>
+                        <button type="button" onClick={() => guard(() => navigate(planUrl(p.id)))} className="btn-primary px-3 py-1.5 text-xs">Update Plan <ArrowRight size={14} /></button>
                         <button type="button" onClick={() => markPlanComplete(p)} className="btn-outline px-3 py-1.5 text-xs"><CheckCircle2 size={13} /> Mark complete</button>
                       </div>
                     </div>
@@ -569,6 +614,7 @@ export function RehabPlanner({ client, clients = [], editId = '', onChangeClient
           <DayStrip
             days={form.days} activeDay={activeDay} startDate={form.startDate}
             onSelectDay={setActiveDay} onDaysChange={applyDays}
+            onSaveDay={saveCurrentDay} savingDay={daySaveState}
           />
           <div className="pt-4">
             {activeDayData && (
@@ -614,7 +660,7 @@ export function RehabPlanner({ client, clients = [], editId = '', onChangeClient
                   >
                     <LayoutGrid size={13} /> Track Progress
                   </button>
-                  <Link to={`/admin/rehab?client=${client.id}&plan=${p.id}`} className="flex items-center gap-1 text-xs font-semibold text-brand-600 hover:underline"><Pencil size={13} /> Update Plan</Link>
+                  <Link to={planUrl(p.id)} className="flex items-center gap-1 text-xs font-semibold text-brand-600 hover:underline"><Pencil size={13} /> Update Plan</Link>
                   {!isPlanComplete(p) && <button type="button" onClick={() => markPlanComplete(p)} className="flex items-center gap-1 text-xs font-semibold text-emerald-600 hover:underline"><CheckCircle2 size={13} /> Mark complete</button>}
                   <button type="button" onClick={() => removePlan(p)} className="flex items-center gap-1 text-xs font-semibold text-red-500 hover:underline"><Trash2 size={13} /> Delete</button>
                 </div>
@@ -625,7 +671,8 @@ export function RehabPlanner({ client, clients = [], editId = '', onChangeClient
       )}
 
       {showPerf && <RehabPerformance client={client} plans={plans} onClose={() => setShowPerf(false)} />}
-      {trackPlan && <RehabClusterTrack client={client} plan={trackPlan} plans={plans} onClose={() => setTrackPlan(null)} />}
+      {trackPlan && <RehabClusterTrack client={client} plan={trackPlan} plans={plans} onClose={() => setTrackPlan(null)}
+          onUpdatePlan={(pl) => navigate(planUrl(pl.id))} />}
       {copyModalOpen && (
         <CopyFromPatientModal
           clients={clients}

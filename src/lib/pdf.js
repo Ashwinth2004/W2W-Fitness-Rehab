@@ -1247,8 +1247,29 @@ export async function generateInvoice(invoice, opts = {}) {
 
   footerAll(doc)
   const filename = `W2W_Invoice_${invoice.invoiceNo || 'draft'}_${(invoice.clientName || 'client').replace(/\s+/g, '_')}.pdf`
-  const dueNow = Number(invoice.balance) || 0
-  const waText = `Hi ${invoice.clientName || 'there'}, your invoice ${invoice.invoiceNo || ''} from Way to Wellness Fitness & Rehab is ready.`
-    + (dueNow > 0 ? ` Balance due: Rs. ${dueNow.toLocaleString('en-IN')}.` : ' Payment received in full — thank you!')
+  // WhatsApp message. *single asterisks* render as bold in WhatsApp, and a
+  // blank line between blocks keeps it readable on a phone.
+  const rs = (n) => `Rs. ${(Number(n) || 0).toLocaleString('en-IN')}`
+  const totalNow = Number(invoice.subtotal) || (invoice.items || []).reduce((s, it) => s + (Number(it.charges) || 0), 0)
+  const paidNow = Number(invoice.received) || 0
+  const dueNow = Number(invoice.balance) != null ? Number(invoice.balance) || 0 : Math.max(0, totalNow - paidNow)
+
+  const waText = [
+    `Hi *${invoice.clientName || 'there'}*,`,
+    '',
+    `Your invoice *${invoice.invoiceNo || ''}* from *Way to Wellness Fitness & Rehab* is ready.`,
+    '',
+    `*Total:* ${rs(totalNow)}`,
+    `*Amount paid:* ${rs(paidNow)}`,
+    dueNow > 0 ? `*Balance due:* ${rs(dueNow)}` : '*Status:* Paid in full — thank you!',
+    '',
+    'The invoice PDF is attached.',
+    '',
+    '*Way to Wellness Fitness & Rehab*',
+    BUSINESS.address,
+    `Phone: ${BUSINESS.phoneDisplay}`,
+    `Email: ${BUSINESS.email}`,
+    BUSINESS.website,
+  ].join('\n')
   return finalize(doc, filename, action, waText, { phone: invoice.clientPhone })
 }

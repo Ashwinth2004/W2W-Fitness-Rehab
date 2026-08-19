@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import {
   X, Check, Circle, CheckCircle2, ChevronDown, StickyNote, Loader2, LayoutGrid, Home,
-  TrendingUp, FileDown, Dumbbell, BicepsFlexed, HeartPulse,
+  TrendingUp, FileDown, Dumbbell, BicepsFlexed, HeartPulse, Pencil,
 } from 'lucide-react'
 import { updateFitnessPlan } from '../lib/firestore'
 import {
@@ -142,7 +142,7 @@ function ExerciseTile({ ex, expanded, onToggleExpand, onToggleDone, onNotesChang
 // the selected day is an icon tile the trainer (or client, handed the
 // device) taps to open, mark done and log real session data. Writes land
 // straight on the plan doc (live, best-effort) so nothing needs a "Save" step.
-export default function FitnessClusterTrack({ client, plan, plans = [], onClose }) {
+export default function FitnessClusterTrack({ client, plan, plans = [], onClose, onUpdatePlan }) {
   const [days, setDays] = useState(() => plan.days || [])
   const [activeDay, setActiveDay] = useState(() => {
     const firstPending = (plan.days || []).find((d) => !d.completed)
@@ -344,6 +344,12 @@ export default function FitnessClusterTrack({ client, plan, plans = [], onClose 
           <button type="button" onClick={() => setShowPerf(true)} className="inline-flex items-center gap-1.5 rounded-full bg-brand-50 px-3 py-1.5 text-xs font-bold text-brand-700 transition hover:bg-brand-100">
             <TrendingUp size={14} /> Performance
           </button>
+          {/* Straight from tracking back into editing this plan. */}
+          {onUpdatePlan && (
+            <button type="button" onClick={() => { onClose(); onUpdatePlan(plan) }} className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-3 py-1.5 text-xs font-bold text-amber-700 transition hover:bg-amber-100">
+              <Pencil size={14} /> Update plan
+            </button>
+          )}
           <div className="relative">
             <button
               type="button" onClick={() => setReportMenuOpen((v) => !v)} disabled={reportBusy}

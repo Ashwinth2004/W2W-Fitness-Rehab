@@ -115,8 +115,10 @@ export default function HomeVisits() {
       client={client}
       clients={clients}
       editId={params.get('visit') || ''}
+      planId={params.get('plan') || ''}
       tab={params.get('tab') || ''}
       onTab={(t) => setParams({ client: client.id, tab: t })}
+      onPlan={(t, planId) => setParams(planId ? { client: client.id, tab: t, plan: planId } : { client: client.id, tab: t })}
       role={role}
       onChangeClient={() => setParams({})}
       navigate={navigate}
@@ -130,7 +132,7 @@ export default function HomeVisits() {
 // through to the full patient profile.
 const TAB_ICONS = { physio: Stethoscope, rehab: Dumbbell, fitness: Activity }
 
-function HomeVisitWorkspace({ client, clients, editId, tab, onTab, role, onChangeClient, navigate }) {
+function HomeVisitWorkspace({ client, clients, editId, planId, tab, onTab, onPlan, role, onChangeClient, navigate }) {
   const { guard } = useUnsaved()
   // Only ever offer other home-visit patients when copying a plan across.
   const hvClients = useMemo(() => clients.filter(isHomeVisitOnlyClient), [clients])
@@ -177,18 +179,20 @@ function HomeVisitWorkspace({ client, clients, editId, tab, onTab, role, onChang
 
       {activeTab === 'rehab' ? (
         <RehabPlanner
-          key={`${client.id}:rehab`}
-          client={client} clients={hvClients} title={null}
+          key={`${client.id}:rehab:${planId}`}
+          client={client} clients={hvClients} title={null} editId={planId}
           role={role} therapistSource="homeVisit"
           hideBilling={role === 'homevisit'} hideProfileLink={role === 'homevisit'}
+          planHref={(id) => `/admin/home-visits?client=${client.id}&tab=rehab${id ? `&plan=${id}` : ''}`}
           onChangeClient={onChangeClient} navigate={navigate}
         />
       ) : activeTab === 'fitness' ? (
         <FitnessPlanner
-          key={`${client.id}:fitness`}
-          client={client} clients={hvClients} title={null}
+          key={`${client.id}:fitness:${planId}`}
+          client={client} clients={hvClients} title={null} editId={planId}
           role={role} therapistSource="homeVisit"
           hideBilling={role === 'homevisit'} hideProfileLink={role === 'homevisit'}
+          planHref={(id) => `/admin/home-visits?client=${client.id}&tab=fitness${id ? `&plan=${id}` : ''}`}
           onChangeClient={onChangeClient} navigate={navigate}
         />
       ) : (
