@@ -1254,20 +1254,28 @@ export async function generateInvoice(invoice, opts = {}) {
   const paidNow = Number(invoice.received) || 0
   const dueNow = Number(invoice.balance) != null ? Number(invoice.balance) || 0 : Math.max(0, totalNow - paidNow)
 
+  // Laid out in short blocks separated by blank lines — WhatsApp wraps long
+  // lines, so each fact gets its own line and the amounts read as a group.
   const waText = [
     `Hi *${invoice.clientName || 'there'}*,`,
     '',
-    `Here is your invoice *${invoice.invoiceNo || ''}* from *Way to Wellness Fitness & Rehab*.`,
+    'Here is your invoice from *Way to Wellness Fitness & Rehab*.',
+    '',
+    `*Invoice No:* ${invoice.invoiceNo || '—'}`,
+    `*Date:* ${fmtDate(invoice.date) || '—'}`,
     '',
     `*Total:* ${rs(totalNow)}`,
-    `*Amount paid:* ${rs(paidNow)}`,
-    dueNow > 0 ? `*Balance due:* ${rs(dueNow)}` : '*Status:* Paid in full — thank you!',
+    `*Paid:* ${rs(paidNow)}`,
+    dueNow > 0 ? `*Balance due:* ${rs(dueNow)}` : '*Status:* Paid in full',
     '',
+    'Thank you for choosing us!',
+    '',
+    '———————————————',
     '*Way to Wellness Fitness & Rehab*',
-    BUSINESS.address,
-    `Phone: ${BUSINESS.phoneDisplay}`,
-    `Email: ${BUSINESS.email}`,
-    BUSINESS.website,
+    `📍 ${BUSINESS.address}`,
+    `📞 ${BUSINESS.phoneDisplay}`,
+    `✉️ ${BUSINESS.email}`,
+    `🌐 ${BUSINESS.website.replace(/^https?:\/\//, '')}`,
   ].join('\n')
   return finalize(doc, filename, action, waText, { phone: invoice.clientPhone })
 }
